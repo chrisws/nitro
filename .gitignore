@@ -1,0 +1,38 @@
+# Build directory
+build/
+
+# Old files directory
+old/
+
+# Log files
+*.log
+audiocore.log
+
+# Object files
+*.o
+
+# Static libraries
+*.a
+
+# Shared libraries
+*.so
+
+# Executables
+*.exe
+
+# CMake cache
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
