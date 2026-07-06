@@ -37,7 +37,7 @@ struct RagDB {
   int embed_dim = 0;
 
   bool load(const std::string &path);
-  bool save(const std::string &path);
+  bool save(const std::string &path) const;
 
   int  size()  const { return (int)chunks.size(); }
   bool empty() const { return chunks.empty(); }

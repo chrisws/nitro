@@ -13,20 +13,10 @@
 #include <chrono>
 #include <cmath>
 #include <cstddef>
-#include <ctime>
 #include <filesystem>
-#include <fstream>
-#include <iomanip>
 #include <memory>
-#include <mutex>
-#include <random>
-#include <sstream>
 #include <string>
 #include <vector>
-#include <ranges>
-#include <iostream>
-
-// TODO: fixme ranges::transform 
 
 //
 // TOOL:CURL
@@ -58,7 +48,7 @@ static std::string html_to_text(const std::string &html) {
   // 1. Remove <head>…</head>
   {
     std::string lo = s;
-    // ranges::transform(lo, lo.begin(), ::tolower);
+    std::ranges::transform(lo, lo.begin(), ::tolower);
     auto p0 = lo.find("<head");
     auto p1 = lo.find("</head>");
     if (p0 != std::string::npos && p1 != std::string::npos)
@@ -70,7 +60,7 @@ static std::string html_to_text(const std::string &html) {
     std::string open  = "<" + tag;
     std::string close = "</" + tag + ">";
     std::string lo = s;
-    // ranges::transform(lo, lo.begin(), ::tolower);
+    std::ranges::transform(lo, lo.begin(), ::tolower);
     for (;;) {
       auto p0 = lo.find(open);
       if (p0 == std::string::npos) break;
@@ -97,7 +87,7 @@ static std::string html_to_text(const std::string &html) {
       std::string inner = s.substr(i + 1, ce - i - 1);
       size_t sp = inner.find_first_of(" \t/\r\n");
       std::string name = (sp != std::string::npos) ? inner.substr(0, sp) : inner;
-      // ranges::transform(name, name.begin(), ::tolower);
+      std::ranges::transform(name, name.begin(), ::tolower);
       for (int k = 0; BLOCK[k]; ++k) {
         if (name == BLOCK[k]) {
           out += '\n'; break;
@@ -201,7 +191,7 @@ std::string tool_curl(const std::string &url) {
   char *ct_raw = nullptr;
   curl_easy_getinfo(curl, CURLINFO_CONTENT_TYPE, &ct_raw);
   std::string content_type = ct_raw ? ct_raw : "";
-  // ranges::transform(content_type, content_type.begin(), ::tolower);
+  std::ranges::transform(content_type, content_type.begin(), ::tolower);
   curl_easy_cleanup(curl);
   if (res != CURLE_OK) {
     return std::string("ERROR: curl: ") + curl_easy_strerror(res);
@@ -214,7 +204,7 @@ std::string tool_curl(const std::string &url) {
   }
 
   // Strip HTML tags so the model receives clean plain text.
-  bool is_html = (content_type.find("text/html") != std::string::npos)
+  const bool is_html = (content_type.find("text/html") != std::string::npos)
     || (body.size() > 5 && body.substr(0,5) == "<!DOC")
     || (body.size() > 6 && body.substr(0,6) == "<html>");
   if (is_html) {

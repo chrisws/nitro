@@ -11,10 +11,8 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstdint>
 #include <filesystem>
 #include <fstream>
-#include <iostream>
 #include <numeric>
 #include <sstream>
 #include <string>
@@ -50,7 +48,7 @@ static bool starts_with(const std::string &s, const std::string &prefix) {
 }
 
 static bool is_blank(const std::string &s) {
-  for (char c : s) if (!isspace((unsigned char)c)) return false;
+  for (char c : s) if (!isspace(static_cast<unsigned char>(c))) return false;
   return true;
 }
 
@@ -331,14 +329,14 @@ std::string Llama::rag_retrieve(const RagDB &db,
   for (int i = 0; i < db.size(); i++) {
     scores[i] = rag_cosine(qvec, db.chunks[i].embedding);
   }
-  std::sort(order.begin(), order.end(), [&](int a, int b){ return scores[a] > scores[b]; });
+  ranges::sort(order, [&](int a, int b){ return scores[a] > scores[b]; });
 
   // collect top_k unseen, within budget, above threshold
   std::vector<int>   result_idx;
   std::vector<float> result_scores;
 
   for (int idx : order) {
-    if ((int)result_idx.size() >= top_k) break;
+    if (static_cast<int>(result_idx.size()) >= top_k) break;
     if (session.is_seen(idx))            continue;
     if (scores[idx] < session.score_threshold) break; /* sorted, so stop */
     if (!session.budget_ok(db.chunks[idx].text)) break;
@@ -352,7 +350,7 @@ std::string Llama::rag_retrieve(const RagDB &db,
   return rag_build_context(db, result_idx, result_scores);
 }
 
-bool RagDB::save(const std::string &path) {
+bool RagDB::save(const std::string &path) const {
   std::ofstream f(path, std::ios::binary);
   if (!f) {
     return false;

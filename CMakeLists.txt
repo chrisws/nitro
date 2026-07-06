@@ -169,14 +169,14 @@ endif()
 # nitro executable
 # -----------------------------
 add_executable(nitro
-  src/agent_state.cpp
   src/llama-sb-rag.cpp
   src/llama-sb.cpp
-  src/main.cpp
+  src/agent_state.cpp
   src/tui_state.cpp
-  src/utils.cpp
-  src/logging.cpp
+  src/config.cpp
   src/curl.cpp
+  src/logging.cpp
+  src/main.cpp
 )
 
 target_include_directories(nitro PRIVATE

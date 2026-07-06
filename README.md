@@ -7,13 +7,13 @@ Nitro is a local-first agentic coding/chat shell built on [llama.cpp](https://gi
 ```
 ┌─ nitro ──────────────────────────────────────────────────────┐
 │ > summarize the diff in src/kv_cache.cpp                     │
-│                                                                │
-│ [TOOL:CURL] ...                                               │
-│ The change replaces per-sequence llama_memory_seq_rm calls    │
-│ with a full_flush_except_system() recovery path to avoid...   │
-│                                                                │
-│ >                                                              │
-└────────────────────────────────────────────────────────────────┘
+│                                                              │
+│ [TOOL:CURL] ...                                              │
+│ The change replaces per-sequence llama_memory_seq_rm calls   │
+│ with a full_flush_except_system() recovery path to avoid...  │
+│                                                              │
+│ >                                                            │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ## Why
@@ -35,7 +35,7 @@ Most agentic shells assume a hosted API and treat context as free. Nitro assumes
 Nitro vendors llama.cpp as a submodule and links everything statically.
 
 ```bash
-git clone --recurse-submodules https://github.com/<you>/nitro.git
+git clone --recurse-submodules https://github.com/chrisws/nitro.git
 cd nitro
 cmake -B build -DLLAMA_BACKEND=AUTO
 cmake --build build -j
@@ -44,20 +44,20 @@ cmake --build build -j
 
 ### Backend selection
 
-| `-DLLAMA_BACKEND=` | Behavior |
-|---|---|
-| `AUTO` (default) | Probes for `nvcc`; falls back to CPU + OpenMP if CUDA isn't found |
-| `CPU` | Forces CPU with native SIMD optimizations |
-| `GPU` | Non-CUDA GPU path, CPU/OpenMP fallback |
-| `CUDA` | Forces CUDA; fails the configure step if `nvcc` isn't found |
+| `-DLLAMA_BACKEND=` | Behavior                                                          |
+|--------------------|-------------------------------------------------------------------|
+| `AUTO` (default)   | Probes for `nvcc`; falls back to CPU + OpenMP if CUDA isn't found |
+| `CPU`              | Forces CPU with native SIMD optimizations                         |
+| `GPU`              | Non-CUDA GPU path, CPU/OpenMP fallback                            |
+| `CUDA`             | Forces CUDA; fails the configure step if `nvcc` isn't found       |
 
 ### Dependencies
 
-| Library | Required | Notes |
-|---|---|---|
-| notcurses | Yes | `apt install libnotcurses-dev`, or `-DNOTCURSES_DIR=<prefix>` |
-| libcurl | No | Enables `TOOL:CURL`; `apt install libcurl4-openssl-dev`, or `-DCURL_DIR=<prefix>` |
-| CUDA toolkit | No | Only for `-DLLAMA_BACKEND=CUDA`/`AUTO` with an NVIDIA GPU: `apt install nvidia-open cuda-toolkit` |
+| Library      | Required | Notes                                                                                             |
+|--------------|----------|---------------------------------------------------------------------------------------------------|
+| notcurses    | Yes      | `apt install libnotcurses-dev`, or `-DNOTCURSES_DIR=<prefix>`                                     |
+| libcurl      | No       | Enables `TOOL:CURL`; `apt install libcurl4-openssl-dev`, or `-DCURL_DIR=<prefix>`                 |
+| CUDA toolkit | No       | Only for `-DLLAMA_BACKEND=CUDA`/`AUTO` with an NVIDIA GPU: `apt install nvidia-open cuda-toolkit` |
 
 ## Project layout
 
@@ -69,20 +69,13 @@ nitro/
 │   ├── llama-sb.h/.cpp        # llama.cpp wrapper
 │   └── llama-sb-rag.cpp       # RAG session, chunker, indexer
 ├── include/                   # vendored utility sources (param, hashmap, apiexec)
-└── third_party/
-    └── llama.cpp               # submodule
+└── llama.cpp                  # submodule
 ```
 
 ## Status
 
 Nitro started life as a component inside a larger SmallBASIC-adjacent monorepo and is being split out here as a standalone project. Expect some rough edges from the extraction (see `MIGRATION.md`) while paths and includes settle.
 
-## Roadmap
-
-- [ ] Drop the `include/` vendor copies in favor of a proper shared-utils dependency (or absorb them outright)
-- [ ] CI build matrix (CPU / CUDA)
-- [ ] Package a release binary
-
 ## License
 
-MIT — see `LICENSE`. *(Swap this out if you want something else; not yet confirmed.)*
+GPL2 — see `LICENSE`. 

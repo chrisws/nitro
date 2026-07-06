@@ -17,19 +17,19 @@
 //   -e, --embed  <path>       embedding model for RAG
 //   -g, --gpu-layers <n>      layers to offload to GPU (default: 32)
 //
+
+#include <random>
 #include <filesystem>
 #include <fstream>
 #include <mutex>
 #include <string>
 #include <vector>
-
 #include <notcurses/notcurses.h>
 
 #include "llama.h"
 #include "config.h"
 #include "tui_state.h"
 #include "agent_state.h"
-#include "utils.h"
 #include "logging.h"
 #include "curl.h"
 
@@ -57,57 +57,6 @@ inline std::string encode_base64(const std::vector<char>& data) {
   }
   return encoded;
 }
-
-class AgentSessionId {
-  public:
-  // Static method: Generates ID once, then returns it
-  static std::string uniqueId() {
-    // Yoda condition: static variable initialized only once
-    static std::string s_id;
-
-    if (s_id.empty()) {
-      // 1. Get high-resolution timestamp (nanoseconds since epoch)
-      auto now = std::chrono::steady_clock::now();
-      auto nanos = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
-
-      // 2. Generate 48 bits of randomness
-      std::random_device rd;
-      std::mt19937_64 rng(rd());
-      std::uniform_int_distribution<uint64_t> dist(0, UINT64_MAX);
-
-      // Fill with random bytes
-      std::array<char, 6> random_bytes;
-      for (auto& b : random_bytes) {
-        b = static_cast<char>(dist(rng) & 0xFF);
-
-      }
-
-      // 3. Combine timestamp (48 bits) and random (48 bits) into a 96-bit integer
-      std::vector<char> data;
-      data.reserve(12); // 96 bits = 12 bytes
-
-      // Pack timestamp (upper 48 bits)
-      data.push_back(static_cast<char>((nanos >> 40) & 0xFF));
-      data.push_back(static_cast<char>((nanos >> 32) & 0xFF));
-      data.push_back(static_cast<char>((nanos >> 24) & 0xFF));
-      data.push_back(static_cast<char>((nanos >> 16) & 0xFF));
-      data.push_back(static_cast<char>((nanos >> 8) & 0xFF));
-      data.push_back(static_cast<char>(nanos & 0xFF));
-
-      // Pack random (lower 48 bits)
-      data.push_back(static_cast<char>((dist(rng) >> 40) & 0xFF));
-      data.push_back(static_cast<char>((dist(rng) >> 32) & 0xFF));
-      data.push_back(static_cast<char>((dist(rng) >> 24) & 0xFF));
-      data.push_back(static_cast<char>((dist(rng) >> 16) & 0xFF));
-      data.push_back(static_cast<char>((dist(rng) >> 8) & 0xFF));
-      data.push_back(static_cast<char>(dist(rng) & 0xFF));
-
-      // 4. Encode to Base64
-      s_id = encode_base64(data);
-    }
-    return s_id;
-  }
-};
 
 //
 // Settings persistence  (~/.config/nitro/nitro.settings.json)
@@ -232,7 +181,6 @@ static void load_settings(NitroConfig &cfg) {
   std::string json = oss.str();
 
   cfg.thinking = true;
-  cfg.agent_id = AgentSessionId::uniqueId();
 
   // String fields
   settings_get_str(json, "model_path",  cfg.model_path);
@@ -266,7 +214,7 @@ static bool save_settings(const NitroConfig &cfg) {
     return false;
   }
 
-  f << introspect(cfg);
+  f << cfg.introspect();
 
   return f.good();
 }
@@ -306,7 +254,7 @@ static void handle_slash(const std::string &input,
     }
     cfg.model_path = rest;
     if (agent.setup_model(cfg, tui)) {
-      std::string sysp = build_system_prompt(cfg);
+      std::string sysp = cfg.build_system_prompt();
       agent.reset_conversation(sysp, tui);
       save_settings(cfg);
     }
@@ -372,7 +320,7 @@ static void handle_slash(const std::string &input,
   if (verb == "/clear") {
     { std::lock_guard<std::mutex> lk(tui.lines_mutex);
       tui.chat_lines.clear(); }
-    std::string sysp = build_system_prompt(cfg);
+    std::string sysp = cfg.build_system_prompt();
     agent.reset_conversation(sysp, tui);
     tui.append_line(ICON_SYS + "Conversation cleared.");
     tui.redraw_all();
@@ -522,7 +470,7 @@ int main(int argc, char **argv) {
     } else if (a == "-g" || a == "--gpu-layers") {
       cfg.n_gpu_layers = std::stoi(take_next(a.c_str()));
     } else if (a == "-l" || a == "--log") {
-      log_open();
+      log_open(LogLevel::INFO_LEVEL);
     } else if (a == "-t" || a == "--think") {
       cfg.thinking = false;
     } else if (a == "-p" || a == "--prompt-permission") {
@@ -593,7 +541,7 @@ int main(int argc, char **argv) {
     if (agent.setup_model(cfg, tui)) {
       tui.append_line(ICON_SYS + "Loading context...");
       tui.redraw_all();
-      std::string sysp = build_system_prompt(cfg);
+      std::string sysp = cfg.build_system_prompt();
       agent.reset_conversation(sysp, tui);
       tui.append_line(ICON_SYS + "Ready");
       tui.redraw_all();

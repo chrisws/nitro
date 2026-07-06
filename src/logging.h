@@ -19,7 +19,7 @@ enum LogLevel {
 };
 
 void log_write(LogLevel level, const char* format, ...);
-void log_open();
+void log_open(LogLevel level);
 void log_close();
 
 #endif // LOGGING_H

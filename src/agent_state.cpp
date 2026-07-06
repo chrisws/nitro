@@ -6,6 +6,7 @@
 // Download the GNU Public License (GPL) from www.gnu.org
 //
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <mutex>
@@ -18,7 +19,6 @@
 #include "tui_state.h"
 #include "agent_state.h"
 #include "logging.h"
-#include "utils.h"
 #include "curl.h"
 
 //
@@ -412,8 +412,7 @@ bool AgentState::rag_index(const std::string &path, const NitroConfig &cfg, TuiS
 std::string AgentState::restart(const NitroConfig &cfg, TuiState &tui) {
   if (fs::exists("SESSION.md")) {
     std::vector<std::string> knowledge_files;
-    std::string sysp = build_system_prompt(cfg);
-    reset_conversation(sysp, tui);
+    reset_conversation(cfg.build_system_prompt(), tui);
     tui.append_line(ICON_ERR + "Session restarted");
     tui.redraw_all();
     return "continue the pending actions found SESSION.md";
@@ -536,7 +535,7 @@ std::string AgentState::process_tool(const std::string &cmd, const NitroConfig &
   }
   if (op == "TOOL:INTROSPECT") {
     show_tool("introspecting: " + arg1);
-    return introspect(cfg);
+    return cfg.introspect();
   }
   if (op == "TOOL:ASK") {
     tui.set_thinking(false);

@@ -42,7 +42,7 @@ struct LlamaMemoryInfo {
 
 struct LlamaIter {
   explicit LlamaIter();
-  ~LlamaIter() {}
+  ~LlamaIter() = default;
 
   // move constructor
   LlamaIter(LlamaIter &&other) noexcept;
@@ -96,25 +96,25 @@ struct Llama {
   void set_seed(unsigned int seed) { _seed = seed; dirty(); }
 
   // error handling
-  const char *last_error() { return _last_error.c_str(); }
+  const char *last_error() const { return _last_error.c_str(); }
   void set_log_level(int level) { _log_level = level; }
   void reset();
   bool is_memory_flush();
 
   // memory info
-  LlamaMemoryInfo memory_info();
-  float memory_kv_percent();
+  LlamaMemoryInfo memory_info() const;
+  float memory_kv_percent() const;
 
   // creates an embedding vector of the given dimension for the given text
   bool embed_text(const std::string &text, std::vector<float> &out, int embed_dim);
 
-  // retrieves rag query context informatiion from the rag database
+  // retrieves rag query context information from the rag database
   std::string rag_retrieve(const RagDB &db, const std::string &query, int top_k, RagSession &session);
 
   // indexes the details from the given file
   bool rag_index(RagDB &db, const std::string &filepath);
 
-  //  returns the emdedding dimension for the loaded model
+  //  returns the embedding dimension for the loaded model
   int get_embed_dim() const { return _model != nullptr ? llama_model_n_embd(_model) : 0; }
 
 private:
@@ -124,7 +124,7 @@ private:
   bool full_flush_except_system();
   bool make_space_for_tokens(int n_tokens);
   vector<llama_token> tokenize(const string &prompt);
-  string token_to_string(LlamaIter &iter, llama_token tok);
+  string token_to_string(LlamaIter &iter, llama_token tok) const;
   void set_last_error(const string &message);
   void set_decode_error(int32_t error, int index, int num_tokens);
 

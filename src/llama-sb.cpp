@@ -11,8 +11,8 @@
 #include <cmath>
 #include <utility>
 #include "ggml-cuda.h"
-
 #include "llama.h"
+
 #include "llama-sb.h"
 
 constexpr int MAX_REPEAT = 50;
@@ -384,7 +384,7 @@ string Llama::all(LlamaIter &iter) {
   return out;
 }
 
-float Llama::memory_kv_percent() {
+float Llama::memory_kv_percent() const {
   llama_memory_t mem = llama_get_memory(_ctx);
   llama_pos pos_max  = llama_memory_seq_pos_max(mem, 0);
   int n_ctx          = llama_n_ctx(_ctx);
@@ -392,7 +392,7 @@ float Llama::memory_kv_percent() {
   return 100.0f * kv_used / n_ctx;
 }
 
-LlamaMemoryInfo Llama::memory_info() {
+LlamaMemoryInfo Llama::memory_info() const {
   LlamaMemoryInfo info = {};
 
   // KV cache usage
@@ -666,7 +666,7 @@ vector<llama_token> Llama::tokenize(const string &prompt) {
   return result;
 }
 
-string Llama::token_to_string(LlamaIter &iter, llama_token tok) {
+string Llama::token_to_string(LlamaIter &iter, llama_token tok) const {
   string result;
   char buf[512];
   int n = llama_token_to_piece(_vocab, tok, buf, sizeof(buf), 0, false);

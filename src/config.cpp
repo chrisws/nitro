@@ -1,14 +1,27 @@
+// This file is part of Nitro
+//
+// Copyright(C) 2026 Chris Warren-Smith.
+//
+// This program is distributed under the terms of the GPL v2.0
+// Download the GNU Public License (GPL) from www.gnu.org
+//
+
+#include <string>
+#include <fstream>
+#include <format>
+#include <sstream>
+#include "config.h"
 
 //
 // System prompt
 //
-std::string build_system_prompt(const NitroConfig &cfg) {
+std::string NitroConfig::build_system_prompt() const {
   std::string p;
   p +=
     "You are Nitro, an agentic AI assistant for software development. "
     "Proceed with caution, guided by logic and the pursuit of knowledge.\n\n"
 
-    "Your sandbox (project directory) is: " + cfg.sandbox + "\n\n"
+    "Your sandbox (project directory) is: " + sandbox + "\n\n"
 
     "## Core Principle\n"
     "Always follow this loop: THINK → DECIDE → ACT → RESPOND\n\n"
@@ -112,11 +125,45 @@ std::string build_system_prompt(const NitroConfig &cfg) {
     "<last few lines of conversation>\n"
     "```\n\n";
 
-  for (const auto &kf : cfg.knowledge_files) {
+  for (const auto &kf : knowledge_files) {
     std::ifstream f(kf);
-    if (!f) continue;
-    std::ostringstream oss; oss << f.rdbuf();
-    p += "## Knowledge: " + kf + "\n" + oss.str() + "\n\n";
+    if (f) {
+      std::ostringstream oss; oss << f.rdbuf();
+      p += "## Knowledge: " + kf + "\n" + oss.str() + "\n\n";
+    }
   }
   return p;
+}
+
+std::string NitroConfig::introspect() const {
+  static constexpr std::string_view tmpl =
+    "{{\n"
+    "  \"model_path\":     \"{}\",\n"
+    "  \"embed_path\":     \"{}\",\n"
+    "  \"sandbox\":        \"{}\",\n"
+    "  \"n_ctx\":          {},\n"
+    "  \"n_batch\":        {},\n"
+    "  \"n_gpu_layers\":   {},\n"
+    "  \"temperature\":    {},\n"
+    "  \"top_p\":          {},\n"
+    "  \"min_p\":          {},\n"
+    "  \"top_k\":          {},\n"
+    "  \"penalty_repeat\": {},\n"
+    "  \"penalty_last_n\": {},\n"
+    "  \"rag_top_k\":      {}\n"
+    "}}\n";
+  return std::format(tmpl,
+                     model_path,
+                     embed_path,
+                     sandbox,
+                     n_ctx,
+                     n_batch,
+                     n_gpu_layers,
+                     temperature,
+                     top_p,
+                     min_p,
+                     top_k,
+                     penalty_repeat,
+                     penalty_last_n,
+                     rag_top_k);
 }
