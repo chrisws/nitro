@@ -729,7 +729,6 @@ void Llama::set_decode_error(int32_t error, int index, int num_tokens) {
     int current_used = pos_max - pos_min + 1;
     int space_needed = num_tokens;
     int space_available = n_ctx - current_used;
-    _n_system_tokens;
     set_last_error(std::format("KV exhausted. Reduce batch or context sizes. batchNo:{} requested:{} available:{}",
                                index, space_needed, space_available));
   } else {

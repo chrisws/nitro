@@ -33,190 +33,11 @@
 #include "logging.h"
 #include "curl.h"
 
-//
-// Agent uniqueId
-//
-inline std::string encode_base64(const std::vector<char>& data) {
-  static const char base64_chars[] =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-
-  std::string encoded;
-  encoded.reserve((data.size() + 2) / 3 * 4);
-
-  size_t i = 0;
-  while (i < data.size()) {
-    uint32_t val = static_cast<uint32_t>(data[i] << 16) |
-      (i + 1 < data.size() ? static_cast<uint32_t>(data[i+1]) << 8 : 0) |
-      (i + 2 < data.size() ? static_cast<uint32_t>(data[i+2]) : 0);
-
-    encoded.push_back(base64_chars[(val >> 18) & 0x3F]);
-    encoded.push_back(base64_chars[(val >> 12) & 0x3F]);
-    encoded.push_back((i + 1 < data.size()) ? base64_chars[(val >> 6) & 0x3F] : '=');
-    encoded.push_back((i + 2 < data.size()) ? base64_chars[val & 0x3F] : '=');
-    i += 3;
-  }
-  return encoded;
-}
-
-//
-// Settings persistence  (~/.config/nitro/nitro.settings.json)
-// Returns the canonical settings path: ~/.config/nitro/settings.json
-//
-static std::string settings_path() {
-  // Attempt to read settings from the current working directory first
-  if (fs::exists("nitro.config.json")) {
-    return "nitro.config.json";
-  }
-  const char *home = getenv("HOME");
-  std::string base = home ? std::string(home) : ".";
-  return base + "/.config/nitro/settings.json";
-}
-
 // Returns the history file path: ~/.config/nitro/history.txt
 static std::string history_path() {
   const char *home = getenv("HOME");
   std::string base = home ? std::string(home) : ".";
   return base + "/.config/nitro/history.txt";
-}
-
-//
-// A minimal hand-rolled JSON reader/writer for the flat key-value settings
-// we care about.  We deliberately avoid a full JSON library dependency.
-//
-static bool json_get_string(const std::string &json,
-                            const std::string &key,
-                            std::string       &out) {
-  std::string search = "\"" + key + "\":";
-  size_t pos = json.find(search);
-  if (pos == std::string::npos) return false;
-  pos += search.size();
-  while (pos < json.size() && json[pos] == ' ') ++pos;
-  if (pos >= json.size() || json[pos] != '"') return false;
-  ++pos;
-  out.clear();
-  while (pos < json.size()) {
-    char c = json[pos++];
-    if (c == '\\' && pos < json.size()) {
-      char e = json[pos++];
-      switch (e) {
-      case 'n':  out += '\n'; break;
-      case 't':  out += '\t'; break;
-      case '"':  out += '"';  break;
-      case '\\': out += '\\'; break;
-      default:   out += e;    break;
-      }
-    } else if (c == '"') {
-      break;
-    } else {
-      out += c;
-    }
-  }
-  return true;
-}
-
-// Tiny helper: extract a quoted string value from flat JSON for a known key.
-static bool settings_get_str(const std::string &json,
-                             const std::string &key,
-                             std::string &out) {
-  return json_get_string(json, key, out);
-}
-
-// Tiny helper: extract an integer value from flat JSON.
-static bool settings_get_int(const std::string &json,
-                             const std::string &key,
-                             int &out) {
-  std::string search = "\"" + key + "\":";
-  size_t pos = json.find(search);
-  if (pos == std::string::npos) return false;
-  pos += search.size();
-  while (pos < json.size() && (json[pos] == ' ' || json[pos] == '\t')) ++pos;
-  if (pos >= json.size()) return false;
-  // read digits (and optional leading minus)
-  size_t start = pos;
-  if (json[pos] == '-') ++pos;
-  while (pos < json.size() && std::isdigit((unsigned char)json[pos])) ++pos;
-  if (pos == start) return false;
-  out = std::stoi(json.substr(start, pos - start));
-  return true;
-}
-
-// Tiny helper: extract a float value from flat JSON.
-static bool settings_get_float(const std::string &json,
-                               const std::string &key,
-                               float &out) {
-  std::string search = "\"" + key + "\":";
-  size_t pos = json.find(search);
-  if (pos == std::string::npos) {
-    return false;
-  }
-  pos += search.size();
-  while (pos < json.size() && (json[pos] == ' ' || json[pos] == '\t')) {
-    ++pos;
-  }
-  if (pos >= json.size()) {
-    return false;
-  }
-  size_t start = pos;
-  if (json[pos] == '-') {
-    ++pos;
-  }
-  while (pos < json.size() && (std::isdigit((unsigned char)json[pos]) || json[pos] == '.')) {
-    ++pos;
-  }
-  if (pos == start) {
-    return false;
-  }
-  out = std::stof(json.substr(start, pos - start));
-  return true;
-}
-
-// Load settings from disk into cfg.  Fields present in the file overwrite
-// the defaults already in cfg; fields absent are left at their defaults.
-// Silently succeeds if the file doesn't exist yet.
-static void load_settings(NitroConfig &cfg) {
-  std::string path = settings_path();
-  std::ifstream f(path);
-  if (!f) return;                  // no file → use defaults
-  std::ostringstream oss; oss << f.rdbuf();
-  std::string json = oss.str();
-
-  cfg.thinking = true;
-
-  // String fields
-  settings_get_str(json, "model_path",  cfg.model_path);
-  settings_get_str(json, "embed_path",  cfg.embed_path);
-  settings_get_str(json, "sandbox",     cfg.sandbox);
-
-  // Integer fields
-  settings_get_int(json, "n_ctx",          cfg.n_ctx);
-  settings_get_int(json, "n_batch",        cfg.n_batch);
-  settings_get_int(json, "n_gpu_layers",   cfg.n_gpu_layers);
-  settings_get_int(json, "top_k",          cfg.top_k);
-  settings_get_int(json, "penalty_last_n", cfg.penalty_last_n);
-  settings_get_int(json, "rag_top_k",      cfg.rag_top_k);
-
-  // Float fields
-  settings_get_float(json, "temperature",    cfg.temperature);
-  settings_get_float(json, "top_p",          cfg.top_p);
-  settings_get_float(json, "min_p",          cfg.min_p);
-  settings_get_float(json, "penalty_repeat", cfg.penalty_repeat);
-}
-
-// Persist the current cfg to ~/.config/nitro/settings.json.
-static bool save_settings(const NitroConfig &cfg) {
-  std::string path = settings_path();
-  fs::path dir = fs::path(path).parent_path();
-  std::error_code ec;
-  fs::create_directories(dir, ec);
-
-  std::ofstream f(path, std::ios::trunc);
-  if (!f) {
-    return false;
-  }
-
-  f << cfg.introspect();
-
-  return f.good();
 }
 
 //
@@ -256,7 +77,7 @@ static void handle_slash(const std::string &input,
     if (agent.setup_model(cfg, tui)) {
       std::string sysp = cfg.build_system_prompt();
       agent.reset_conversation(sysp, tui);
-      save_settings(cfg);
+      cfg.save_settings();
     }
     tui.redraw_all();
     return;
@@ -278,7 +99,7 @@ static void handle_slash(const std::string &input,
     }
     cfg.embed_path = rest;
     if (agent.setup_embed(rest, tui)) {
-      save_settings(cfg);
+      cfg.save_settings();
     }
     return;
   }
@@ -339,7 +160,7 @@ static void handle_slash(const std::string &input,
     tui.append_line(ICON_SYS + "  top_k         : " + std::to_string(cfg.top_k));
     tui.append_line(ICON_SYS + "  penalty_repeat: " + std::to_string(cfg.penalty_repeat));
     tui.append_line(ICON_SYS + "  rag_top_k     : " + std::to_string(cfg.rag_top_k));
-    tui.append_line(ICON_SYS + "  saved to      : " + settings_path());
+    tui.append_line(ICON_SYS + "  saved to      : " + cfg.settings_path());
     tui.redraw_all();
     return;
   }
@@ -403,7 +224,7 @@ static void handle_slash(const std::string &input,
       if (needs_reparam && agent.model_loaded) {
         agent.apply_generation_params(cfg);
       }
-      save_settings(cfg);
+      cfg.save_settings();
       tui.append_line(ICON_SYS + "" + key + " = " + val);
     }
     tui.redraw_all();
@@ -440,7 +261,7 @@ int main(int argc, char **argv) {
   // ── Load persisted settings first (provides defaults) ────────────
   NitroConfig cfg;
   // ── Parse arguments (command-line overrides saved settings) ──────
-  load_settings(cfg);
+  cfg.load_settings();
   auto resolve_path = [](const std::string &arg) -> std::string {
     if (arg.substr(0, 2) == "~/") {
       const char *home = getenv("HOME");

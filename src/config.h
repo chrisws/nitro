@@ -22,6 +22,9 @@ namespace fs = std::filesystem;
 struct NitroConfig {
   std::string build_system_prompt() const;
   std::string introspect() const;
+  bool save_settings() const;
+  void load_settings();
+  std::string settings_path() const;
   
   std::string model_path;
   std::string embed_path;

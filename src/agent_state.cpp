@@ -114,28 +114,27 @@ static std::string trim(std::string_view str) {
   return std::string(str.substr(start, end - start + 1));
 }
 
-
-/*
- * unwrap() - Remove a matching outer "wrapper" from a string.
- *
- * Trims leading/trailing whitespace first, then checks (in order):
- *
- *  1. Same-character pairs   "..."  '...'  |...|  `...`
- *  2. Mirror pairs           (...)  [...]  {...}
- *  3. HTML-like tags         <tag>...</tag>
- *  4. Plain angle brackets   <...>          (fallback if tags don't match)
- *
- * If none of the above apply, returns the whitespace-trimmed input unchanged.
- *
- * Examples:
- *   unwrap("\"hello\"")        -> "hello"
- *   unwrap("  [foo]  ")        -> "foo"
- *   unwrap("<b>bold</b>")      -> "bold"
- *   unwrap("<file>x</file>")   -> "x"
- *   unwrap("<hello>")          -> "hello"
- *   unwrap("plain")            -> "plain"
- *   unwrap("")                 -> ""
- */
+//
+// unwrap() - Remove a matching outer "wrapper" from a string.
+//
+// Trims leading/trailing whitespace first, then checks (in order):
+//
+//  1. Same-character pairs   "..."  '...'  |...|  `...`
+//  2. Mirror pairs           (...)  [...]  {...}
+//  3. HTML-like tags         <tag>...</tag>
+//  4. Plain angle brackets   <...>          (fallback if tags don't match)
+//
+// If none of the above apply, returns the whitespace-trimmed input unchanged.
+//
+// Examples:
+//   unwrap("\"hello\"")        -> "hello"
+//   unwrap("  [foo]  ")        -> "foo"
+//   unwrap("<b>bold</b>")      -> "bold"
+//   unwrap("<file>x</file>")   -> "x"
+//   unwrap("<hello>")          -> "hello"
+//   unwrap("plain")            -> "plain"
+//   unwrap("")                 -> ""
+//
 std::string unwrap(const std::string &input) {
   if (input.empty()) {
     return input;
@@ -227,7 +226,6 @@ static std::string strip_code_fences(const std::string &filename,
   return inner;
 }
 
-
 void AgentState::apply_generation_params(const NitroConfig &cfg) const {
   llama->add_stop("<|turn|>");
   llama->add_stop("<|im_end|>");
@@ -250,6 +248,7 @@ bool AgentState::setup_model(const NitroConfig &cfg, TuiState &tui) {
     tui.redraw_all();
     return false;
   }
+
   // Show a modal popup so the user knows loading is in progress.
   std::string model_name = fs::path(cfg.model_path).filename().string();
   tui.show_modal_popup("Loading " + model_name);
@@ -267,6 +266,7 @@ bool AgentState::setup_model(const NitroConfig &cfg, TuiState &tui) {
     tui.redraw_all();
     return false;
   }
+
   tui.dismiss_modal_popup();
   model_loaded = true;
   tui.current_model = model_name;

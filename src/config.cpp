@@ -13,6 +13,160 @@
 #include "config.h"
 
 //
+// A minimal hand-rolled JSON reader/writer for the flat key-value settings
+// we care about.  We deliberately avoid a full JSON library dependency.
+//
+static bool json_get_string(const std::string &json,
+                            const std::string &key,
+                            std::string       &out) {
+  std::string search = "\"" + key + "\":";
+  size_t pos = json.find(search);
+  if (pos == std::string::npos) return false;
+  pos += search.size();
+  while (pos < json.size() && json[pos] == ' ') ++pos;
+  if (pos >= json.size() || json[pos] != '"') return false;
+  ++pos;
+  out.clear();
+  while (pos < json.size()) {
+    char c = json[pos++];
+    if (c == '\\' && pos < json.size()) {
+      char e = json[pos++];
+      switch (e) {
+      case 'n':  out += '\n'; break;
+      case 't':  out += '\t'; break;
+      case '"':  out += '"';  break;
+      case '\\': out += '\\'; break;
+      default:   out += e;    break;
+      }
+    } else if (c == '"') {
+      break;
+    } else {
+      out += c;
+    }
+  }
+  return true;
+}
+
+// Tiny helper: extract a quoted string value from flat JSON for a known key.
+static bool settings_get_str(const std::string &json,
+                             const std::string &key,
+                             std::string &out) {
+  return json_get_string(json, key, out);
+}
+
+// Tiny helper: extract an integer value from flat JSON.
+static bool settings_get_int(const std::string &json,
+                             const std::string &key,
+                             int &out) {
+  std::string search = "\"" + key + "\":";
+  size_t pos = json.find(search);
+  if (pos == std::string::npos) return false;
+  pos += search.size();
+  while (pos < json.size() && (json[pos] == ' ' || json[pos] == '\t')) ++pos;
+  if (pos >= json.size()) return false;
+  // read digits (and optional leading minus)
+  size_t start = pos;
+  if (json[pos] == '-') ++pos;
+  while (pos < json.size() && std::isdigit((unsigned char)json[pos])) ++pos;
+  if (pos == start) return false;
+  out = std::stoi(json.substr(start, pos - start));
+  return true;
+}
+
+// Tiny helper: extract a float value from flat JSON.
+static bool settings_get_float(const std::string &json,
+                               const std::string &key,
+                               float &out) {
+  std::string search = "\"" + key + "\":";
+  size_t pos = json.find(search);
+  if (pos == std::string::npos) {
+    return false;
+  }
+  pos += search.size();
+  while (pos < json.size() && (json[pos] == ' ' || json[pos] == '\t')) {
+    ++pos;
+  }
+  if (pos >= json.size()) {
+    return false;
+  }
+  size_t start = pos;
+  if (json[pos] == '-') {
+    ++pos;
+  }
+  while (pos < json.size() && (std::isdigit((unsigned char)json[pos]) || json[pos] == '.')) {
+    ++pos;
+  }
+  if (pos == start) {
+    return false;
+  }
+  out = std::stof(json.substr(start, pos - start));
+  return true;
+}
+
+//
+// Settings persistence  (~/.config/nitro/nitro.settings.json)
+// Returns the canonical settings path: ~/.config/nitro/settings.json
+//
+std::string NitroConfig::settings_path() const {
+  // Attempt to read settings from the current working directory first
+  if (fs::exists("nitro.config.json")) {
+    return "nitro.config.json";
+  }
+  const char *home = getenv("HOME");
+  std::string base = home ? std::string(home) : ".";
+  return base + "/.config/nitro/settings.json";
+}
+
+// Load settings from disk into cfg.  Fields present in the file overwrite
+// the defaults already in cfg; fields absent are left at their defaults.
+// Silently succeeds if the file doesn't exist yet.
+void NitroConfig::load_settings() {
+  std::string path = settings_path();
+  std::ifstream f(path);
+  if (!f) return;                  // no file → use defaults
+  std::ostringstream oss; oss << f.rdbuf();
+  std::string json = oss.str();
+
+  thinking = true;
+
+  // String fields
+  settings_get_str(json, "model_path",  model_path);
+  settings_get_str(json, "embed_path",  embed_path);
+  settings_get_str(json, "sandbox",     sandbox);
+
+  // Integer fields
+  settings_get_int(json, "n_ctx",          n_ctx);
+  settings_get_int(json, "n_batch",        n_batch);
+  settings_get_int(json, "n_gpu_layers",   n_gpu_layers);
+  settings_get_int(json, "top_k",          top_k);
+  settings_get_int(json, "penalty_last_n", penalty_last_n);
+  settings_get_int(json, "rag_top_k",      rag_top_k);
+
+  // Float fields
+  settings_get_float(json, "temperature",    temperature);
+  settings_get_float(json, "top_p",          top_p);
+  settings_get_float(json, "min_p",          min_p);
+  settings_get_float(json, "penalty_repeat", penalty_repeat);
+}
+
+// Persist the current cfg to ~/.config/nitro/settings.json.
+bool NitroConfig::save_settings() const {
+  std::string path = settings_path();
+  fs::path dir = fs::path(path).parent_path();
+  std::error_code ec;
+  fs::create_directories(dir, ec);
+
+  std::ofstream f(path, std::ios::trunc);
+  if (!f) {
+    return false;
+  }
+
+  f << introspect();
+
+  return f.good();
+}
+
+//
 // System prompt
 //
 std::string NitroConfig::build_system_prompt() const {
