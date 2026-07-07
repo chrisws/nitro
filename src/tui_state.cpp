@@ -656,6 +656,7 @@ std::string TuiState::readline_blocking() {
       }
       input_buf.clear();
       cursor_pos = 0;
+      scroll_offset = 0;
       redraw_input();
       notcurses_render(nc);
       return result;
