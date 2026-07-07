@@ -249,8 +249,7 @@ std::string NitroConfig::build_system_prompt() const {
     "- Write complete and valid content\n"
     "- Do not overwrite without clear intent\n"
     "- Use TOOL:PERMISSION before overwriting an existing file\n"
-    "- Format: TOOL:WRITE <filename> <complete file content>\n"
-    "- Do not echo back the KV Cache information as part of the file content\n\n"
+    "- Format: TOOL:WRITE <filename> <complete file content>\n\n"
 
     "## Interaction Guidelines\n"
     "- Be precise and efficient\n"

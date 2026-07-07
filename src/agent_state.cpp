@@ -323,7 +323,7 @@ float AgentState::tokens_per_sec() const {
 std::string AgentState::memory_info_status() const {
   float kv_percent = llama->memory_kv_percent();
   auto message = kv_percent > 75 ? "(Warning: Approaching limit)" : "";
-  return std::format("\n[INFO] KV Cache: {}%{}", kv_percent, message);
+  return std::format("\n[KV-INFO] KV Cache: {}%{} [/KV-INFO]", kv_percent, message);
 }
 
 std::string AgentState::memory_info_text() const {
@@ -634,7 +634,6 @@ bool AgentState::run_turn(const std::string &user_message, const NitroConfig &cf
     } else {
       tool = buffer;
     }
-
     log_write(DEBUG_LEVEL, "tool request: mode:[%d] [%s]", think_mode, tool.c_str());
     std::string result = process_tool(tool, cfg, tui);
     if (result.empty()) {
