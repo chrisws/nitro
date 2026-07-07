@@ -291,7 +291,7 @@ int main(int argc, char **argv) {
     } else if (a == "-g" || a == "--gpu-layers") {
       cfg.n_gpu_layers = std::stoi(take_next(a.c_str()));
     } else if (a == "-l" || a == "--log") {
-      log_open(LogLevel::INFO_LEVEL);
+      log_open(take_next(a.c_str()));
     } else if (a == "-t" || a == "--think") {
       cfg.thinking = false;
     } else if (a == "-p" || a == "--prompt-permission") {
@@ -303,7 +303,7 @@ int main(int argc, char **argv) {
                 "  -m, --model  <path>      GGUF model to load on startup\n"
                 "  -e, --embed  <path>      embedding model for RAG\n"
                 "  -g, --gpu-layers <n>     GPU layers to offload (default: 32)\n"
-                "  -l, --log                enabled logging\n"
+                "  -l, --log <n>            enabled logging at verbosity level [1-4]\n"
                 "  -h, --help               show this help\n"
                 "\n"
                 "project_dir defaults to the current working directory.\n"

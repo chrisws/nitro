@@ -10,16 +10,17 @@
 #define LOGGING_H
 
 #include <cstdio>
+#include <string>
 
 enum LogLevel {
-  DEBUG_LEVEL,
-  INFO_LEVEL,
-  WARNING_LEVEL,
-  ERROR_LEVEL
+  DEBUG_LEVEL = 0,
+  INFO_LEVEL = 1,
+  WARNING_LEVEL = 2,
+  ERROR_LEVEL = 3
 };
 
 void log_write(LogLevel level, const char* format, ...);
-void log_open(LogLevel level);
+void log_open(std::string level);
 void log_close();
 
 #endif // LOGGING_H

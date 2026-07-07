@@ -12,17 +12,35 @@
 #include <ctime>
 #include <cstdarg>
 #include <string>
+#include <unordered_map>
 
 #include "ggml.h"
 
 static FILE *g_logfile = nullptr;
 LogLevel g_level = DEBUG_LEVEL;
 
-void log_open(LogLevel level) {
-  g_level = level;
+LogLevel get_level(std::string level) {
+  static std::unordered_map<std::string, LogLevel> loggingMap = {
+    {"1", LogLevel::DEBUG_LEVEL},
+    {"2", LogLevel::INFO_LEVEL},
+    {"3", LogLevel::WARNING_LEVEL},
+    {"4", LogLevel::ERROR_LEVEL},
+  };
+  auto result = LogLevel::INFO_LEVEL;
+  if (!level.empty()) {
+    auto it = loggingMap.find(level);
+    if (it != loggingMap.end()) {
+      result = it->second;
+    }
+  }
+  return result;
+}
+
+void log_open(std::string level) {
+  g_level = get_level(level);
   if (g_logfile == nullptr) {
     const char *home = getenv("HOME");
-    std::string path = std::string(home ? home : ".") + "/.config/nitro/nitro.log";
+    auto path = std::string(home ? home : ".") + "/.config/nitro/nitro.log";
     g_logfile = fopen(path.c_str(), "a");
   }
 }
