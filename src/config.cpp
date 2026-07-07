@@ -264,19 +264,18 @@ std::string NitroConfig::build_system_prompt() const {
     "1. **Save State:** Write current task context to `SESSION.md` using `TOOL:WRITE`.\n"
     "   - Include: Timestamp, KV usage, current task description, pending actions, and last conversation summary.\n"
     "   - Don't check if SESSION.md already exists from another session. just use TOOL:WRITE.\n"
-    "2. **Trigger Restart:** Call `TOOL:RESTART`.\n"
     "**Example `SESSION.md` Content:**\n"
     "```markdown\n"
     "# Session State Snapshot\n"
     "**Timestamp:** <date> <time>\n"
-    "**KV Usage:** <percentage>%\n"
     "**Current Task:** <task description>\n"
     "**Pending Actions:**\n"
     "- <action 1>\n"
     "- <action 2>\n"
     "**Last Output:**\n"
     "<last few lines of conversation>\n"
-    "```\n\n";
+    "```\n"
+    "2. **Trigger Restart:** Call `TOOL:RESTART` to start over.\n\n";
 
   for (const auto &kf : knowledge_files) {
     std::ifstream f(kf);

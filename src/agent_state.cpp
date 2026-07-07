@@ -620,7 +620,9 @@ bool AgentState::run_turn(const std::string &user_message, const NitroConfig &cf
   std::string buffer;
 
   auto invoke_tool = [&](const std::string &buffer, const std::string_view template_str) -> void {
-    static constexpr std::string_view END_TOOL = "\nNITRO_END_TOOL";
+    static constexpr std::string KV_START = "[KV-INFO]";
+    static constexpr std::string KV_END = "[/KV-INFO]";
+    static const std::string_view END_TOOL = "\nNITRO_END_TOOL";
     static const std::string TOOL_RESULT = "NITRO_TOOL_RESULT: ";
 
     std::string tool;
@@ -634,6 +636,17 @@ bool AgentState::run_turn(const std::string &user_message, const NitroConfig &cf
     } else {
       tool = buffer;
     }
+
+    // strip any final [KV-INFO] ... [/KV-INFO] mistakenly added by the agent
+    const auto kvEnd = tool.rfind(KV_END);
+    if (kvEnd == (tool.length() - KV_END.length())) {
+      const auto kvStart = tool.rfind(KV_START);
+      if (kvStart != std::string::npos) {
+        tool = buffer.substr(0, kvStart);
+        log_write(DEBUG_LEVEL, "stripped KV_INFO details output by agent");
+      }
+    }
+
     log_write(DEBUG_LEVEL, "tool request: mode:[%d] [%s]", think_mode, tool.c_str());
     std::string result = process_tool(tool, cfg, tui);
     if (result.empty()) {
