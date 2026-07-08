@@ -14,8 +14,6 @@
 #include <string>
 #include <unordered_map>
 
-#include "ggml.h"
-
 static FILE *g_logfile = nullptr;
 LogLevel g_level = DEBUG_LEVEL;
 

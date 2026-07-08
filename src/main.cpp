@@ -267,11 +267,10 @@ int main(int argc, char **argv) {
       const char *home = getenv("HOME");
       return std::string(home ? home : ".") + "/" + arg.substr(2);
     }
-    if (arg.substr(0, 2) == "./")
-      {
-        std::error_code ec;
-        return (fs::current_path(ec) / arg.substr(2)).string();
-      }
+    if (arg.substr(0, 2) == "./") {
+      std::error_code ec;
+      return (fs::current_path(ec) / arg.substr(2)).string();
+    }
     return arg;
   };
 
