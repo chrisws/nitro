@@ -21,7 +21,7 @@
 #include <vector>
 
 #include <notcurses/notcurses.h>
-#include "tui_state.h"
+#include "tui.h"
 
 // ─── colour helpers ──────────────────────────────────────────────────────
 static constexpr uint32_t BG_CHAT_R = 18,  BG_CHAT_G = 22,  BG_CHAT_B = 30;
@@ -41,65 +41,69 @@ static inline uint64_t hdr_ch(uint32_t r, uint32_t g, uint32_t b) {
 }
 
 //
-// TuiState::init
+// Tui::init
 //
-void TuiState::init() {
+void Tui::init() {
   notcurses_options opts{};
   opts.flags = NCOPTION_SUPPRESS_BANNERS;
-  nc = notcurses_init(&opts, nullptr);
-  if (!nc) { std::fputs("notcurses_init failed\n", stderr); std::exit(1); }
-  stdpl = notcurses_stdplane(nc);
-  notcurses_term_dim_yx(nc, (unsigned *)&term_rows, (unsigned *)&term_cols);
+  nc_ = notcurses_init(&opts, nullptr);
+  if (!nc_) { std::fputs("notcurses_init failed\n", stderr); std::exit(1); }
+  stdpl_ = notcurses_stdplane(nc_);
+  notcurses_term_dim_yx(nc_, (unsigned *)&term_rows, (unsigned *)&term_cols);
   uint64_t bg = NCCHANNELS_INITIALIZER(BG_CHAT_R, BG_CHAT_G, BG_CHAT_B,
                                        BG_CHAT_R, BG_CHAT_G, BG_CHAT_B);
-  ncplane_set_base(stdpl, " ", 0, bg);
-  ncplane_erase(stdpl);
+  ncplane_set_base(stdpl_, " ", 0, bg);
+  ncplane_erase(stdpl_);
   ncplane_options hopt{};
   hopt.y = 0; hopt.x = 0;
   hopt.rows = 1; hopt.cols = (unsigned)term_cols;
-  header = ncplane_create(stdpl, &hopt);
+  header_ = ncplane_create(stdpl_, &hopt);
   int chat_rows = std::max(1, term_rows - 3);
   ncplane_options copt{};
   copt.y = 1; copt.x = 0;
   copt.rows = (unsigned)chat_rows; copt.cols = (unsigned)term_cols;
-  chatpl = ncplane_create(stdpl, &copt);
-  ncplane_set_base(chatpl, " ", 0,
+  chatpl_ = ncplane_create(stdpl_, &copt);
+  ncplane_set_base(chatpl_, " ", 0,
                    NCCHANNELS_INITIALIZER(BG_CHAT_R, BG_CHAT_G, BG_CHAT_B,
                                           BG_CHAT_R, BG_CHAT_G, BG_CHAT_B));
   ncplane_options iopt{};
   iopt.y = term_rows - 2; iopt.x = 0;
   iopt.rows = 2; iopt.cols = (unsigned)term_cols;
-  inputpl = ncplane_create(stdpl, &iopt);
-  ncplane_set_base(inputpl, " ", 0,
+  inputpl_ = ncplane_create(stdpl_, &iopt);
+  ncplane_set_base(inputpl_, " ", 0,
                    NCCHANNELS_INITIALIZER(BG_INP_R, BG_INP_G, BG_INP_B,
                                           BG_INP_R, BG_INP_G, BG_INP_B));
-  notcurses_mice_enable(nc, NCMICE_BUTTON_EVENT);
+  notcurses_mice_enable(nc_, NCMICE_BUTTON_EVENT);
   redraw_all();
 }
 
-void TuiState::destroy() {
-  if (nc) {
-    notcurses_stop(nc);
-    nc = nullptr;
+void Tui::destroy() {
+  if (nc_) {
+    notcurses_stop(nc_);
+    nc_ = nullptr;
   }
 }
 
-void TuiState::resize() {
-  notcurses_term_dim_yx(nc, (unsigned *)&term_rows, (unsigned *)&term_cols);
-  ncplane_resize_simple(header, 1, (unsigned)term_cols);
-  int cr = std::max(1, term_rows - 3);
-  ncplane_resize_simple(chatpl, (unsigned)cr, (unsigned)term_cols);
-  ncplane_move_yx(inputpl, term_rows - 2, 0);
-  ncplane_resize_simple(inputpl, 2, (unsigned)term_cols);
-  redraw_all();
+void Tui::resize() {
+  unsigned rows = 0, cols = 0;
+  notcurses_stddim_yx(nc_, &rows, &cols);
+  if ((int)rows != term_rows || (int)cols != term_cols) {
+    notcurses_term_dim_yx(nc_, (unsigned *)&term_rows, (unsigned *)&term_cols);
+    ncplane_resize_simple(header_, 1, (unsigned)term_cols);
+    int cr = std::max(1, term_rows - 3);
+    ncplane_resize_simple(chatpl_, (unsigned)cr, (unsigned)term_cols);
+    ncplane_move_yx(inputpl_, term_rows - 2, 0);
+    ncplane_resize_simple(inputpl_, 2, (unsigned)term_cols);
+    redraw_all();
+  }
 }
 
 //
-// TuiState::redraw
+// Tui::redraw
 //
-void TuiState::redraw_header() const {
-  ncplane_erase(header);
-  ncplane_set_base(header, " ", 0,
+void Tui::redraw_header() const {
+  ncplane_erase(header_);
+  ncplane_set_base(header_, " ", 0,
                    NCCHANNELS_INITIALIZER(BG_HDR_R, BG_HDR_G, BG_HDR_B,
                                           BG_HDR_R, BG_HDR_G, BG_HDR_B));
   float kv_pct   = kv_total   > 0 ? 100.f * (float)kv_used   / (float)kv_total   : 0.f;
@@ -113,14 +117,14 @@ void TuiState::redraw_header() const {
                         current_model.c_str(), (double)tokens_per_sec,
                         (double)kv_pct, (double)vram_pct, spin_str);
   if (n > term_cols) buf[term_cols] = '\0';
-  ncplane_set_channels(header, hdr_ch(130, 220, 200));
-  ncplane_putstr_yx(header, 0, 0, buf);
+  ncplane_set_channels(header_, hdr_ch(130, 220, 200));
+  ncplane_putstr_yx(header_, 0, 0, buf);
 }
 
-void TuiState::redraw_chat() {
-  ncplane_erase(chatpl);
+void Tui::redraw_chat() {
+  ncplane_erase(chatpl_);
   unsigned rows, cols;
-  ncplane_dim_yx(chatpl, &rows, &cols);
+  ncplane_dim_yx(chatpl_, &rows, &cols);
   std::lock_guard<std::mutex> lk(lines_mutex);
 
   // Pre-compute wrapped lines so we know total visual rows.
@@ -168,13 +172,13 @@ void TuiState::redraw_chat() {
   int end     = std::min(total, start + visible);
 
   for (int i = start, row = 0; i < end; ++i, ++row) {
-    ncplane_set_channels(chatpl, visual[i].ch);
-    ncplane_putstr_yx(chatpl, row, 0, visual[i].text.c_str());
+    ncplane_set_channels(chatpl_, visual[i].ch);
+    ncplane_putstr_yx(chatpl_, row, 0, visual[i].text.c_str());
   }
 }
 
-void TuiState::redraw_input() const {
-  ncplane_erase(inputpl);
+void Tui::redraw_input() const {
+  ncplane_erase(inputpl_);
 
   if (thinking) {
     static constexpr const char *BLOCKS[] = { "-", "~", "≈", "~", "-" };
@@ -185,9 +189,9 @@ void TuiState::redraw_input() const {
 
     if (spinner_frame < DELAY) {
       // still just a plain separator during the pause
-      ncplane_set_channels(inputpl, inp_ch(80, 120, 160));
+      ncplane_set_channels(inputpl_, inp_ch(80, 120, 160));
       std::string sep(term_cols, '-');
-      ncplane_putstr_yx(inputpl, 0, 0, sep.c_str());
+      ncplane_putstr_yx(inputpl_, 0, 0, sep.c_str());
     } else {
       int frame = spinner_frame - DELAY;  // animation frame relative to start
       for (int col = 0; col < term_cols; ++col) {
@@ -196,21 +200,21 @@ void TuiState::redraw_input() const {
         idx = std::max(0, std::min(idx, N_BLOCKS - 1));
         // subtle brightness shift — blue-grey, not full glow
         int brightness = 80 + idx * 20;
-        ncplane_set_channels(inputpl, NCCHANNELS_INITIALIZER(brightness, brightness + 20, brightness + 40,
+        ncplane_set_channels(inputpl_, NCCHANNELS_INITIALIZER(brightness, brightness + 20, brightness + 40,
                                                              BG_INP_R, BG_INP_G, BG_INP_B));
-        ncplane_putstr_yx(inputpl, 0, col, BLOCKS[idx]);
+        ncplane_putstr_yx(inputpl_, 0, col, BLOCKS[idx]);
       }
     }
-    ncplane_set_channels(inputpl, inp_ch(140, 140, 180));
-    ncplane_putstr_yx(inputpl, 1, 2, "thinking…");
+    ncplane_set_channels(inputpl_, inp_ch(140, 140, 180));
+    ncplane_putstr_yx(inputpl_, 1, 2, "thinking…");
   } else {
-    ncplane_set_channels(inputpl, inp_ch(80, 120, 160));
+    ncplane_set_channels(inputpl_, inp_ch(80, 120, 160));
     std::string sep(term_cols, '-');
-    ncplane_putstr_yx(inputpl, 0, 0, sep.c_str());
+    ncplane_putstr_yx(inputpl_, 0, 0, sep.c_str());
     const std::string prompt = " ❯ ";
     const int prompt_cols = 4;
-    ncplane_set_channels(inputpl, inp_ch(100, 210, 255));
-    ncplane_putstr_yx(inputpl, 1, 0, prompt.c_str());
+    ncplane_set_channels(inputpl_, inp_ch(100, 210, 255));
+    ncplane_putstr_yx(inputpl_, 1, 0, prompt.c_str());
     int max_w = std::max(0, term_cols - prompt_cols - 1);
     std::string visible = input_buf;
     int view_offset = 0;
@@ -225,42 +229,42 @@ void TuiState::redraw_input() const {
       ? visible.substr(cur_in_view + 1) : "";
     char cursor_ch_val = cur_in_view < (int)visible.size()
       ? visible[cur_in_view] : ' ';
-    ncplane_set_channels(inputpl, inp_ch(230, 230, 230));
-    ncplane_putstr_yx(inputpl, 1, prompt_cols, before.c_str());
+    ncplane_set_channels(inputpl_, inp_ch(230, 230, 230));
+    ncplane_putstr_yx(inputpl_, 1, prompt_cols, before.c_str());
     int cx = prompt_cols + cur_in_view;
-    ncplane_set_channels(inputpl, NCCHANNELS_INITIALIZER(BG_INP_R, BG_INP_G, BG_INP_B, 180, 230, 255));
+    ncplane_set_channels(inputpl_, NCCHANNELS_INITIALIZER(BG_INP_R, BG_INP_G, BG_INP_B, 180, 230, 255));
     char cbuf[2] = { cursor_ch_val, '\0' };
-    ncplane_putstr_yx(inputpl, 1, cx, cbuf);
-    ncplane_set_channels(inputpl, inp_ch(230, 230, 230));
+    ncplane_putstr_yx(inputpl_, 1, cx, cbuf);
+    ncplane_set_channels(inputpl_, inp_ch(230, 230, 230));
     if (!after.empty()) {
-      ncplane_putstr_yx(inputpl, 1, cx + 1, after.c_str());
+      ncplane_putstr_yx(inputpl_, 1, cx + 1, after.c_str());
     }
   }
 }
 
-void TuiState::redraw_all() {
+void Tui::redraw_all() {
   redraw_header();
   redraw_chat();
   redraw_input();
-  notcurses_render(nc);
+  notcurses_render(nc_);
 }
 
-void TuiState::tick_spinner() {
+void Tui::tick_spinner() {
   ++spinner_frame;
   redraw_header();
   redraw_input();
-  notcurses_render(nc);
+  notcurses_render(nc_);
 }
 
-void TuiState::set_thinking(bool on) {
+void Tui::set_thinking(bool on) {
   thinking = on;
   if (!on) spinner_frame = 0;
   redraw_header();
   redraw_input();
-  notcurses_render(nc);
+  notcurses_render(nc_);
 }
 
-void TuiState::update_usage(int tokens_sec, const LlamaMemoryInfo &mem) {
+void Tui::update_usage(int tokens_sec, const LlamaMemoryInfo &mem) {
   tokens_per_sec = tokens_sec;
   kv_used    = mem.kv_used;
   kv_total   = mem.kv_total;
@@ -272,7 +276,7 @@ void TuiState::update_usage(int tokens_sec, const LlamaMemoryInfo &mem) {
 //
 // TuiState content helpers
 //
-void TuiState::append_line(const std::string &line) {
+void Tui::append_line(const std::string &line) {
   std::lock_guard<std::mutex> lk(lines_mutex);
   int w = std::max(1, term_cols - 1);
   if ((int)line.size() <= w) {
@@ -284,7 +288,7 @@ void TuiState::append_line(const std::string &line) {
   }
 }
 
-void TuiState::append_token(const std::string &token) {
+void Tui::append_token(const std::string &token) {
   token_acc += token;
   for (;;) {
     auto pos = token_acc.find('\n');
@@ -295,15 +299,15 @@ void TuiState::append_token(const std::string &token) {
     token_acc = token_acc.substr(pos + 1);
   }
   redraw_chat();
-  notcurses_render(nc);
+  notcurses_render(nc_);
 }
 
-void TuiState::flush_token_acc() {
+void Tui::flush_token_acc() {
   if (!token_acc.empty()) {
     append_line(token_acc);
     token_acc.clear();
     redraw_chat();
-    notcurses_render(nc);
+    notcurses_render(nc_);
   }
 }
 
@@ -311,7 +315,7 @@ void TuiState::flush_token_acc() {
 // Creates a centred floating plane with a border and a status message.
 // The popup sits above all other planes and blocks until explicitly dismissed.
 //
-void TuiState::show_modal_popup(const std::string &message) {
+void Tui::show_modal_popup(const std::string &message) {
   // Dismiss any previous popup first.
   dismiss_modal_popup();
 
@@ -326,55 +330,55 @@ void TuiState::show_modal_popup(const std::string &message) {
   opts.y    = py; opts.x    = px;
   opts.rows = (unsigned)popup_h;
   opts.cols = (unsigned)popup_w;
-  modal_plane = ncplane_create(stdpl, &opts);
-  if (!modal_plane) return;
+  modal_plane_ = ncplane_create(stdpl_, &opts);
+  if (!modal_plane_) return;
 
   // Background: deep navy.
   static constexpr uint32_t PBG_R = 20, PBG_G = 28, PBG_B = 50;
-  ncplane_set_base(modal_plane, " ", 0,
+  ncplane_set_base(modal_plane_, " ", 0,
                    NCCHANNELS_INITIALIZER(PBG_R, PBG_G, PBG_B, PBG_R, PBG_G, PBG_B));
-  ncplane_erase(modal_plane);
+  ncplane_erase(modal_plane_);
 
   // Border — bright cyan.
   uint64_t border_ch = NCCHANNELS_INITIALIZER(80, 220, 255, PBG_R, PBG_G, PBG_B);
-  ncplane_set_channels(modal_plane, border_ch);
+  ncplane_set_channels(modal_plane_, border_ch);
 
   // Draw corners and edges manually so we don't require nccell border helpers.
   // Top row
-  ncplane_putstr_yx(modal_plane, 0, 0, "╔");
+  ncplane_putstr_yx(modal_plane_, 0, 0, "╔");
   for (int c = 1; c < popup_w - 1; ++c)
-    ncplane_putstr_yx(modal_plane, 0, c, "═");
-  ncplane_putstr_yx(modal_plane, 0, popup_w - 1, "╗");
+    ncplane_putstr_yx(modal_plane_, 0, c, "═");
+  ncplane_putstr_yx(modal_plane_, 0, popup_w - 1, "╗");
   // Middle rows
   for (int r = 1; r < popup_h - 1; ++r) {
-    ncplane_putstr_yx(modal_plane, r, 0, "║");
-    ncplane_putstr_yx(modal_plane, r, popup_w - 1, "║");
+    ncplane_putstr_yx(modal_plane_, r, 0, "║");
+    ncplane_putstr_yx(modal_plane_, r, popup_w - 1, "║");
   }
   // Bottom row
-  ncplane_putstr_yx(modal_plane, popup_h - 1, 0, "╚");
+  ncplane_putstr_yx(modal_plane_, popup_h - 1, 0, "╚");
   for (int c = 1; c < popup_w - 1; ++c)
-    ncplane_putstr_yx(modal_plane, popup_h - 1, c, "═");
-  ncplane_putstr_yx(modal_plane, popup_h - 1, popup_w - 1, "╝");
+    ncplane_putstr_yx(modal_plane_, popup_h - 1, c, "═");
+  ncplane_putstr_yx(modal_plane_, popup_h - 1, popup_w - 1, "╝");
 
   // Title bar.
   uint64_t title_ch = NCCHANNELS_INITIALIZER(255, 220, 80, PBG_R, PBG_G, PBG_B);
-  ncplane_set_channels(modal_plane, title_ch);
-  ncplane_putstr_yx(modal_plane, 1, 2, "⏳ Loading…");
+  ncplane_set_channels(modal_plane_, title_ch);
+  ncplane_putstr_yx(modal_plane_, 1, 2, "⏳ Loading…");
 
   // Message.
   uint64_t msg_ch = NCCHANNELS_INITIALIZER(200, 200, 200, PBG_R, PBG_G, PBG_B);
-  ncplane_set_channels(modal_plane, msg_ch);
+  ncplane_set_channels(modal_plane_, msg_ch);
   // Truncate message to fit inside border.
   int max_msg = popup_w - 4;
   std::string display = message.size() > (size_t)max_msg
     ? message.substr(0, max_msg)
     : message;
-  ncplane_putstr_yx(modal_plane, 2, 2, display.c_str());
+  ncplane_putstr_yx(modal_plane_, 2, 2, display.c_str());
 
-  notcurses_render(nc);
+  notcurses_render(nc_);
 }
 
-void TuiState::show_help() {
+void Tui::show_help() {
   append_line(ICON_SYS + "Commands:");
   append_line(ICON_SYS + "  /model  [path]           load a GGUF model (picker if no path)");
   append_line(ICON_SYS + "  /embed  [path]           load an embedding model (picker if no path)");
@@ -392,21 +396,21 @@ void TuiState::show_help() {
   redraw_all();
 }
 
-void TuiState::dismiss_modal_popup() {
-  if (modal_plane) {
-    ncplane_destroy(modal_plane);
-    modal_plane = nullptr;
-    notcurses_render(nc);
+void Tui::dismiss_modal_popup() {
+  if (modal_plane_) {
+    ncplane_destroy(modal_plane_);
+    modal_plane_ = nullptr;
+    notcurses_render(nc_);
   }
 }
 
 //
-// ─── TuiState::file_picker ────────────────────────────────────────────────
+// ─── Tui::file_picker ────────────────────────────────────────────────
 // Interactive directory/file browser popup.
 // Keyboard:  ↑/↓ navigate,  Enter select/descend,  Backspace go up,
 //            's' select current dir for indexing,   Esc cancel.
 // Returns the chosen path or "" on cancel.
-// ─── TuiState::file_picker ────────────────────────────────────────────────
+// ─── Tui::file_picker ────────────────────────────────────────────────
 // Unified interactive directory/file browser used by /rag, /model, /embed.
 // title_hint appears in the popup header (e.g. "RAG Folder", "Model File").
 //
@@ -419,7 +423,7 @@ void TuiState::dismiss_modal_popup() {
 //
 // Returns the chosen path, or "" on cancel.
 //
-std::string TuiState::file_picker(const std::string &start_dir,
+std::string Tui::file_picker(const std::string &start_dir,
                                   const std::string &title_hint) const {
   std::string current_dir = start_dir;
   {
@@ -462,7 +466,7 @@ std::string TuiState::file_picker(const std::string &start_dir,
   ncplane_options opts{};
   opts.y = py; opts.x = px;
   opts.rows = (unsigned)PH; opts.cols = (unsigned)PW;
-  struct ncplane *picker = ncplane_create(stdpl, &opts);
+  struct ncplane *picker = ncplane_create(stdpl_, &opts);
   if (!picker) return "";
 
   static constexpr uint32_t PBG_R = 18, PBG_G = 24, PBG_B = 40;
@@ -527,7 +531,7 @@ std::string TuiState::file_picker(const std::string &start_dir,
       while ((int)label.size() < PW - 2) label += ' ';
       ncplane_putstr_yx(picker, 2 + i, 1, label.c_str());
     }
-    notcurses_render(nc);
+    notcurses_render(nc_);
   };
 
   std::string result;
@@ -536,7 +540,7 @@ std::string TuiState::file_picker(const std::string &start_dir,
 
   for (;;) {
     ncinput ni{};
-    notcurses_get_blocking(nc, &ni);
+    notcurses_get_blocking(nc_, &ni);
     if (ni.id == NCKEY_ESC) {
       break;  // cancelled
     }
@@ -599,35 +603,35 @@ std::string TuiState::file_picker(const std::string &start_dir,
     }
   }
   ncplane_destroy(picker);
-  notcurses_render(nc);
+  notcurses_render(nc_);
   return result;
 }
 
 //
-// ─── TuiState::confirm_dialog ─────────────────────────────────────────────
+// ─── Tui::confirm_dialog ─────────────────────────────────────────────
 //
-bool TuiState::confirm_dialog(const std::string &prompt) const {
-  ncplane_erase(inputpl);
-  ncplane_set_channels(inputpl, inp_ch(255, 200, 80));
+bool Tui::confirm_dialog(const std::string &prompt) const {
+  ncplane_erase(inputpl_);
+  ncplane_set_channels(inputpl_, inp_ch(255, 200, 80));
   std::string msg = " " + prompt + " [y/n] ❯ ";
-  ncplane_putstr_yx(inputpl, 1, 0, msg.c_str());
-  notcurses_render(nc);
+  ncplane_putstr_yx(inputpl_, 1, 0, msg.c_str());
+  notcurses_render(nc_);
   std::string answer;
   for (;;) {
     ncinput ni{};
-    notcurses_get_blocking(nc, &ni);
+    notcurses_get_blocking(nc_, &ni);
     if (ni.id == NCKEY_ENTER || ni.id == '\r' || ni.id == '\n') break;
     if (ni.id == NCKEY_BACKSPACE && !answer.empty()) { answer.pop_back(); }
     else if (ni.id >= 32 && ni.id < 127) { answer += (char)ni.id; }
-    ncplane_erase(inputpl);
-    ncplane_set_channels(inputpl, inp_ch(255, 200, 80));
-    ncplane_putstr_yx(inputpl, 1, 0, (msg + answer).c_str());
-    notcurses_render(nc);
+    ncplane_erase(inputpl_);
+    ncplane_set_channels(inputpl_, inp_ch(255, 200, 80));
+    ncplane_putstr_yx(inputpl_, 1, 0, (msg + answer).c_str());
+    notcurses_render(nc_);
   }
   std::string lo = answer;
   ranges::transform(lo, lo.begin(), ::tolower);
   redraw_input();
-  notcurses_render(nc);
+  notcurses_render(nc_);
   return (lo == "y" || lo == "yes" || lo == "sure" || lo == "k");
 }
 
@@ -635,19 +639,19 @@ bool TuiState::confirm_dialog(const std::string &prompt) const {
 // Integrates InputHistory:  Up/Down arrows navigate the history stack.
 // On submit the entry is pushed to history, and nav is reset.
 //
-std::string TuiState::readline_blocking() {
+std::string Tui::readline_blocking() {
   input_buf.clear();
   cursor_pos = 0;
   history.reset_nav();
   redraw_input();
-  notcurses_render(nc);
+  notcurses_render(nc_);
 
   // Temporary saved draft so Down from history restores the user's current text.
   std::string draft;
 
   for (;;) {
     ncinput ni{};
-    notcurses_get_blocking(nc, &ni);
+    notcurses_get_blocking(nc_, &ni);
 
     if (ni.id == NCKEY_ENTER || ni.id == '\r' || ni.id == '\n') {
       std::string result = input_buf;
@@ -658,7 +662,7 @@ std::string TuiState::readline_blocking() {
       cursor_pos = 0;
       scroll_offset = 0;
       redraw_input();
-      notcurses_render(nc);
+      notcurses_render(nc_);
       return result;
     }
 
@@ -676,7 +680,7 @@ std::string TuiState::readline_blocking() {
         cursor_pos = input_buf.size();
       }
       redraw_input();
-      notcurses_render(nc);
+      notcurses_render(nc_);
       continue;
     }
 
@@ -692,7 +696,7 @@ std::string TuiState::readline_blocking() {
         draft.clear();
       }
       redraw_input();
-      notcurses_render(nc);
+      notcurses_render(nc_);
       continue;
     }
 
@@ -700,25 +704,25 @@ std::string TuiState::readline_blocking() {
     if (ni.id == NCKEY_PGUP) {
       scroll_offset += std::max(1, term_rows - 4);
       redraw_chat();
-      notcurses_render(nc);
+      notcurses_render(nc_);
       continue;
     }
     if (ni.id == NCKEY_PGDOWN) {
       scroll_offset = std::max(0, scroll_offset - std::max(1, term_rows - 4));
       redraw_chat();
-      notcurses_render(nc);
+      notcurses_render(nc_);
       continue;
     }
     if (ni.id == NCKEY_SCROLL_UP && scroll_offset < term_rows + 10) {
       scroll_offset += 1;
       redraw_chat();
-      notcurses_render(nc);
+      notcurses_render(nc_);
       continue;
     }
     if (ni.id == NCKEY_SCROLL_DOWN && scroll_offset > 0) {
       scroll_offset -= 1;
       redraw_chat();
-      notcurses_render(nc);
+      notcurses_render(nc_);
       continue;
     }
     if (ni.id == NCKEY_F01) {
@@ -728,9 +732,9 @@ std::string TuiState::readline_blocking() {
     if (ni.id == NCKEY_F02) {
       mouse_mode = !mouse_mode;
       if (mouse_mode) {
-        notcurses_mice_enable(nc, NCMICE_BUTTON_EVENT);
+        notcurses_mice_enable(nc_, NCMICE_BUTTON_EVENT);
       } else {
-        notcurses_mice_disable(nc);
+        notcurses_mice_disable(nc_);
       }
       continue;
     }
@@ -756,6 +760,31 @@ std::string TuiState::readline_blocking() {
     }
 
     redraw_input();
-    notcurses_render(nc);
+    notcurses_render(nc_);
   }
+}
+
+bool Tui::is_escape() {
+  ncinput ni{};
+  notcurses_get_nblock(nc_, &ni);
+  if (ni.id == NCKEY_ESC) {
+    set_thinking(false);
+    append_line(ICON_ERR + "Generation cancelled by user (Escape)");
+    redraw_all();
+  }
+  return ni.id == NCKEY_ESC;
+}
+
+void Tui::clear_chat() {
+  std::lock_guard<std::mutex> lk(lines_mutex);
+  chat_lines.clear();
+}
+
+void Tui::setup_model(std::string &model_name, const LlamaMemoryInfo &mem) {
+  update_usage(0.0f, mem);
+  current_model = model_name;
+  append_line(ICON_SYS + "Model ready: " + current_model);
+  append_line(ICON_SYS + "" + mem.advice);
+  append_line(ICON_SYS + "Thinking mode: " + (thinking ? "enabled" : "disabled"));
+  redraw_all();
 }

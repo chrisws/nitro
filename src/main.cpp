@@ -24,11 +24,10 @@
 #include <mutex>
 #include <string>
 #include <vector>
-#include <notcurses/notcurses.h>
 
 #include "llama.h"
 #include "config.h"
-#include "tui_state.h"
+#include "tui.h"
 #include "agent_state.h"
 #include "logging.h"
 #include "curl.h"
@@ -46,7 +45,7 @@ static std::string history_path() {
 static void handle_slash(const std::string &input,
                          NitroConfig       &cfg,
                          AgentState        &agent,
-                         TuiState          &tui) {
+                         Tui          &tui) {
   auto sp = input.find(' ');
   std::string verb = (sp == std::string::npos) ? input : input.substr(0, sp);
   std::string rest;
@@ -133,14 +132,15 @@ static void handle_slash(const std::string &input,
   if (verb == "/memory") {
     std::istringstream iss(agent.memory_info_text());
     std::string line;
-    while (std::getline(iss, line)) tui.append_line(ICON_SYS + "" + line);
+    while (std::getline(iss, line)) {
+      tui.append_line(ICON_SYS + "" + line);
+    }
     tui.redraw_all();
     return;
   }
 
   if (verb == "/clear") {
-    { std::lock_guard<std::mutex> lk(tui.lines_mutex);
-      tui.chat_lines.clear(); }
+    tui.clear_chat();
     std::string sysp = cfg.build_system_prompt();
     agent.reset_conversation(sysp, tui);
     tui.append_line(ICON_SYS + "Conversation cleared.");
@@ -238,7 +238,7 @@ static void handle_slash(const std::string &input,
 //
 // Welcome banner  — colourful multi-line ASCII logo
 //
-static void welcome(TuiState &tui, const std::string &sandbox) {
+static void welcome(Tui &tui, const std::string &sandbox) {
   tui.append_line("");
   tui.append_line("[logo_0]  ███╗   ██╗██╗████████╗██████╗  ██████╗ ");
   tui.append_line("[logo_1]  ████╗  ██║██║╚══██╔══╝██╔══██╗██╔═══██╗");
@@ -347,7 +347,7 @@ int main(int argc, char **argv) {
   curl_init();
 
   // ── Init TUI ──────────────────────────────────────────────────────
-  TuiState tui;
+  Tui tui;
   tui.init();
   // Load persisted input history so up-arrow works across sessions.
   tui.history.load(history_path());
@@ -378,13 +378,7 @@ int main(int argc, char **argv) {
 
   // ── Main loop ─────────────────────────────────────────────────────
   for (;;) {
-    {
-      unsigned rows = 0, cols = 0;
-      notcurses_stddim_yx(tui.nc, &rows, &cols);
-      if ((int)rows != tui.term_rows || (int)cols != tui.term_cols) {
-        tui.resize();
-      }
-    }
+    tui.resize();
     std::string input = tui.readline_blocking();
     input.erase(0, input.find_first_not_of(" \t"));
     if (!input.empty()) {

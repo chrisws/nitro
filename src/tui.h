@@ -34,70 +34,41 @@ constexpr std::string ICON_SYS   = " ✨ ▏";
 //  │ ─────────────────────────────────────  (separator)                  │
 //  │ ❯ input                                                             │
 //  └─────────────────────────────────────────────────────────────────────┘
-struct TuiState {
-  // ── notcurses handles ──────────────────────────────────────────────
-  struct notcurses *nc      = nullptr;
-  struct ncplane   *stdpl   = nullptr;
-  struct ncplane   *header  = nullptr;
-  struct ncplane   *chatpl  = nullptr;
-  struct ncplane   *inputpl = nullptr;
-  // ── chat buffer ───────────────────────────────────────────────────
-  std::vector<std::string> chat_lines;
-  int scroll_offset = 0;
-  std::mutex lines_mutex;
-  // ── streaming accumulator ─────────────────────────────────────────
-  std::string token_acc;
-  // ── input ─────────────────────────────────────────────────────────
-  std::string input_buf;
-  size_t      cursor_pos = 0;
-  bool        mouse_mode = true;
-  // ── status bar values ─────────────────────────────────────────────
-  std::string current_model  = "none";
-  float       tokens_per_sec = 0.0f;
-  int         kv_used        = 0;
-  int         kv_total       = 1;
-  int         kv_percent     = 0;
-  size_t      vram_used      = 0;
-  size_t      vram_total     = 1;
-  int term_rows = 0;
-  int term_cols = 0;
-  // ── thinking spinner ──────────────────────────────────────────────
-  bool    thinking      = false;
-  int     spinner_frame = 0;
-  // ── input history ─────────────────────────────────────────────────
-  InputHistory history;
-  // Advance spinner by one frame and redraw the header.
-  void tick_spinner();
-
-  // Toggle thinking mode; redraws header immediately.
-  void set_thinking(bool on);
-  void update_usage(int tokens_sec, const LlamaMemoryInfo &mem);
-
+struct Tui {
   // ── lifecycle ─────────────────────────────────────────────────────
   void init();
   void destroy();
   void resize();
+  bool is_escape();
+  void clear_chat();
+  void setup_model(std::string &model_name, const LlamaMemoryInfo &mem);
+  void tick_spinner();
+  void set_thinking(bool on);
+  void update_usage(int tokens_sec, const LlamaMemoryInfo &mem);
+  
   // ── draw ──────────────────────────────────────────────────────────
   void redraw_header() const;
   void redraw_chat();
   void redraw_input() const;
   void redraw_all();
+
   // ── content helpers ───────────────────────────────────────────────
   void append_line(const std::string &line);
   void append_token(const std::string &token);
   void flush_token_acc();
+
   // ── interaction ───────────────────────────────────────────────────
   bool confirm_dialog(const std::string &prompt) const;
-  // Blocking readline with history navigation, cursor, arrow-key scrolling.
   std::string readline_blocking();
+
   // Modal popup overlay while a long operation runs.
   // Call show_modal_popup to display; dismiss_modal_popup to remove.
   // The popup plane is stored in modal_plane; callers hold it as an opaque
   // handle — or just use the paired helpers below.
-  struct ncplane *modal_plane = nullptr;
   void show_modal_popup(const std::string &message);
   void show_help();
   void dismiss_modal_popup();
+
   // ── folder picker popup ───────────────────────────────────────
   // Presents an interactive directory browser to let the user choose a
   // folder (or file) to index.  Returns the selected path, or empty string
@@ -113,4 +84,50 @@ struct TuiState {
   std::string rag_folder_picker(const std::string &start_dir) const {
     return file_picker(start_dir, "RAG Folder");
   }
+
+  double get_tokens_per_sec() const { return tokens_per_sec; }
+  double get_kv_percent() const { return kv_percent; }
+  
+  // ── input history ─────────────────────────────────────────────────
+  InputHistory history;
+  
+private:
+  // ── notcurses handles ──────────────────────────────────────────────
+  struct notcurses *nc_      = nullptr;
+  struct ncplane   *stdpl_   = nullptr;
+  struct ncplane   *header_  = nullptr;
+  struct ncplane   *chatpl_  = nullptr;
+  struct ncplane   *inputpl_ = nullptr;
+  struct ncplane   *modal_plane_ = nullptr;
+
+  // ── status bar values ─────────────────────────────────────────────
+  std::string current_model  = "none";
+  float       tokens_per_sec = 0.0f;
+  int         kv_used        = 0;
+  int         kv_total       = 1;
+  int         kv_percent     = 0;
+  size_t      vram_used      = 0;
+  size_t      vram_total     = 1;
+
+  // ── dimensions ────────────────────────────────────────────────────
+  int term_rows = 0;
+  int term_cols = 0;
+  
+  // ── chat buffer ───────────────────────────────────────────────────
+  std::vector<std::string> chat_lines;
+  int scroll_offset = 0;
+  std::mutex lines_mutex;
+
+  // ── streaming accumulator ─────────────────────────────────────────
+  std::string token_acc;
+  
+  // ── input ─────────────────────────────────────────────────────────
+  std::string input_buf;
+  size_t      cursor_pos = 0;
+  bool        mouse_mode = true;
+  
+  // ── thinking spinner ──────────────────────────────────────────────
+  bool    thinking      = false;
+  int     spinner_frame = 0;
+  
 };
