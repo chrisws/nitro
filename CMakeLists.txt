@@ -8,7 +8,7 @@ set(CMAKE_C_STANDARD 11)
 # -----------------------------
 # Path to llama.cpp
 # -----------------------------
-set(LLAMA_DIR ${CMAKE_CURRENT_SOURCE_DIR}/llama.cpp)
+set(LLAMA_DIR ${CMAKE_CURRENT_SOURCE_DIR}/forks/llama.cpp)
 
 # -----------------------------
 # FORCE static builds
@@ -172,7 +172,7 @@ add_executable(nitro
   src/llama-sb-rag.cpp
   src/llama-sb.cpp
   src/agent_state.cpp
-  src/tui_state.cpp
+  src/tui.cpp
   src/config.cpp
   src/curl.cpp
   src/logging.cpp
