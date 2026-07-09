@@ -90,7 +90,7 @@ static bool write_file(const std::string &path, const std::string &data) {
   }
   std::ofstream f(path, std::ios::binary | std::ios::trunc);
   if (!f) return false;
-  f.write(data.data(), (std::streamsize)data.size());
+  f.write(data.data(), static_cast<std::streamsize>(data.size()));
   return f.good();
 }
 
@@ -309,7 +309,7 @@ float AgentState::tokens_per_sec() const {
   auto now = std::chrono::high_resolution_clock::now();
   double elapsed = std::chrono::duration<double>(now - iter->_t_start).count();
   if (elapsed <= 0.0 || iter->_tokens_generated <= 0) return 0.0f;
-  return (float)(iter->_tokens_generated / elapsed);
+  return static_cast<float>(iter->_tokens_generated / elapsed);
 }
 
 std::string AgentState::memory_info_status() const {
@@ -480,7 +480,7 @@ std::string AgentState::process_tool(const std::string &cmd, const NitroConfig &
   }
   if (op == "TOOL:RND") {
     show_tool(op);
-    return std::to_string((double)rand() / RAND_MAX);
+    return std::to_string(static_cast<double>(rand()) / RAND_MAX);
   }
   if (op == "TOOL:RAG") {
     show_tool(op);
@@ -775,9 +775,9 @@ bool AgentState::run_turn(const std::string &user_message, const NitroConfig &cf
   char stat[128];
   auto patterm = ICON_SYS + "%.1f tok/s  (%d tokens)  KV %.1f%%";
   std::snprintf(stat, sizeof(stat), patterm.c_str(),
-                (double)tui.get_tokens_per_sec(),
+                static_cast<double>(tui.get_tokens_per_sec()),
                 iter->_tokens_generated,
-                (double)tui.get_kv_percent());
+                static_cast<double>(tui.get_kv_percent()));
   tui.append_line(stat);
   tui.redraw_all();
   return true;

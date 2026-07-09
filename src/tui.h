@@ -9,7 +9,6 @@
 #pragma once
 
 #include "llama-sb.h"
-#include "llama-sb-rag.h"
 #include "input_history.h"
 
 //
@@ -34,10 +33,13 @@ constexpr std::string ICON_SYS   = " ✨ ▏";
 //  │ ─────────────────────────────────────  (separator)                  │
 //  │ ❯ input                                                             │
 //  └─────────────────────────────────────────────────────────────────────┘
-struct Tui {
+class Tui {
+public:
+  Tui();
+  virtual ~Tui();
+
   // ── lifecycle ─────────────────────────────────────────────────────
   void init();
-  void destroy();
   void resize();
   bool is_escape();
   void clear_chat();
@@ -85,49 +87,48 @@ struct Tui {
     return file_picker(start_dir, "RAG Folder");
   }
 
-  double get_tokens_per_sec() const { return tokens_per_sec; }
-  double get_kv_percent() const { return kv_percent; }
+  double get_tokens_per_sec() const { return tokens_per_sec_; }
+  double get_kv_percent() const { return kv_percent_; }
   
   // ── input history ─────────────────────────────────────────────────
   InputHistory history;
   
 private:
   // ── notcurses handles ──────────────────────────────────────────────
-  struct notcurses *nc_      = nullptr;
-  struct ncplane   *stdpl_   = nullptr;
-  struct ncplane   *header_  = nullptr;
-  struct ncplane   *chatpl_  = nullptr;
-  struct ncplane   *inputpl_ = nullptr;
-  struct ncplane   *modal_plane_ = nullptr;
+  struct notcurses *nc_;
+  struct ncplane   *stdpl_;
+  struct ncplane   *header_;
+  struct ncplane   *chatpl_;
+  struct ncplane   *inputpl_;
+  struct ncplane   *modal_plane_;
 
   // ── status bar values ─────────────────────────────────────────────
-  std::string current_model  = "none";
-  float       tokens_per_sec = 0.0f;
-  int         kv_used        = 0;
-  int         kv_total       = 1;
-  int         kv_percent     = 0;
-  size_t      vram_used      = 0;
-  size_t      vram_total     = 1;
+  std::string current_model_;
+  float tokens_per_sec_;
+  int kv_used_;
+  int kv_total_;
+  int kv_percent_;
+  size_t vram_used_;
+  size_t vram_total_;
 
   // ── dimensions ────────────────────────────────────────────────────
-  int term_rows = 0;
-  int term_cols = 0;
+  int term_rows_;
+  int term_cols_;
   
   // ── chat buffer ───────────────────────────────────────────────────
-  std::vector<std::string> chat_lines;
-  int scroll_offset = 0;
-  std::mutex lines_mutex;
+  std::vector<std::string> chat_lines_;
+  int scroll_offset_;
+  std::mutex lines_mutex_;
 
   // ── streaming accumulator ─────────────────────────────────────────
-  std::string token_acc;
+  std::string token_acc_;
   
   // ── input ─────────────────────────────────────────────────────────
-  std::string input_buf;
-  size_t      cursor_pos = 0;
-  bool        mouse_mode = true;
+  std::string input_buf_;
+  size_t cursor_pos_;
+  bool  mouse_mode_;
   
   // ── thinking spinner ──────────────────────────────────────────────
-  bool    thinking      = false;
-  int     spinner_frame = 0;
-  
+  bool thinking_;
+  int spinner_frame_;
 };

@@ -401,7 +401,6 @@ int main(int argc, char **argv) {
 
   log_write(INFO_LEVEL, "nitro exiting");
   log_close();
-  tui.destroy();
 
   // Persist input history for the next session.
   tui.history.save(history_path());

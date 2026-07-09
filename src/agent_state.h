@@ -8,6 +8,11 @@
 
 #pragma once
 
+#include <filesystem>
+#include <string>
+
+#include "llama-sb-rag.h"
+
 //
 // AgentState
 //
