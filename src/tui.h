@@ -15,6 +15,8 @@
 #include <notcurses/notcurses.h>
 #include "llama-sb.h"
 #include "input_history.h"
+#include "tui_context.h"
+#include "input.h"
 
 //
 // icons
@@ -38,7 +40,7 @@ constexpr std::string ICON_SYS   = " ✨ ▏";
 //  │ ─────────────────────────────────────  (separator)                  │
 //  │ ❯ input                                                             │
 //  └─────────────────────────────────────────────────────────────────────┘
-class Tui {
+class Tui final: TuiContext {
 public:
   Tui();
   virtual ~Tui();
@@ -56,7 +58,7 @@ public:
   // ── draw ──────────────────────────────────────────────────────────
   void redraw_header() const;
   void redraw_chat();
-  void redraw_input() const;
+  void redraw_input() const override;
   void redraw_all();
 
   // ── content helpers ───────────────────────────────────────────────
@@ -66,7 +68,7 @@ public:
 
   // ── interaction ───────────────────────────────────────────────────
   bool confirm_dialog(const std::string &prompt) const;
-  std::string readline();
+  std::string readline() { return input_.readline(*this); }
 
   // Modal popup overlay while a long operation runs.
   // Call show_modal_popup to display; dismiss_modal_popup to remove.
@@ -94,9 +96,14 @@ public:
 
   double get_tokens_per_sec() const { return tokens_per_sec_; }
   double get_kv_percent() const { return kv_percent_; }
-  
-  // ── input history ─────────────────────────────────────────────────
-  InputHistory history;
+
+  // TuiContext
+  InputEvent get_event() override { return InputEvent(nc_); }
+  void render() override { notcurses_render(nc_); }
+
+  // ── history ────────────────────────────────────────────────────────
+  void history_load(const std::string &path) { input_.load(path); }
+  void history_save(const std::string &path) const { input_.save(path); }
   
 private:
   // ── notcurses handles ──────────────────────────────────────────────
@@ -122,18 +129,15 @@ private:
   
   // ── chat buffer ───────────────────────────────────────────────────
   std::vector<std::string> chat_lines_;
-  int scroll_offset_;
   std::mutex lines_mutex_;
 
   // ── streaming accumulator ─────────────────────────────────────────
   std::string token_acc_;
   
-  // ── input ─────────────────────────────────────────────────────────
-  std::string input_buf_;
-  size_t cursor_pos_;
-  bool  mouse_mode_;
-  
   // ── thinking spinner ──────────────────────────────────────────────
   bool thinking_;
   int spinner_frame_;
+
+  // ── input ─────────────────────────────────────────────────────────
+  Input input_;
 };

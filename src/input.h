@@ -17,7 +17,17 @@
 
 class Input {
   public:
+  explicit Input();
+  ~Input() = default;
+  Input(const Input &) = delete;
+  Input &operator=(const Input &) = delete;
+
   std::string readline(TuiContext &tui);
+  std::string get_input_buf() const { return input_buf_; }
+  int get_scroll_offset() const { return scroll_offset_; }
+  int get_cursor_pos() const { return cursor_pos_; }
+  void load(const std::string &path) { history_.load(path); }
+  void save(const std::string &path) const { history_.save(path); }
 
   private:
   int pos_of_word_start(int pos);
@@ -31,10 +41,10 @@ class Input {
   int lowercase_word(int pos);
 
   std::string input_buf_;
-  size_t cursor_pos_;
   bool mouse_mode_;
   bool insert_mode_;
   bool ctrl_x_mode_;
+  size_t cursor_pos_;
   int scroll_offset_;
   InputHistory history_;
 };

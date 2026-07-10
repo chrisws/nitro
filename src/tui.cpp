@@ -51,9 +51,6 @@ Tui::Tui()
     , vram_total_(1)
     , term_rows_(0)
     , term_cols_(0)
-    , scroll_offset_(0)
-    , cursor_pos_(0)
-    , mouse_mode_(true)
     , thinking_(false)
     , spinner_frame_(0) {
   chat_lines_.clear();
@@ -193,7 +190,7 @@ void Tui::redraw_chat() {
 
   int total   = static_cast<int>(visual.size());
   int visible = static_cast<int>(rows);
-  int start   = std::max(0, total - visible - scroll_offset_);
+  int start   = std::max(0, total - visible - input_.get_scroll_offset());
   int end     = std::min(total, start + visible);
 
   for (int i = start, row = 0; i < end; ++i, ++row) {
@@ -241,13 +238,13 @@ void Tui::redraw_input() const {
     ncplane_set_channels(inputpl_, inp_ch(100, 210, 255));
     ncplane_putstr_yx(inputpl_, 1, 0, prompt.c_str());
     int max_w = std::max(0, term_cols_ - prompt_cols - 1);
-    std::string visible = input_buf_;
+    std::string visible = input_.get_input_buf();
     int view_offset = 0;
     if (visible.size() > max_w && max_w > 0) {
       view_offset = static_cast<int>(visible.size() - max_w);
       visible = visible.substr(view_offset);
     }
-    int cur_in_view = std::max(0, static_cast<int>(cursor_pos_ - view_offset));
+    int cur_in_view = std::max(0, static_cast<int>(input_.get_cursor_pos() - view_offset));
     cur_in_view = std::min(cur_in_view, static_cast<int>(visible.size()));
     std::string before = visible.substr(0, cur_in_view);
     std::string after  = cur_in_view < static_cast<int>(visible.size())
@@ -658,135 +655,6 @@ bool Tui::confirm_dialog(const std::string &prompt) const {
   redraw_input();
   notcurses_render(nc_);
   return (lo == "y" || lo == "yes" || lo == "sure" || lo == "k");
-}
-
-//
-// Integrates InputHistory:  Up/Down arrows navigate the history stack.
-// On submit the entry is pushed to history, and nav is reset.
-//
-std::string Tui::readline() {
-  input_buf_.clear();
-  cursor_pos_ = 0;
-  history.reset_nav();
-  redraw_input();
-  notcurses_render(nc_);
-
-  // Temporary saved draft so Down from history restores the user's current text.
-  std::string draft;
-
-  for (;;) {
-    ncinput ni{};
-    notcurses_get_blocking(nc_, &ni);
-
-    if (ni.id == NCKEY_ENTER || ni.id == '\r' || ni.id == '\n') {
-      std::string result = input_buf_;
-      if (!result.empty()) {
-        history.push(result);
-      }
-      input_buf_.clear();
-      cursor_pos_ = 0;
-      scroll_offset_ = 0;
-      redraw_input();
-      notcurses_render(nc_);
-      return result;
-    }
-
-    if (ni.id == NCKEY_UP) {
-      // Entering history from a fresh prompt: save current text as draft.
-      std::string hist_entry;
-      if (history.up(hist_entry)) {
-        if (!input_buf_.empty() && hist_entry != input_buf_) {
-          // Only save draft when we first leave the bottom of history.
-          // (history.reset_nav was called on entry so the first Up call
-          //  always comes from the "new input" position.)
-          draft = input_buf_;
-        }
-        input_buf_  = hist_entry;
-        cursor_pos_ = input_buf_.size();
-      }
-      redraw_input();
-      notcurses_render(nc_);
-      continue;
-    }
-
-    if (ni.id == NCKEY_DOWN) {
-      std::string hist_entry;
-      if (history.down(hist_entry)) {
-        input_buf_  = hist_entry;
-        cursor_pos_ = input_buf_.size();
-      } else {
-        // Past the newest entry → restore draft.
-        input_buf_  = draft;
-        cursor_pos_ = input_buf_.size();
-        draft.clear();
-      }
-      redraw_input();
-      notcurses_render(nc_);
-      continue;
-    }
-
-    // Scroll the chat pane — not the input history.
-    if (ni.id == NCKEY_PGUP) {
-      scroll_offset_ += std::max(1, term_rows_ - 4);
-      redraw_chat();
-      notcurses_render(nc_);
-      continue;
-    }
-    if (ni.id == NCKEY_PGDOWN) {
-      scroll_offset_ = std::max(0, scroll_offset_ - std::max(1, term_rows_ - 4));
-      redraw_chat();
-      notcurses_render(nc_);
-      continue;
-    }
-    if (ni.id == NCKEY_SCROLL_UP && scroll_offset_ < term_rows_ + 10) {
-      scroll_offset_ += 1;
-      redraw_chat();
-      notcurses_render(nc_);
-      continue;
-    }
-    if (ni.id == NCKEY_SCROLL_DOWN && scroll_offset_ > 0) {
-      scroll_offset_ -= 1;
-      redraw_chat();
-      notcurses_render(nc_);
-      continue;
-    }
-    if (ni.id == NCKEY_F01) {
-      show_help();
-      continue;
-    }
-    if (ni.id == NCKEY_F02) {
-      mouse_mode_ = !mouse_mode_;
-      if (mouse_mode_) {
-        notcurses_mice_enable(nc_, NCMICE_BUTTON_EVENT);
-      } else {
-        notcurses_mice_disable(nc_);
-      }
-      continue;
-    }
-    if (ni.id == NCKEY_BACKSPACE || ni.id == 127) {
-      if (cursor_pos_ > 0) { input_buf_.erase(cursor_pos_ - 1, 1); --cursor_pos_; }
-    } else if (ni.id == NCKEY_LEFT) {
-      if (cursor_pos_ > 0) --cursor_pos_;
-    } else if (ni.id == NCKEY_RIGHT) {
-      if (cursor_pos_ < input_buf_.size()) ++cursor_pos_;
-    } else if (ni.id == NCKEY_HOME) {
-      cursor_pos_ = 0;
-    } else if (ni.id == NCKEY_END) {
-      cursor_pos_ = input_buf_.size();
-    } else if (ni.id == NCKEY_DEL) {
-      if (cursor_pos_ < input_buf_.size()) input_buf_.erase(cursor_pos_, 1);
-    } else if (ni.id >= 32 && ni.id < 0xD800) {
-      // Any printable character — entering new text clears the nav draft
-      // so that Down won't resurrect a stale saved buffer.
-      draft.clear();
-      history.reset_nav();
-      input_buf_.insert(cursor_pos_, 1, static_cast<char>(ni.id));
-      ++cursor_pos_;
-    }
-
-    redraw_input();
-    notcurses_render(nc_);
-  }
 }
 
 bool Tui::is_escape() {

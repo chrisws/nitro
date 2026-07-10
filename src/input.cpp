@@ -8,6 +8,14 @@
 
 #include "input.h"
 
+Input::Input()
+  : mouse_mode_(false)
+  , insert_mode_(false)
+  , ctrl_x_mode_(false)
+  , cursor_pos_(0)
+  , scroll_offset_(0) {
+}
+
 //
 // Helper: is the character a word character?
 //
@@ -257,17 +265,9 @@ std::string Input::readline(TuiContext &tui) {
 
     // Ctrl-L: clear screen and redraw
     if (ev.is_ctrl() && ev.is(Key::l)) {
-      tui.clear();
-      tui.redraw_input();
-      tui.render();
-      continue;
-    }
-
-    // Ctrl-C: cancel input (discard draft)
-    if (ev.is_ctrl() && ev.is(Key::c)) {
-      input_buf_.clear();
       cursor_pos_ = 0;
       scroll_offset_ = 0;
+      input_buf_.clear();
       tui.redraw_input();
       tui.render();
       continue;

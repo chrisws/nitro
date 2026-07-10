@@ -350,7 +350,7 @@ int main(int argc, char **argv) {
   Tui tui;
   tui.init();
   // Load persisted input history so up-arrow works across sessions.
-  tui.history.load(history_path());
+  tui.history_load(history_path());
   welcome(tui, cfg.sandbox);
 
   log_write(INFO_LEVEL, "nitro starting");
@@ -403,7 +403,7 @@ int main(int argc, char **argv) {
   log_close();
 
   // Persist input history for the next session.
-  tui.history.save(history_path());
+  tui.history_save(history_path());
   curl_close();
   return 0;
 }

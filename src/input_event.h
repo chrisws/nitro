@@ -68,21 +68,22 @@ enum class Key : uint32_t {
 };
 
 struct InputEvent {
-  InputEvent(ncinput *in) : _in(in) {}
+  InputEvent(struct notcurses *nc) { notcurses_get_blocking(nc, &in_); }
+  ~InputEvent() = default;
    
-  Key key() const { return static_cast<Key>(_in->id); }
+  Key key() const { return static_cast<Key>(in_.id); }
   bool is(Key k) const { return k == key(); }
-  int val() const { return _in->id; }
+  int val() const { return in_.id; }
   
   // Modifier state checks using notcurses functions
-  bool is_shift() const { return ncinput_shift_p(_in); }
-  bool is_ctrl() const { return ncinput_ctrl_p(_in); }
-  bool is_alt() const { return ncinput_alt_p(_in); }
-  bool is_edit() const { return _in->id >= 32 && _in->id < 0xD800; }
+  bool is_shift() const { return ncinput_shift_p(&in_); }
+  bool is_ctrl() const { return ncinput_ctrl_p(&in_); }
+  bool is_alt() const { return ncinput_alt_p(&in_); }
+  bool is_edit() const { return in_.id >= 32 && in_.id < 0xD800; }
   
   // Window resize event
-  bool is_resize() const { return _in->id == NCKEY_RESIZE; }
-  
-private:
-  ncinput *_in;
+  bool is_resize() const { return in_.id == NCKEY_RESIZE; }
+
+  // private
+  ncinput in_{};
 };

@@ -12,8 +12,9 @@
 
 class TuiContext {
 public:
-  virtual InputEvent get_event() = 0; // ncinput ni{};  notcurses_get_blocking(nc, &ni);
-  virtual void render() = 0;  // notcurses_render(nc);
-  virtual void redraw_input();
-  virtual void clear(); // notcurses_clear(nc);
+  TuiContext() = default;
+  virtual ~TuiContext() = default;
+  virtual InputEvent get_event() = 0;
+  virtual void render() = 0;
+  virtual void redraw_input() const = 0;
 };
