@@ -9,8 +9,6 @@
 #pragma once
 
 #include <string>
-#include <cstdint>
-#include <notcurses/notcurses.h>
 
 #include "input_history.h"
 #include "tui_context.h"

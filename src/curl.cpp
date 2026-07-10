@@ -7,7 +7,6 @@
 //
 
 #include <curl/curl.h>
-
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -15,8 +14,9 @@
 #include <cstddef>
 #include <filesystem>
 #include <memory>
-#include <string>
 #include <vector>
+
+#include "curl.h"
 
 //
 // TOOL:CURL

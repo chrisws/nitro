@@ -17,7 +17,7 @@
 static FILE *g_logfile = nullptr;
 LogLevel g_level = DEBUG_LEVEL;
 
-LogLevel get_level(std::string level) {
+LogLevel get_level(const std::string& level) {
   static std::unordered_map<std::string, LogLevel> loggingMap = {
     {"0", LogLevel::DEBUG_LEVEL},
     {"1", LogLevel::DEBUG_LEVEL},
@@ -28,8 +28,7 @@ LogLevel get_level(std::string level) {
   };
   auto result = LogLevel::INFO_LEVEL;
   if (!level.empty()) {
-    auto it = loggingMap.find(level);
-    if (it != loggingMap.end()) {
+    if (auto it = loggingMap.find(level); it != loggingMap.end()) {
       result = it->second;
     }
   }
@@ -40,7 +39,7 @@ void log_open(std::string level) {
   g_level = get_level(level);
   if (g_logfile == nullptr) {
     const char *home = getenv("HOME");
-    auto path = std::string(home ? home : ".") + "/.config/nitro/nitro.log";
+    const auto path = std::string(home ? home : ".") + "/.config/nitro/nitro.log";
     g_logfile = fopen(path.c_str(), "a");
   }
 }

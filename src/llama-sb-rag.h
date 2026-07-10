@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include <string>
+
 struct RagChunk {
   std::string        text;
   std::string        source;

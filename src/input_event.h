@@ -6,6 +6,8 @@
 // Download the GNU Public License (GPL) from www.gnu.org
 //
 
+#pragma once
+
 #include <cstdint>
 #include <notcurses/notcurses.h>
 
@@ -50,11 +52,13 @@ enum class Key : uint32_t {
   A = 'A',
   C = 'C',
   D = 'D',
+  d = 'd',
   E = 'E',
   G = 'G',
   H = 'H',
   K = 'K',
   L = 'L',
+  l = 'l',
   P = 'P',
   R = 'R',
   S = 'S',
@@ -70,17 +74,17 @@ enum class Key : uint32_t {
 struct InputEvent {
   InputEvent(struct notcurses *nc) { notcurses_get_blocking(nc, &in_); }
   ~InputEvent() = default;
-   
+
   Key key() const { return static_cast<Key>(in_.id); }
   bool is(Key k) const { return k == key(); }
-  int val() const { return in_.id; }
-  
+  uint32_t val() const { return in_.id; }
+
   // Modifier state checks using notcurses functions
   bool is_shift() const { return ncinput_shift_p(&in_); }
   bool is_ctrl() const { return ncinput_ctrl_p(&in_); }
   bool is_alt() const { return ncinput_alt_p(&in_); }
   bool is_edit() const { return in_.id >= 32 && in_.id < 0xD800; }
-  
+
   // Window resize event
   bool is_resize() const { return in_.id == NCKEY_RESIZE; }
 

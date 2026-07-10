@@ -7,6 +7,7 @@
 //
 
 #include "input.h"
+#include "logging.h"
 
 Input::Input()
   : mouse_mode_(false)
@@ -200,12 +201,12 @@ int Input::lowercase_word(int pos) {
 //   Ctrl-x Ctrl+z    : suspend (cancel and return to prompt)
 //
 std::string Input::readline(TuiContext &tui) {
+  tui.redraw_input();
+  tui.render();
+
   input_buf_.clear();
   cursor_pos_ = 0;
   history_.reset_nav();
-  tui.redraw_input();
-  tui.render();
-  tui.render();
 
   std::string draft;
 
@@ -367,19 +368,21 @@ std::string Input::readline(TuiContext &tui) {
       }
     }
 
-    // Alt-D: delete word at cursor (Emacs-style)
-    if (ev.is_alt() && ev.is(Key::D)) {
+    // crtl-D: delete word at cursor (Emacs-style)
+    if (ev.is_ctrl() && ev.is(Key::D)) {
       cursor_pos_ = delete_word_at_cursor();
     }
 
     // Alt-L: uppercase word under cursor
-    if (ev.is_alt() && ev.is(Key::L)) {
+    if (ev.is_alt() && ev.is(Key::l)) {
       cursor_pos_ = uppercase_word(cursor_pos_);
+      continue;
     }
 
     // Alt-d: lowercase word under cursor
-    if (ev.is_alt() && ev.is(Key::D)) {
+    if (ev.is_alt() && ev.is(Key::d)) {
       cursor_pos_ = lowercase_word(cursor_pos_);
+      continue;
     }
 
     // Ctrl-G: quit (cancel input)
@@ -484,7 +487,7 @@ std::string Input::readline(TuiContext &tui) {
       if (cursor_pos_ < input_buf_.size()) {
         input_buf_.erase(cursor_pos_, 1);
       }
-    } else if (ev.is_edit() && !ev.is_ctrl() !ev.is_alt()) {
+    } else if (ev.is_edit() && !ev.is_ctrl() && !ev.is_alt()) {
       // Any printable character — entering new text clears the nav draft
       // so that Down won't resurrect a stale saved buffer.
       draft.clear();

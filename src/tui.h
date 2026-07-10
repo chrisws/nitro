@@ -14,7 +14,6 @@
 
 #include <notcurses/notcurses.h>
 #include "llama-sb.h"
-#include "input_history.h"
 #include "tui_context.h"
 #include "input.h"
 
@@ -108,11 +107,11 @@ public:
 private:
   // ── notcurses handles ──────────────────────────────────────────────
   struct notcurses *nc_;
-  struct ncplane   *stdpl_;
-  struct ncplane   *header_;
-  struct ncplane   *chatpl_;
-  struct ncplane   *inputpl_;
-  struct ncplane   *modal_plane_;
+  struct ncplane *stdpl_;
+  struct ncplane *header_;
+  struct ncplane *chatpl_;
+  struct ncplane *inputpl_;
+  struct ncplane *modal_plane_;
 
   // ── status bar values ─────────────────────────────────────────────
   std::string current_model_;
