@@ -11,7 +11,7 @@
 #include "input_event.h"
 
 class TuiContext {
-public:  
+public:
   virtual InputEvent get_event() = 0; // ncinput ni{};  notcurses_get_blocking(nc, &ni);
   virtual void render() = 0;  // notcurses_render(nc);
   virtual void redraw_input();
