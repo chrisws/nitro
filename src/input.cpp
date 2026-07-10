@@ -225,7 +225,7 @@ std::string Input::readline(TuiContext &tui) {
       return result;
     }
 
-    if (ev.is_ctrl() && ev.is(Key::x)) {
+    if (ev.is_ctrl() && ev.is(Key::X)) {
       ctrl_x_mode_ = true;
       // read next key combination
       continue;
@@ -264,7 +264,7 @@ std::string Input::readline(TuiContext &tui) {
     }
 
     // Ctrl-L: clear screen and redraw
-    if (ev.is_ctrl() && ev.is(Key::l)) {
+    if (ev.is_ctrl() && ev.is(Key::L)) {
       cursor_pos_ = 0;
       scroll_offset_ = 0;
       input_buf_.clear();
@@ -299,59 +299,59 @@ std::string Input::readline(TuiContext &tui) {
     // Ctrl-Left / Ctrl-Right: word-wise navigation
     if (ev.is_ctrl() && ev.is(Key::LEFT)) {
       cursor_pos_ = move_to_prev_word(cursor_pos_);
-    } else if (ev.key() == Key::RIGHT) {
+    } else if (ev.is(Key::RIGHT)) {
       cursor_pos_ = move_to_next_word(cursor_pos_);
     }
 
     // Ctrl-Home / Ctrl-End: jump to start/end
-    if (ev.is_ctrl() && ev.key() == Key::HOME) {
+    if (ev.is_ctrl() && ev.is(Key::HOME)) {
       cursor_pos_ = 0;
-    } else if (ev.key() == Key::END) {
+    } else if (ev.is(Key::END)) {
       cursor_pos_ = input_buf_.size();
     }
 
     // Ctrl-A / Ctrl-E: move to start/end (muscle memory)
-    if (ev.is_ctrl() && ev.key() == Key::a) {
+    if (ev.is_ctrl() && ev.is(Key::A)) {
       cursor_pos_ = 0;
-    } else if (ev.is_ctrl() && ev.key() == Key::e) {
+    } else if (ev.is_ctrl() && ev.is(Key::E)) {
       cursor_pos_ = input_buf_.size();
     }
 
     // Ctrl-I (Tab): insert space
-    if (ev.is_ctrl() && ev.key() == Key::SPACE) {
+    if (ev.is_ctrl() && ev.is(Key::SPACE)) {
       input_buf_.insert(cursor_pos_, 1, ' ');
       ++cursor_pos_;
     }
 
     // Ctrl-Backspace: delete word before cursor
-    if (ev.is_ctrl() && ev.key() == Key::BACKSPACE) {
+    if (ev.is_ctrl() && ev.is(Key::BACKSPACE)) {
       cursor_pos_ = delete_word_before(cursor_pos_);
     }
 
     // Ctrl-W: kill word backward
-    if (ev.is_ctrl() && ev.key() == Key::w) {
+    if (ev.is_ctrl() && ev.is(Key::W)) {
       cursor_pos_ = kill_word_backward(cursor_pos_);
     }
 
     // Ctrl-U: clear from cursor to beginning
-    if (ev.is_ctrl() && ev.key() == Key::u) {
+    if (ev.is_ctrl() && ev.is(Key::U)) {
       input_buf_.erase(0, cursor_pos_);
       cursor_pos_ = 0;
     }
 
     // Ctrl-K: clear from cursor to end
-    if (ev.is_ctrl() && ev.key() == Key::k) {
+    if (ev.is_ctrl() && ev.is(Key::K)) {
       input_buf_.erase(cursor_pos_);
     }
 
     // Ctrl-D: delete-char (kill next char)
-    if (ev.is_ctrl() && ev.key() == Key::d) {
+    if (ev.is_ctrl() && ev.is(Key::D)) {
       if (cursor_pos_ < input_buf_.size()) {
         input_buf_.erase(cursor_pos_, 1);
       }
     }
 
-    if (ev.is_ctrl() && ev.key() == Key::v) {
+    if (ev.is_ctrl() && ev.is(Key::V)) {
       // Ctrl-V: enter insert mode for the next character
       insert_mode_ = true;
       tui.redraw_input();
@@ -360,7 +360,7 @@ std::string Input::readline(TuiContext &tui) {
     }
 
     // Ctrl-H: kill-backward-char (backspace char)
-    if (ev.is_ctrl() && ev.key() == Key::h) {
+    if (ev.is_ctrl() && ev.is(Key::H)) {
       if (cursor_pos_ > 0) {
         input_buf_.erase(cursor_pos_ - 1, 1);
         --cursor_pos_;
@@ -368,22 +368,22 @@ std::string Input::readline(TuiContext &tui) {
     }
 
     // Alt-D: delete word at cursor (Emacs-style)
-    if (ev.is_ctrl() && ev.key() == Key::d) {
+    if (ev.is_alt() && ev.is(Key::D)) {
       cursor_pos_ = delete_word_at_cursor();
     }
 
     // Alt-L: uppercase word under cursor
-    if (ev.is_ctrl() && ev.key() == Key::l) {
+    if (ev.is_alt() && ev.is(Key::L)) {
       cursor_pos_ = uppercase_word(cursor_pos_);
     }
 
     // Alt-d: lowercase word under cursor
-    if (ev.is_ctrl() && ev.key() == Key::d) {
+    if (ev.is_alt() && ev.is(Key::D)) {
       cursor_pos_ = lowercase_word(cursor_pos_);
     }
 
     // Ctrl-G: quit (cancel input)
-    if (ev.is_ctrl() && ev.key() == Key::g) {
+    if (ev.is_ctrl() && ev.is(Key::G)) {
       input_buf_.clear();
       cursor_pos_ = 0;
       scroll_offset_ = 0;
@@ -393,7 +393,7 @@ std::string Input::readline(TuiContext &tui) {
     }
 
     // Ctrl-x Ctrl-S: save (push to history_ as "saved")
-    if (ev.is_ctrl() && ev.key() == Key::s) {
+    if (ev.is_ctrl() && ev.is(Key::S)) {
       if (!input_buf_.empty()) {
         history_.push("[saved] " + input_buf_);
       }
@@ -407,15 +407,15 @@ std::string Input::readline(TuiContext &tui) {
 
     if (ctrl_x_mode_) {
       // Ctrl-x Ctrl+K: kill-line (clear to end)
-      if (ev.key() == Key::k) {
+      if (ev.is(Key::K)) {
         input_buf_.erase(cursor_pos_);
-      } else if (ev.key() == Key::u) {
+      } else if (ev.is(Key::U)) {
         // For now, just ignore — could be used for repeat next command
-      } else if (ev.key() == Key::v) {
+      } else if (ev.is(Key::V)) {
         // For now, just ignore — could be used for paste from clipboard
-      } else if (ev.key() == Key::y) {
+      } else if (ev.is(Key::Y)) {
         // For now, just ignore — could be used for yank
-      } else if (ev.key() == Key::z) {
+      } else if (ev.is(Key::Z)) {
         // Ctrl-x Ctrl+Z: suspend (cancel and return to prompt)
         input_buf_.clear();
         cursor_pos_ = 0;
@@ -423,19 +423,19 @@ std::string Input::readline(TuiContext &tui) {
         tui.redraw_input();
         tui.render();
         continue;
-      } else if (ev.key() == Key::k) {
+      } else if (ev.is(Key::K)) {
         // Ctrl-x Ctrl+K: kill-line (clear to end)
         input_buf_.erase(cursor_pos_);
-      } else if (ev.key() == Key::l) {
+      } else if (ev.is(Key::L)) {
         // Ctrl-x Ctrl+L: list-buffers (show history_)
         continue;
-      } else if (ev.key() == Key::p) {
+      } else if (ev.is(Key::P)) {
         // Ctrl-x Ctrl+P: previous-history_ (go up in history_)
         continue;
-      } else if (ev.key() == Key::r) {
+      } else if (ev.is(Key::R)) {
         // Ctrl-x Ctrl+R: recent-files (show recent entries)
         continue;
-      } else if (ev.key() == Key::s) {
+      } else if (ev.is(Key::S)) {
         // Ctrl-x Ctrl+S: save-buffer (push to history_ as "saved")
         if (!input_buf_.empty()) {
           history_.push("[saved] " + input_buf_);
@@ -446,15 +446,15 @@ std::string Input::readline(TuiContext &tui) {
         tui.redraw_input();
         tui.render();
         continue;
-      } else if (ev.key() == Key::t) {
+      } else if (ev.is(Key::T)) {
         // Ctrl-x Ctrl+T: transient-mark-mode (select region)
-      } else if (ev.key() == Key::u) {
+      } else if (ev.is(Key::U)) {
         // Ctrl-x Ctrl+U: universal-argument (repeat next command x4)
-      } else if (ev.key() == Key::v) {
+      } else if (ev.is(Key::V)) {
         // Ctrl-x Ctrl+V: insert-file (paste from clipboard)
-      } else if (ev.key() == Key::y) {
+      } else if (ev.is(Key::Y)) {
         // Ctrl-x Ctrl+Y: yank (paste last killed text)
-      } else if (ev.key() == Key::z) {
+      } else if (ev.is(Key::Z)) {
         // Ctrl-x Ctrl+Z: suspend (cancel and return to prompt)
         input_buf_.clear();
         cursor_pos_ = 0;
@@ -484,7 +484,7 @@ std::string Input::readline(TuiContext &tui) {
       if (cursor_pos_ < input_buf_.size()) {
         input_buf_.erase(cursor_pos_, 1);
       }
-    } else if (ev.is_edit()) {
+    } else if (ev.is_edit() && !ev.is_ctrl() !ev.is_alt()) {
       // Any printable character — entering new text clears the nav draft
       // so that Down won't resurrect a stale saved buffer.
       draft.clear();
