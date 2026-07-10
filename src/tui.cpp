@@ -15,12 +15,8 @@
 #include <filesystem>
 #include <fstream>
 #include <memory>
-#include <mutex>
 #include <random>
-#include <string>
-#include <vector>
 
-#include <notcurses/notcurses.h>
 #include "tui.h"
 
 // ─── colour helpers ──────────────────────────────────────────────────────
@@ -668,7 +664,7 @@ bool Tui::confirm_dialog(const std::string &prompt) const {
 // Integrates InputHistory:  Up/Down arrows navigate the history stack.
 // On submit the entry is pushed to history, and nav is reset.
 //
-std::string Tui::readline_blocking() {
+std::string Tui::readline() {
   input_buf_.clear();
   cursor_pos_ = 0;
   history.reset_nav();

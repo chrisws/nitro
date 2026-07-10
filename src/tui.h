@@ -8,6 +8,11 @@
 
 #pragma once
 
+#include <mutex>
+#include <string>
+#include <vector>
+
+#include <notcurses/notcurses.h>
 #include "llama-sb.h"
 #include "input_history.h"
 
@@ -61,7 +66,7 @@ public:
 
   // ── interaction ───────────────────────────────────────────────────
   bool confirm_dialog(const std::string &prompt) const;
-  std::string readline_blocking();
+  std::string readline();
 
   // Modal popup overlay while a long operation runs.
   // Call show_modal_popup to display; dismiss_modal_popup to remove.

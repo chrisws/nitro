@@ -532,7 +532,7 @@ std::string AgentState::process_tool(const std::string &cmd, const NitroConfig &
   if (op == "TOOL:ASK") {
     tui.set_thinking(false);
     show_tool("asking: " + arg1 + " " + arg2);
-    return tui.readline_blocking();
+    return tui.readline();
   }
   if (op == "TOOL:RESTART") {
     show_tool("restart ...");

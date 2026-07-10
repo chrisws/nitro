@@ -379,7 +379,7 @@ int main(int argc, char **argv) {
   // ── Main loop ─────────────────────────────────────────────────────
   for (;;) {
     tui.resize();
-    std::string input = tui.readline_blocking();
+    std::string input = tui.readline();
     input.erase(0, input.find_first_not_of(" \t"));
     if (!input.empty()) {
       input.erase(input.find_last_not_of(" \t\r\n") + 1);

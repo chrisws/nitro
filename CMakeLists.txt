@@ -169,6 +169,7 @@ endif()
 # nitro executable
 # -----------------------------
 add_executable(nitro
+  src/input.cpp
   src/llama-sb-rag.cpp
   src/llama-sb.cpp
   src/agent_state.cpp
