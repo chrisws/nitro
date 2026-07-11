@@ -88,6 +88,6 @@ struct InputEvent {
   // Window resize event
   bool is_resize() const { return in_.id == NCKEY_RESIZE; }
 
-  // private
+private:
   ncinput in_{};
 };

@@ -235,6 +235,33 @@ std::string Input::readline(TuiContext &tui) {
       ctrl_x_mode_ = false;
     }
 
+    if (ev.is(Key::F1)) {
+      tui.show_help();
+      continue;
+    }
+
+    if (ev.is(Key::F2)) {
+      mouse_mode_ = !mouse_mode_;
+      tui.enable_mouse(mouse_mode_);
+      continue;
+    }
+
+    if (ev.is(Key::PAGE_UP)) {
+      int term_rows = tui.get_term_rows();
+      scroll_offset_ += std::max(1, term_rows - 4);
+      tui.redraw_chat();
+      tui.render();
+      continue;
+    }
+
+    if (ev.is(Key::PAGE_DOWN)) {
+      int term_rows = tui.get_term_rows();
+      scroll_offset_ = std::max(0, scroll_offset_ - std::max(1, term_rows - 4));
+      tui.redraw_chat();
+      tui.render();
+      continue;
+    }
+
     if (ev.is(Key::UP)) {
       std::string hist_entry;
       if (history_.up(hist_entry)) {

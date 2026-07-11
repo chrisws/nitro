@@ -20,4 +20,8 @@ public:
   virtual InputEvent get_event() = 0;
   virtual void render() = 0;
   virtual void redraw_input() const = 0;
+  virtual void show_help() = 0;
+  virtual void enable_mouse(bool enable) = 0;
+  virtual void redraw_chat() = 0;
+  virtual int get_term_rows() const = 0;
 };

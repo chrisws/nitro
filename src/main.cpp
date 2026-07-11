@@ -139,7 +139,6 @@ static void handle_slash(const std::string &input,
   }
 
   if (verb == "/clear") {
-    tui.clear_chat();
     std::string sysp = cfg.build_system_prompt();
     agent.reset_conversation(sysp, tui);
     tui.append_line(ICON_SYS + "Conversation cleared.");
@@ -386,11 +385,11 @@ int main(int argc, char **argv) {
     if (input.empty()) {
       continue;
     }
-    tui.append_line("You: " + input);
-    tui.redraw_all();
     if (input == "exit" || input == "quit") {
       break;
     }
+    tui.append_line("You: " + input);
+    tui.redraw_all();
     if (input[0] == '/') {
       handle_slash(input, cfg, agent, tui);
     } else {

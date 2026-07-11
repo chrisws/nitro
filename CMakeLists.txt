@@ -8,7 +8,7 @@ set(CMAKE_C_STANDARD 11)
 # -----------------------------
 # Path to llama.cpp
 # -----------------------------
-set(LLAMA_DIR ${CMAKE_CURRENT_SOURCE_DIR}/forks/llama.cpp)
+set(LLAMA_DIR ${CMAKE_CURRENT_SOURCE_DIR}/llama.cpp)
 
 # -----------------------------
 # FORCE static builds

@@ -668,11 +668,6 @@ bool Tui::is_escape() {
   return ni.id == NCKEY_ESC;
 }
 
-void Tui::clear_chat() {
-  std::lock_guard<std::mutex> lk(lines_mutex_);
-  chat_lines_.clear();
-}
-
 void Tui::setup_model(std::string &model_name, const LlamaMemoryInfo &mem) {
   update_usage(0.0f, mem);
   current_model_ = model_name;
@@ -680,4 +675,13 @@ void Tui::setup_model(std::string &model_name, const LlamaMemoryInfo &mem) {
   append_line(ICON_SYS + "" + mem.advice);
   append_line(ICON_SYS + "Thinking mode: " + (thinking_ ? "enabled" : "disabled"));
   redraw_all();
+}
+
+
+void Tui::enable_mouse(bool enable) {
+  if (enable) {
+    notcurses_mice_enable(nc_, NCMICE_BUTTON_EVENT);
+  } else {
+    notcurses_mice_disable(nc_);
+  }
 }

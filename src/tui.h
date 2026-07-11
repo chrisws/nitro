@@ -48,15 +48,15 @@ public:
   void init();
   void resize();
   bool is_escape();
-  void clear_chat();
   void setup_model(std::string &model_name, const LlamaMemoryInfo &mem);
   void tick_spinner();
   void set_thinking(bool on);
   void update_usage(int tokens_sec, const LlamaMemoryInfo &mem);
+  int get_term_rows() const { return term_rows_; }
   
   // ── draw ──────────────────────────────────────────────────────────
   void redraw_header() const;
-  void redraw_chat();
+  void redraw_chat() override;
   void redraw_input() const override;
   void redraw_all();
 
@@ -74,7 +74,7 @@ public:
   // The popup plane is stored in modal_plane; callers hold it as an opaque
   // handle — or just use the paired helpers below.
   void show_modal_popup(const std::string &message);
-  void show_help();
+  void show_help() override;
   void dismiss_modal_popup();
 
   // ── folder picker popup ───────────────────────────────────────
@@ -99,6 +99,7 @@ public:
   // TuiContext
   InputEvent get_event() override { return InputEvent(nc_); }
   void render() override { notcurses_render(nc_); }
+  void enable_mouse(bool enable) override;
 
   // ── history ────────────────────────────────────────────────────────
   void history_load(const std::string &path) { input_.load(path); }
