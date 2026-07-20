@@ -66,8 +66,8 @@ namespace Color {
     constexpr RGB ACTIVE                    = {133, 153,   0};
     constexpr RGB TEXT                      = {147, 161, 161};
     constexpr RGB CHAT_BACKGROUND           = {  0, 29, 38 };
-    constexpr RGB INPUT_BACKGROUND          = { 6, 35, 45 };
-    constexpr RGB HEADER_BACKGROUND         = { 0, 35, 45 };
+    constexpr RGB INPUT_BACKGROUND          = {  6, 35, 45 };
+    constexpr RGB HEADER_BACKGROUND         = {  0, 35, 45 };
     constexpr RGB HEADER_TEXT               = {147, 161, 161};
     constexpr RGB POPUP_BACKGROUND          = { 40, 65, 74 };
     constexpr RGB POPUP_BORDER              = {181, 137,   0};
@@ -107,15 +107,15 @@ namespace Color {
 
   // Solarized Light theme
   namespace LightTheme {
-    constexpr RGB ACTIVE                    = {133, 153,   0};
-    constexpr RGB TEXT                      = {147, 161, 161};
+    constexpr RGB ACTIVE                    = {194, 178, 128};
+    constexpr RGB TEXT                      = {108, 117, 125};
     constexpr RGB CHAT_BACKGROUND           = {253, 246, 227};
     constexpr RGB INPUT_BACKGROUND          = {238, 232, 213};
-    constexpr RGB HEADER_BACKGROUND         = { 0, 35, 45 };
-    constexpr RGB HEADER_TEXT               = {147, 161, 161};
-    constexpr RGB POPUP_BACKGROUND          = {190, 200, 200};
-    constexpr RGB POPUP_BORDER              = {181, 137,   0};
-    constexpr RGB POPUP_TEXT                = {  0,  43,  54};
+    constexpr RGB HEADER_BACKGROUND         = {238, 232, 213};
+    constexpr RGB HEADER_TEXT               = {108, 117, 125};
+    constexpr RGB POPUP_BACKGROUND          = {245, 245, 245};
+    constexpr RGB POPUP_BORDER              = {194, 178, 128};
+    constexpr RGB POPUP_TEXT                = {108, 117, 125};
 
     struct Impl : ColorTheme {
       Color::RGB get_color(Color::ColorElement element) const override {
@@ -307,5 +307,6 @@ private:
   ThemeMode current_theme_;
   std::unique_ptr<ColorTheme> theme_;
 };
+
 
 
