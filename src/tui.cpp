@@ -1,3 +1,4 @@
+
 // This file is part of Nitro
 //
 // Copyright(C) 2026 Chris Warren-Smith.
@@ -55,8 +56,8 @@ Tui::Tui()
     , thinking_(false)
     , spinner_frame_(0) {
   chat_lines_.clear();
-  current_theme_ = ThemeMode::NAVY;  // Default to Navy (original Nitro)
-  theme_ = std::make_unique<Color::NavyTheme::Impl>();
+  current_theme_ = ThemeMode::LIGHT;
+  theme_ = std::make_unique<Color::LightTheme::Impl>();
 }
 
 Tui::~Tui() {
@@ -97,15 +98,16 @@ void Tui::toggle_theme() {
   }
 }
 
-void Tui::set_plane_channels(struct ncplane *pl, Color::ColorElement elem) const {
+// Apply background color to a plane
+void Tui::set_plane_background(struct ncplane *pl, Color::ColorElement elem) const {
   const auto ch = theme_->get_color(elem);
-  ncplane_set_channels(pl, NCCHANNELS_INITIALIZER(ch.r, ch.g, ch.b, ch.r, ch.g, ch.b));
+  ncplane_set_channels(pl, NCCHANNELS_INITIALIZER(0, 0, 0, ch.r, ch.g, ch.b));
 }
 
-// Draw a plane border with theme color
-void Tui::draw_plane_border(struct ncplane *pl, Color::ColorElement border_elem) const {
-  const auto ch = theme_->get_color(border_elem);
-  ncplane_set_channels(pl, NCCHANNELS_INITIALIZER(ch.r, ch.g, ch.b, ch.r, ch.g, ch.b));
+// Apply foreground (text) color to a plane
+void Tui::set_plane_foreground(struct ncplane *pl, Color::ColorElement elem) const {
+  const auto ch = theme_->get_color(elem);
+  ncplane_set_channels(pl, NCCHANNELS_INITIALIZER(ch.r, ch.g, ch.b, 0, 0, 0));
 }
 
 // ─── Tui::init ──────────────────────────────────────────────────────────
@@ -121,7 +123,7 @@ void Tui::init() {
   notcurses_term_dim_yx(nc_, reinterpret_cast<unsigned*>(&term_rows_), reinterpret_cast<unsigned*>(&term_cols_));
 
   // Apply theme background to stdplane
-  set_plane_channels(stdpl_, Color::ColorElement::CHAT_BACKGROUND);
+  set_plane_background(stdpl_, Color::ColorElement::CHAT_BACKGROUND);
   ncplane_erase(stdpl_);
   ncplane_options hopt{};
   hopt.y = 0;
@@ -135,12 +137,12 @@ void Tui::init() {
   copt.x = 0;
   copt.rows = static_cast<unsigned>(chat_rows); copt.cols = static_cast<unsigned>(term_cols_);
   chatpl_ = ncplane_create(stdpl_, &copt);
-  ncplane_set_base(chatpl_, " ", 0, chat_ch(0, 0, 0));  // Will be set by redraw_chat
+  ncplane_set_base(chatpl_, " ", 0, 0);  // Will be set by redraw_chat
   ncplane_options iopt{};
   iopt.y = term_rows_ - 2; iopt.x = 0;
   iopt.rows = 2; iopt.cols = static_cast<unsigned>(term_cols_);
   inputpl_ = ncplane_create(stdpl_, &iopt);
-  ncplane_set_base(inputpl_, " ", 0, inp_ch(0, 0, 0));  // Will be set by redraw_input
+  ncplane_set_base(inputpl_, " ", 0, 0);  // Will be set by redraw_input
   notcurses_mice_enable(nc_, NCMICE_BUTTON_EVENT);
   redraw_all();
 }
@@ -163,7 +165,7 @@ void Tui::resize() {
 void Tui::redraw_header() const {
   ncplane_erase(header_);
   // Apply header background from theme
-  set_plane_channels(header_, Color::ColorElement::HEADER_BACKGROUND);
+  set_plane_background(header_, Color::ColorElement::HEADER_BACKGROUND);
 
   float kv_pct   = kv_total_   > 0 ? 100.f * static_cast<float>(kv_used_)   / static_cast<float>(kv_total_)   : 0.f;
   float vram_pct = vram_total_  > 0 ? 100.f * static_cast<float>(vram_used_) / static_cast<float>(vram_total_) : 0.f;
@@ -178,7 +180,7 @@ void Tui::redraw_header() const {
   if (n > term_cols_) buf[term_cols_] = '\0';
 
   // Apply header text color from theme
-  set_plane_channels(header_, Color::ColorElement::HEADER_TEXT);
+  set_plane_foreground(header_, Color::ColorElement::HEADER_TEXT);
   ncplane_putstr_yx(header_, 0, 0, buf);
 }
 
@@ -186,7 +188,7 @@ void Tui::redraw_chat() {
   ncplane_erase(chatpl_);
 
   // Apply chat background from theme
-  set_plane_channels(chatpl_, Color::ColorElement::CHAT_BACKGROUND);
+  set_plane_background(chatpl_, Color::ColorElement::CHAT_BACKGROUND);
 
   unsigned rows, cols;
   ncplane_dim_yx(chatpl_, &rows, &cols);
@@ -246,7 +248,7 @@ void Tui::redraw_input() const {
   ncplane_erase(inputpl_);
 
   // Apply input background from theme
-  set_plane_channels(inputpl_, Color::ColorElement::INPUT_BACKGROUND);
+  set_plane_background(inputpl_, Color::ColorElement::INPUT_BACKGROUND);
 
   if (thinking_) {
     static constexpr const char *BLOCKS[] = { "-", "~", "≈", "~", "-" };
@@ -257,7 +259,7 @@ void Tui::redraw_input() const {
 
     if (spinner_frame_ < DELAY) {
       // still just a plain separator during the pause
-      ncplane_set_channels(inputpl_, inp_ch(80, 120, 160));
+      set_plane_foreground(inputpl_, Color::ColorElement::TEXT);
       std::string sep(term_cols_, '-');
       ncplane_putstr_yx(inputpl_, 0, 0, sep.c_str());
     } else {
@@ -273,15 +275,15 @@ void Tui::redraw_input() const {
         ncplane_putstr_yx(inputpl_, 0, col, BLOCKS[idx]);
       }
     }
-    ncplane_set_channels(inputpl_, inp_ch(140, 140, 180));
+    set_plane_foreground(inputpl_, Color::ColorElement::TEXT);
     ncplane_putstr_yx(inputpl_, 1, 2, "thinking…");
   } else {
-    ncplane_set_channels(inputpl_, inp_ch(80, 120, 160));
+    set_plane_foreground(inputpl_, Color::ColorElement::TEXT);
     std::string sep(term_cols_, '-');
     ncplane_putstr_yx(inputpl_, 0, 0, sep.c_str());
     const std::string prompt = " ❯ ";
     const int prompt_cols = 4;
-    ncplane_set_channels(inputpl_, inp_ch(100, 210, 255));
+    set_plane_foreground(inputpl_, Color::ColorElement::ACTIVE);
     ncplane_putstr_yx(inputpl_, 1, 0, prompt.c_str());
     int max_w = std::max(0, term_cols_ - prompt_cols - 1);
     std::string visible = input_.get_input_buf();
@@ -297,13 +299,13 @@ void Tui::redraw_input() const {
       ? visible.substr(cur_in_view + 1) : "";
     char cursor_ch_val = cur_in_view < static_cast<int>(visible.size())
       ? visible[cur_in_view] : ' ';
-    ncplane_set_channels(inputpl_, inp_ch(230, 230, 230));
+    set_plane_foreground(inputpl_, Color::ColorElement::TEXT);
     ncplane_putstr_yx(inputpl_, 1, prompt_cols, before.c_str());
     int cx = prompt_cols + cur_in_view;
     ncplane_set_channels(inputpl_, NCCHANNELS_INITIALIZER(BG_INP_R, BG_INP_G, BG_INP_B, 180, 230, 255));
     char cbuf[2] = { cursor_ch_val, '\0' };
     ncplane_putstr_yx(inputpl_, 1, cx, cbuf);
-    ncplane_set_channels(inputpl_, inp_ch(230, 230, 230));
+    set_plane_foreground(inputpl_, Color::ColorElement::TEXT);
     if (!after.empty()) {
       ncplane_putstr_yx(inputpl_, 1, cx + 1, after.c_str());
     }
@@ -731,4 +733,5 @@ void Tui::enable_mouse(bool enable) {
     notcurses_mice_disable(nc_);
   }
 }
+
 

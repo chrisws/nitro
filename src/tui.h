@@ -432,8 +432,8 @@ private:
   struct ncplane *modal_plane_;
 
   // ─── Theme-aware colour helpers ───────────────────────────────────
-  void set_plane_channels(struct ncplane *pl, Color::ColorElement elem) const;
-  void draw_plane_border(struct ncplane *pl, Color::ColorElement border_elem) const;
+  void set_plane_background(struct ncplane *pl, Color::ColorElement elem) const;
+  void set_plane_foreground(struct ncplane *pl, Color::ColorElement elem) const;
   
   // ── status bar values ─────────────────────────────────────────────
   std::string current_model_;
