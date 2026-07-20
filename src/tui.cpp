@@ -92,7 +92,6 @@ void Tui::set_plane_background(struct ncplane *pl, Color::ColorElement elem) con
 void Tui::set_plane_foreground(struct ncplane *pl, Color::ColorElement elem) const {
   const auto fg = theme_->get_color(elem);
   ncplane_set_fg_rgb8(pl, fg.r, fg.g, fg.b);
-  //ncplane_set_channels(pl, NCCHANNELS_INITIALIZER(ch.r, ch.g, ch.b, 0, 0, 0));
 }
 
 uint64_t Tui::chat_ch(uint32_t r, uint32_t g, uint32_t b) const {
@@ -270,12 +269,12 @@ void Tui::redraw_input() const {
     ncplane_set_channels(inputpl_, inp_ch(140, 140, 180));
     ncplane_putstr_yx(inputpl_, 1, 2, "thinking…");
   } else {
-    ncplane_set_channels(inputpl_, inp_ch(80, 120, 160));
+    set_plane_foreground(inputpl_, Color::ColorElement::INPUT_BORDER);
     std::string sep(term_cols_, '-');
     ncplane_putstr_yx(inputpl_, 0, 0, sep.c_str());
     const std::string prompt = " ❯ ";
     const int prompt_cols = 4;
-    ncplane_set_channels(inputpl_, inp_ch(100, 210, 255));
+    set_plane_foreground(inputpl_, Color::ColorElement::INPUT_PROMPT);
     ncplane_putstr_yx(inputpl_, 1, 0, prompt.c_str());
     int max_w = std::max(0, term_cols_ - prompt_cols - 1);
     std::string visible = input_.get_input_buf();
@@ -289,7 +288,7 @@ void Tui::redraw_input() const {
     std::string before = visible.substr(0, cur_in_view);
     std::string after  = cur_in_view < static_cast<int>(visible.size()) ? visible.substr(cur_in_view + 1) : "";
     char cursor_ch_val = cur_in_view < static_cast<int>(visible.size()) ? visible[cur_in_view] : ' ';
-    ncplane_set_channels(inputpl_, inp_ch(230, 230, 230));
+    set_plane_foreground(inputpl_, Color::ColorElement::INPUT_TEXT);
     ncplane_putstr_yx(inputpl_, 1, prompt_cols, before.c_str());
     int cx = prompt_cols + cur_in_view;
     const auto bg = theme_->get_color(Color::ColorElement::INPUT_BACKGROUND);

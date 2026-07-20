@@ -24,4 +24,5 @@ public:
   virtual void enable_mouse(bool enable) = 0;
   virtual void redraw_chat() = 0;
   virtual int get_term_rows() const = 0;
+  virtual void toggle_theme() = 0;
 };

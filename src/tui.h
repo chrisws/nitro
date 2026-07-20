@@ -45,8 +45,10 @@ namespace Color {
   };
 
   enum class ColorElement {
-    ACTIVE,
-    TEXT,
+    INPUT_BORDER,
+    INPUT_PROMPT,
+    INPUT_TEXT,
+    INPUT_CURSOR,
     CHAT_BACKGROUND,
     INPUT_BACKGROUND,
     HEADER_BACKGROUND,
@@ -59,7 +61,7 @@ namespace Color {
 
 // Color theme base class
 class ColorTheme {
-public:
+  public:
   virtual ~ColorTheme() = default;
   virtual Color::RGB get_color(Color::ColorElement element) const = 0;
   virtual Color::RGB get_popup_color() const = 0;
@@ -70,8 +72,10 @@ public:
 // Solarized Dark theme
 namespace Color {
   namespace DarkTheme {
-    constexpr RGB ACTIVE                    = {133, 153,   0};
-    constexpr RGB TEXT                      = {147, 161, 161};
+    constexpr RGB INPUT_BORDER              = {80, 120, 160};
+    constexpr RGB INPUT_PROMPT              = {100, 210, 255};
+    constexpr RGB INPUT_TEXT                = {230, 230, 230};
+    constexpr RGB INPUT_CURSOR              = {180, 230, 255};
     constexpr RGB CHAT_BACKGROUND           = {  0, 29, 38 };
     constexpr RGB INPUT_BACKGROUND          = {  6, 35, 45 };
     constexpr RGB HEADER_BACKGROUND         = {  0, 35, 45 };
@@ -83,10 +87,14 @@ namespace Color {
     struct Impl : ColorTheme {
       Color::RGB get_color(Color::ColorElement element) const override {
         switch (element) {
-          case Color::ColorElement::ACTIVE:
-            return ACTIVE;
-          case Color::ColorElement::TEXT:
-            return TEXT;
+          case Color::ColorElement::INPUT_BORDER:
+            return INPUT_BORDER;
+          case Color::ColorElement::INPUT_TEXT:
+            return INPUT_TEXT;
+          case Color::ColorElement::INPUT_PROMPT:
+            return INPUT_PROMPT;
+          case Color::ColorElement::INPUT_CURSOR:
+            return INPUT_CURSOR;
           case Color::ColorElement::CHAT_BACKGROUND:
             return CHAT_BACKGROUND;
           case Color::ColorElement::INPUT_BACKGROUND:
@@ -102,7 +110,7 @@ namespace Color {
           case Color::ColorElement::POPUP_TEXT:
             return POPUP_TEXT;
           default:
-            return TEXT;
+            return INPUT_PROMPT;
         }
       }
 
@@ -114,8 +122,10 @@ namespace Color {
 
   // Solarized Light theme
   namespace LightTheme {
-    constexpr RGB ACTIVE                    = {194, 178, 128};
-    constexpr RGB TEXT                      = {108, 117, 125};
+    constexpr RGB INPUT_BORDER              = {80, 120, 160};
+    constexpr RGB INPUT_PROMPT              = {100, 210, 255};
+    constexpr RGB INPUT_TEXT                = {230, 230, 230};
+    constexpr RGB INPUT_CURSOR              = {180, 230, 255};
     constexpr RGB CHAT_BACKGROUND           = {253, 246, 227};
     constexpr RGB INPUT_BACKGROUND          = {238, 232, 213};
     constexpr RGB HEADER_BACKGROUND         = {238, 232, 213};
@@ -127,10 +137,14 @@ namespace Color {
     struct Impl : ColorTheme {
       Color::RGB get_color(Color::ColorElement element) const override {
         switch (element) {
-          case Color::ColorElement::ACTIVE:
-            return ACTIVE;
-          case Color::ColorElement::TEXT:
-            return TEXT;
+          case Color::ColorElement::INPUT_BORDER:
+            return INPUT_BORDER;
+          case Color::ColorElement::INPUT_TEXT:
+            return INPUT_TEXT;
+          case Color::ColorElement::INPUT_PROMPT:
+            return INPUT_PROMPT;
+          case Color::ColorElement::INPUT_CURSOR:
+            return INPUT_CURSOR;
           case Color::ColorElement::CHAT_BACKGROUND:
             return CHAT_BACKGROUND;
           case Color::ColorElement::INPUT_BACKGROUND:
@@ -146,7 +160,7 @@ namespace Color {
           case Color::ColorElement::POPUP_TEXT:
             return POPUP_TEXT;
           default:
-            return TEXT;
+            return INPUT_PROMPT;
         }
       }
 
@@ -158,8 +172,10 @@ namespace Color {
 
   // Navy theme - the original Nitro color scheme
   namespace NavyTheme {
-    constexpr RGB ACTIVE                    = {100, 200, 100};
-    constexpr RGB TEXT                      = {210, 210, 210};
+    constexpr RGB INPUT_BORDER              = {80, 120, 160};
+    constexpr RGB INPUT_PROMPT              = {100, 210, 255};
+    constexpr RGB INPUT_TEXT                = {230, 230, 230};
+    constexpr RGB INPUT_CURSOR              = {180, 230, 255};
     constexpr RGB CHAT_BACKGROUND           = {18, 22, 30};
     constexpr RGB INPUT_BACKGROUND          = {22, 28, 38};
     constexpr RGB HEADER_BACKGROUND         = {30, 40, 55};
@@ -171,10 +187,14 @@ namespace Color {
     struct Impl : ColorTheme {
       Color::RGB get_color(Color::ColorElement element) const override {
         switch (element) {
-          case Color::ColorElement::ACTIVE:
-            return ACTIVE;
-          case Color::ColorElement::TEXT:
-            return TEXT;
+          case Color::ColorElement::INPUT_BORDER:
+            return INPUT_BORDER;
+          case Color::ColorElement::INPUT_TEXT:
+            return INPUT_TEXT;
+          case Color::ColorElement::INPUT_PROMPT:
+            return INPUT_PROMPT;
+          case Color::ColorElement::INPUT_CURSOR:
+            return INPUT_CURSOR;
           case Color::ColorElement::CHAT_BACKGROUND:
             return CHAT_BACKGROUND;
           case Color::ColorElement::INPUT_BACKGROUND:
@@ -190,7 +210,7 @@ namespace Color {
           case Color::ColorElement::POPUP_TEXT:
             return POPUP_TEXT;
           default:
-            return TEXT;
+            return INPUT_PROMPT;
         }
       }
 
@@ -205,7 +225,7 @@ namespace Color {
 // Notcurses TUI
 //
 class Tui final: TuiContext {
-public:
+  public:
   Tui();
   virtual ~Tui();
 
@@ -259,10 +279,9 @@ public:
   void history_save(const std::string &path) const { input_.save(path); }
 
   // ── theme management ───────────────────────────────────────────────
-  void set_theme(ThemeMode mode);
-  void toggle_theme();
+  void toggle_theme() override;
 
-private:
+  private:
   // ── notcurses handles ──────────────────────────────────────────────
   struct notcurses *nc_;
   struct ncplane *stdpl_;
@@ -271,7 +290,8 @@ private:
   struct ncplane *inputpl_;
   struct ncplane *modal_plane_;
 
-  // ─── Theme-aware colour helpers ───────────────────────────────────
+  // ── theme management ───────────────────────────────────────────────
+  void set_theme(ThemeMode mode);
   void set_plane_background(struct ncplane *pl, Color::ColorElement elem) const;
   void set_plane_foreground(struct ncplane *pl, Color::ColorElement elem) const;
   uint64_t chat_ch(uint32_t r, uint32_t g, uint32_t b) const;
