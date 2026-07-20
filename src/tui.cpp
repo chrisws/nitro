@@ -19,10 +19,11 @@
 
 #include "tui.h"
 
-// ─── colour helpers ──────────────────────────────────────────────────────
-static constexpr uint32_t BG_CHAT_R = 18,  BG_CHAT_G = 22,  BG_CHAT_B = 30;
-static constexpr uint32_t BG_INP_R  = 22,  BG_INP_G  = 28,  BG_INP_B  = 38;
-static constexpr uint32_t BG_HDR_R  = 30,  BG_HDR_G  = 40,  BG_HDR_B  = 55;
+// ─── Colour helpers ─────────────────────────────────────────────────────
+// Legacy helpers for backward compatibility (will be deprecated)
+static constexpr uint32_t BG_CHAT_R = 18, BG_CHAT_G = 22, BG_CHAT_B = 30;
+static constexpr uint32_t BG_INP_R  = 22, BG_INP_G  = 28, BG_INP_B  = 38;
+static constexpr uint32_t BG_HDR_R  = 30, BG_HDR_G  = 40, BG_HDR_B  = 55;
 
 static inline uint64_t chat_ch(uint32_t r, uint32_t g, uint32_t b) {
   return NCCHANNELS_INITIALIZER(r, g, b, BG_CHAT_R, BG_CHAT_G, BG_CHAT_B);
@@ -54,6 +55,8 @@ Tui::Tui()
     , thinking_(false)
     , spinner_frame_(0) {
   chat_lines_.clear();
+  current_theme_ = ThemeMode::NAVY;  // Default to Navy (original Nitro)
+  theme_ = std::make_unique<Color::NavyTheme::Impl>();
 }
 
 Tui::~Tui() {
@@ -63,9 +66,49 @@ Tui::~Tui() {
   }
 }
 
-//
-// Tui::init
-//
+// ─── Theme management ───────────────────────────────────────────────────
+void Tui::set_theme(ThemeMode mode) {
+  current_theme_ = mode;
+  switch (mode) {
+    case ThemeMode::DARK:
+      theme_ = std::make_unique<Color::DarkTheme::Impl>();
+      break;
+    case ThemeMode::LIGHT:
+      theme_ = std::make_unique<Color::LightTheme::Impl>();
+      break;
+    case ThemeMode::NAVY:
+      theme_ = std::make_unique<Color::NavyTheme::Impl>();
+      break;
+  }
+  redraw_all();
+}
+
+void Tui::toggle_theme() {
+  switch (current_theme_) {
+    case ThemeMode::NAVY:
+      set_theme(ThemeMode::DARK);
+      break;
+    case ThemeMode::DARK:
+      set_theme(ThemeMode::LIGHT);
+      break;
+    case ThemeMode::LIGHT:
+      set_theme(ThemeMode::NAVY);
+      break;
+  }
+}
+
+void Tui::set_plane_channels(struct ncplane *pl, Color::ColorElement elem) const {
+  const auto ch = theme_->get_color(elem);
+  ncplane_set_channels(pl, NCCHANNELS_INITIALIZER(ch.r, ch.g, ch.b, ch.r, ch.g, ch.b));
+}
+
+// Draw a plane border with theme color
+void Tui::draw_plane_border(struct ncplane *pl, Color::ColorElement border_elem) const {
+  const auto ch = theme_->get_color(border_elem);
+  ncplane_set_channels(pl, NCCHANNELS_INITIALIZER(ch.r, ch.g, ch.b, ch.r, ch.g, ch.b));
+}
+
+// ─── Tui::init ──────────────────────────────────────────────────────────
 void Tui::init() {
   notcurses_options opts{};
   opts.flags = NCOPTION_SUPPRESS_BANNERS;
@@ -76,9 +119,9 @@ void Tui::init() {
   }
   stdpl_ = notcurses_stdplane(nc_);
   notcurses_term_dim_yx(nc_, reinterpret_cast<unsigned*>(&term_rows_), reinterpret_cast<unsigned*>(&term_cols_));
-  uint64_t bg = NCCHANNELS_INITIALIZER(BG_CHAT_R, BG_CHAT_G, BG_CHAT_B,
-                                       BG_CHAT_R, BG_CHAT_G, BG_CHAT_B);
-  ncplane_set_base(stdpl_, " ", 0, bg);
+
+  // Apply theme background to stdplane
+  set_plane_channels(stdpl_, Color::ColorElement::CHAT_BACKGROUND);
   ncplane_erase(stdpl_);
   ncplane_options hopt{};
   hopt.y = 0;
@@ -92,16 +135,12 @@ void Tui::init() {
   copt.x = 0;
   copt.rows = static_cast<unsigned>(chat_rows); copt.cols = static_cast<unsigned>(term_cols_);
   chatpl_ = ncplane_create(stdpl_, &copt);
-  ncplane_set_base(chatpl_, " ", 0,
-                   NCCHANNELS_INITIALIZER(BG_CHAT_R, BG_CHAT_G, BG_CHAT_B,
-                                          BG_CHAT_R, BG_CHAT_G, BG_CHAT_B));
+  ncplane_set_base(chatpl_, " ", 0, chat_ch(0, 0, 0));  // Will be set by redraw_chat
   ncplane_options iopt{};
   iopt.y = term_rows_ - 2; iopt.x = 0;
   iopt.rows = 2; iopt.cols = static_cast<unsigned>(term_cols_);
   inputpl_ = ncplane_create(stdpl_, &iopt);
-  ncplane_set_base(inputpl_, " ", 0,
-                   NCCHANNELS_INITIALIZER(BG_INP_R, BG_INP_G, BG_INP_B,
-                                          BG_INP_R, BG_INP_G, BG_INP_B));
+  ncplane_set_base(inputpl_, " ", 0, inp_ch(0, 0, 0));  // Will be set by redraw_input
   notcurses_mice_enable(nc_, NCMICE_BUTTON_EVENT);
   redraw_all();
 }
@@ -120,14 +159,12 @@ void Tui::resize() {
   }
 }
 
-//
-// Tui::redraw
-//
+// ─── Tui::redraw ───────────────────────────────────────────────────────
 void Tui::redraw_header() const {
   ncplane_erase(header_);
-  ncplane_set_base(header_, " ", 0,
-                   NCCHANNELS_INITIALIZER(BG_HDR_R, BG_HDR_G, BG_HDR_B,
-                                          BG_HDR_R, BG_HDR_G, BG_HDR_B));
+  // Apply header background from theme
+  set_plane_channels(header_, Color::ColorElement::HEADER_BACKGROUND);
+
   float kv_pct   = kv_total_   > 0 ? 100.f * static_cast<float>(kv_used_)   / static_cast<float>(kv_total_)   : 0.f;
   float vram_pct = vram_total_  > 0 ? 100.f * static_cast<float>(vram_used_) / static_cast<float>(vram_total_) : 0.f;
 
@@ -139,12 +176,18 @@ void Tui::redraw_header() const {
                         current_model_.c_str(), static_cast<double>(tokens_per_sec_),
                         static_cast<double>(kv_pct), static_cast<double>(vram_pct), spin_str);
   if (n > term_cols_) buf[term_cols_] = '\0';
-  ncplane_set_channels(header_, hdr_ch(130, 220, 200));
+
+  // Apply header text color from theme
+  set_plane_channels(header_, Color::ColorElement::HEADER_TEXT);
   ncplane_putstr_yx(header_, 0, 0, buf);
 }
 
 void Tui::redraw_chat() {
   ncplane_erase(chatpl_);
+
+  // Apply chat background from theme
+  set_plane_channels(chatpl_, Color::ColorElement::CHAT_BACKGROUND);
+
   unsigned rows, cols;
   ncplane_dim_yx(chatpl_, &rows, &cols);
   std::lock_guard<std::mutex> lk(lines_mutex_);
@@ -201,6 +244,9 @@ void Tui::redraw_chat() {
 
 void Tui::redraw_input() const {
   ncplane_erase(inputpl_);
+
+  // Apply input background from theme
+  set_plane_channels(inputpl_, Color::ColorElement::INPUT_BACKGROUND);
 
   if (thinking_) {
     static constexpr const char *BLOCKS[] = { "-", "~", "≈", "~", "-" };
@@ -685,3 +731,4 @@ void Tui::enable_mouse(bool enable) {
     notcurses_mice_disable(nc_);
   }
 }
+
