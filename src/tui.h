@@ -275,6 +275,8 @@ private:
   // ─── Theme-aware colour helpers ───────────────────────────────────
   void set_plane_background(struct ncplane *pl, Color::ColorElement elem) const;
   void set_plane_foreground(struct ncplane *pl, Color::ColorElement elem) const;
+  uint64_t chat_ch(uint32_t r, uint32_t g, uint32_t b) const;
+  uint64_t inp_ch(uint32_t r, uint32_t g, uint32_t b) const;
 
   // ── status bar values ─────────────────────────────────────────────
   std::string current_model_;

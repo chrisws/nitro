@@ -20,24 +20,6 @@
 
 #include "tui.h"
 
-// ─── Colour helpers ─────────────────────────────────────────────────────
-// Legacy helpers for backward compatibility (will be deprecated)
-static constexpr uint32_t BG_CHAT_R = 18, BG_CHAT_G = 22, BG_CHAT_B = 30;
-static constexpr uint32_t BG_INP_R  = 22, BG_INP_G  = 28, BG_INP_B  = 38;
-static constexpr uint32_t BG_HDR_R  = 30, BG_HDR_G  = 40, BG_HDR_B  = 55;
-
-static inline uint64_t chat_ch(uint32_t r, uint32_t g, uint32_t b) {
-  return NCCHANNELS_INITIALIZER(r, g, b, BG_CHAT_R, BG_CHAT_G, BG_CHAT_B);
-}
-
-static inline uint64_t inp_ch(uint32_t r, uint32_t g, uint32_t b) {
-  return NCCHANNELS_INITIALIZER(r, g, b, BG_INP_R, BG_INP_G, BG_INP_B);
-}
-
-static inline uint64_t hdr_ch(uint32_t r, uint32_t g, uint32_t b) {
-  return NCCHANNELS_INITIALIZER(r, g, b, BG_HDR_R, BG_HDR_G, BG_HDR_B);
-}
-
 Tui::Tui()
     : nc_(nullptr)
     , stdpl_(nullptr)
@@ -100,14 +82,25 @@ void Tui::toggle_theme() {
 
 // Apply background color to a plane
 void Tui::set_plane_background(struct ncplane *pl, Color::ColorElement elem) const {
-  const auto ch = theme_->get_color(elem);
-  ncplane_set_channels(pl, NCCHANNELS_INITIALIZER(0, 0, 0, ch.r, ch.g, ch.b));
+  const auto bg = theme_->get_color(elem);
+  uint64_t channels = NCCHANNELS_INITIALIZER(bg.r, bg.g, bg.b, bg.r, bg.g, bg.b);
+  ncplane_set_base(pl, " ", 0, channels);
 }
 
 // Apply foreground (text) color to a plane
 void Tui::set_plane_foreground(struct ncplane *pl, Color::ColorElement elem) const {
   const auto ch = theme_->get_color(elem);
   ncplane_set_channels(pl, NCCHANNELS_INITIALIZER(ch.r, ch.g, ch.b, 0, 0, 0));
+}
+
+uint64_t Tui::chat_ch(uint32_t r, uint32_t g, uint32_t b) const {
+  const auto bg = theme_->get_color(Color::ColorElement::CHAT_BACKGROUND);
+  return NCCHANNELS_INITIALIZER(r, g, b, bg.r, bg.g, bg.b);
+}
+
+uint64_t Tui::inp_ch(uint32_t r, uint32_t g, uint32_t b) const {
+  const auto bg = theme_->get_color(Color::ColorElement::INPUT_BACKGROUND);
+  return NCCHANNELS_INITIALIZER(r, g, b, bg.r, bg.g, bg.b);
 }
 
 // ─── Tui::init ──────────────────────────────────────────────────────────
@@ -270,8 +263,7 @@ void Tui::redraw_input() const {
         idx = std::max(0, std::min(idx, N_BLOCKS - 1));
         // subtle brightness shift — blue-grey, not full glow
         int brightness = 80 + idx * 20;
-        ncplane_set_channels(inputpl_, NCCHANNELS_INITIALIZER(brightness, brightness + 20, brightness + 40,
-                                                             BG_INP_R, BG_INP_G, BG_INP_B));
+        ncplane_set_channels(inputpl_, inp_ch(brightness, brightness + 20, brightness + 40));
         ncplane_putstr_yx(inputpl_, 0, col, BLOCKS[idx]);
       }
     }
@@ -295,14 +287,13 @@ void Tui::redraw_input() const {
     int cur_in_view = std::max(0, static_cast<int>(input_.get_cursor_pos() - view_offset));
     cur_in_view = std::min(cur_in_view, static_cast<int>(visible.size()));
     std::string before = visible.substr(0, cur_in_view);
-    std::string after  = cur_in_view < static_cast<int>(visible.size())
-      ? visible.substr(cur_in_view + 1) : "";
-    char cursor_ch_val = cur_in_view < static_cast<int>(visible.size())
-      ? visible[cur_in_view] : ' ';
+    std::string after  = cur_in_view < static_cast<int>(visible.size()) ? visible.substr(cur_in_view + 1) : "";
+    char cursor_ch_val = cur_in_view < static_cast<int>(visible.size()) ? visible[cur_in_view] : ' ';
     set_plane_foreground(inputpl_, Color::ColorElement::TEXT);
     ncplane_putstr_yx(inputpl_, 1, prompt_cols, before.c_str());
     int cx = prompt_cols + cur_in_view;
-    ncplane_set_channels(inputpl_, NCCHANNELS_INITIALIZER(BG_INP_R, BG_INP_G, BG_INP_B, 180, 230, 255));
+    const auto bg = theme_->get_color(Color::ColorElement::INPUT_BACKGROUND);
+    ncplane_set_channels(inputpl_, NCCHANNELS_INITIALIZER(bg.r, bg.g, bg.b, 180, 230, 255));
     char cbuf[2] = { cursor_ch_val, '\0' };
     ncplane_putstr_yx(inputpl_, 1, cx, cbuf);
     set_plane_foreground(inputpl_, Color::ColorElement::TEXT);
