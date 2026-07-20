@@ -26,6 +26,13 @@ constexpr std::string ICON_THINK = " 🤔 ▏";
 constexpr std::string ICON_TOOL  = " 🔧 ▏";
 constexpr std::string ICON_SYS   = " ✨ ▏";
 
+// Theme enum for switching
+enum class ThemeMode {
+  DARK = 0,
+  LIGHT = 1,
+  NAVY = 2  // Original Nitro color scheme
+};
+
 //
 // Color theme system ───────────────────────────────────────────────────
 // Solarized-inspired palette with Dark and Light themes
@@ -194,13 +201,6 @@ namespace Color {
   }
 }
 
-// Theme enum for switching
-enum class ThemeMode {
-  DARK = 0,
-  LIGHT = 1,
-  NAVY = 2  // Original Nitro color scheme
-};
-
 //
 // Notcurses TUI
 //
@@ -260,7 +260,6 @@ public:
 
   // ── theme management ───────────────────────────────────────────────
   void set_theme(ThemeMode mode);
-  ThemeMode get_current_theme() const { return current_theme_; }
   void toggle_theme();
 
 private:
@@ -277,6 +276,7 @@ private:
   void set_plane_foreground(struct ncplane *pl, Color::ColorElement elem) const;
   uint64_t chat_ch(uint32_t r, uint32_t g, uint32_t b) const;
   uint64_t inp_ch(uint32_t r, uint32_t g, uint32_t b) const;
+  void setup_backgrounds() const;
 
   // ── status bar values ─────────────────────────────────────────────
   std::string current_model_;

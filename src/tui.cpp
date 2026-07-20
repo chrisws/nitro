@@ -38,8 +38,8 @@ Tui::Tui()
     , thinking_(false)
     , spinner_frame_(0) {
   chat_lines_.clear();
-  current_theme_ = ThemeMode::LIGHT;
-  theme_ = std::make_unique<Color::LightTheme::Impl>();
+  current_theme_ = ThemeMode::DARK;
+  theme_ = std::make_unique<Color::DarkTheme::Impl>();
 }
 
 Tui::~Tui() {
@@ -78,6 +78,7 @@ void Tui::toggle_theme() {
       set_theme(ThemeMode::NAVY);
       break;
   }
+  setup_backgrounds();
 }
 
 // Apply background color to a plane
@@ -89,8 +90,9 @@ void Tui::set_plane_background(struct ncplane *pl, Color::ColorElement elem) con
 
 // Apply foreground (text) color to a plane
 void Tui::set_plane_foreground(struct ncplane *pl, Color::ColorElement elem) const {
-  const auto ch = theme_->get_color(elem);
-  ncplane_set_channels(pl, NCCHANNELS_INITIALIZER(ch.r, ch.g, ch.b, 0, 0, 0));
+  const auto fg = theme_->get_color(elem);
+  ncplane_set_fg_rgb8(pl, fg.r, fg.g, fg.b);
+  //ncplane_set_channels(pl, NCCHANNELS_INITIALIZER(ch.r, ch.g, ch.b, 0, 0, 0));
 }
 
 uint64_t Tui::chat_ch(uint32_t r, uint32_t g, uint32_t b) const {
@@ -101,6 +103,13 @@ uint64_t Tui::chat_ch(uint32_t r, uint32_t g, uint32_t b) const {
 uint64_t Tui::inp_ch(uint32_t r, uint32_t g, uint32_t b) const {
   const auto bg = theme_->get_color(Color::ColorElement::INPUT_BACKGROUND);
   return NCCHANNELS_INITIALIZER(r, g, b, bg.r, bg.g, bg.b);
+}
+
+void Tui::setup_backgrounds() const {
+  set_plane_background(stdpl_, Color::ColorElement::CHAT_BACKGROUND);
+  set_plane_background(header_, Color::ColorElement::HEADER_BACKGROUND);
+  set_plane_background(chatpl_, Color::ColorElement::CHAT_BACKGROUND);
+  set_plane_background(inputpl_, Color::ColorElement::INPUT_BACKGROUND);
 }
 
 // ─── Tui::init ──────────────────────────────────────────────────────────
@@ -115,8 +124,6 @@ void Tui::init() {
   stdpl_ = notcurses_stdplane(nc_);
   notcurses_term_dim_yx(nc_, reinterpret_cast<unsigned*>(&term_rows_), reinterpret_cast<unsigned*>(&term_cols_));
 
-  // Apply theme background to stdplane
-  set_plane_background(stdpl_, Color::ColorElement::CHAT_BACKGROUND);
   ncplane_erase(stdpl_);
   ncplane_options hopt{};
   hopt.y = 0;
@@ -137,6 +144,7 @@ void Tui::init() {
   inputpl_ = ncplane_create(stdpl_, &iopt);
   ncplane_set_base(inputpl_, " ", 0, 0);  // Will be set by redraw_input
   notcurses_mice_enable(nc_, NCMICE_BUTTON_EVENT);
+  setup_backgrounds();
   redraw_all();
 }
 
@@ -157,8 +165,6 @@ void Tui::resize() {
 // ─── Tui::redraw ───────────────────────────────────────────────────────
 void Tui::redraw_header() const {
   ncplane_erase(header_);
-  // Apply header background from theme
-  set_plane_background(header_, Color::ColorElement::HEADER_BACKGROUND);
 
   float kv_pct   = kv_total_   > 0 ? 100.f * static_cast<float>(kv_used_)   / static_cast<float>(kv_total_)   : 0.f;
   float vram_pct = vram_total_  > 0 ? 100.f * static_cast<float>(vram_used_) / static_cast<float>(vram_total_) : 0.f;
@@ -179,9 +185,6 @@ void Tui::redraw_header() const {
 
 void Tui::redraw_chat() {
   ncplane_erase(chatpl_);
-
-  // Apply chat background from theme
-  set_plane_background(chatpl_, Color::ColorElement::CHAT_BACKGROUND);
 
   unsigned rows, cols;
   ncplane_dim_yx(chatpl_, &rows, &cols);
@@ -240,9 +243,6 @@ void Tui::redraw_chat() {
 void Tui::redraw_input() const {
   ncplane_erase(inputpl_);
 
-  // Apply input background from theme
-  set_plane_background(inputpl_, Color::ColorElement::INPUT_BACKGROUND);
-
   if (thinking_) {
     static constexpr const char *BLOCKS[] = { "-", "~", "≈", "~", "-" };
     static constexpr int    N_BLOCKS = 5;
@@ -252,7 +252,7 @@ void Tui::redraw_input() const {
 
     if (spinner_frame_ < DELAY) {
       // still just a plain separator during the pause
-      set_plane_foreground(inputpl_, Color::ColorElement::TEXT);
+      ncplane_set_channels(inputpl_, inp_ch(80, 120, 160));
       std::string sep(term_cols_, '-');
       ncplane_putstr_yx(inputpl_, 0, 0, sep.c_str());
     } else {
@@ -267,15 +267,15 @@ void Tui::redraw_input() const {
         ncplane_putstr_yx(inputpl_, 0, col, BLOCKS[idx]);
       }
     }
-    set_plane_foreground(inputpl_, Color::ColorElement::TEXT);
+    ncplane_set_channels(inputpl_, inp_ch(140, 140, 180));
     ncplane_putstr_yx(inputpl_, 1, 2, "thinking…");
   } else {
-    set_plane_foreground(inputpl_, Color::ColorElement::TEXT);
+    ncplane_set_channels(inputpl_, inp_ch(80, 120, 160));
     std::string sep(term_cols_, '-');
     ncplane_putstr_yx(inputpl_, 0, 0, sep.c_str());
     const std::string prompt = " ❯ ";
     const int prompt_cols = 4;
-    set_plane_foreground(inputpl_, Color::ColorElement::ACTIVE);
+    ncplane_set_channels(inputpl_, inp_ch(100, 210, 255));
     ncplane_putstr_yx(inputpl_, 1, 0, prompt.c_str());
     int max_w = std::max(0, term_cols_ - prompt_cols - 1);
     std::string visible = input_.get_input_buf();
@@ -289,14 +289,14 @@ void Tui::redraw_input() const {
     std::string before = visible.substr(0, cur_in_view);
     std::string after  = cur_in_view < static_cast<int>(visible.size()) ? visible.substr(cur_in_view + 1) : "";
     char cursor_ch_val = cur_in_view < static_cast<int>(visible.size()) ? visible[cur_in_view] : ' ';
-    set_plane_foreground(inputpl_, Color::ColorElement::TEXT);
+    ncplane_set_channels(inputpl_, inp_ch(230, 230, 230));
     ncplane_putstr_yx(inputpl_, 1, prompt_cols, before.c_str());
     int cx = prompt_cols + cur_in_view;
     const auto bg = theme_->get_color(Color::ColorElement::INPUT_BACKGROUND);
     ncplane_set_channels(inputpl_, NCCHANNELS_INITIALIZER(bg.r, bg.g, bg.b, 180, 230, 255));
     char cbuf[2] = { cursor_ch_val, '\0' };
     ncplane_putstr_yx(inputpl_, 1, cx, cbuf);
-    set_plane_foreground(inputpl_, Color::ColorElement::TEXT);
+    ncplane_set_channels(inputpl_, inp_ch(230, 230, 230));
     if (!after.empty()) {
       ncplane_putstr_yx(inputpl_, 1, cx + 1, after.c_str());
     }
@@ -447,6 +447,7 @@ void Tui::show_help() {
   append_line(ICON_SYS + "  /memory                  KV / VRAM / layer stats");
   append_line(ICON_SYS + "  /clear                   reset conversation");
   append_line(ICON_SYS + "  /settings                show current settings");
+  append_line(ICON_SYS + "  /theme                   toggle the theme");
   append_line(ICON_SYS + "  /set    <key> <value>    change a setting live");
   append_line(ICON_SYS + "  /help                    this message");
   append_line(ICON_SYS + "  exit / quit              exit Nitro");

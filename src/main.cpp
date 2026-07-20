@@ -146,6 +146,11 @@ static void handle_slash(const std::string &input,
     return;
   }
 
+  if (verb == "/theme") {
+    tui.toggle_theme();
+    return;
+  }
+
   if (verb == "/settings") {
     tui.append_line(ICON_SYS + "Current settings:");
     tui.append_line(ICON_SYS + "  model_path    : " + cfg.model_path);
