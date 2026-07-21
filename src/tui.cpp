@@ -311,9 +311,12 @@ void Tui::redraw_input() const {
     char cbuf[2] = { cursor_ch_val, '\0' };
     ncplane_putstr_yx(inputpl_, 1, cx, cbuf);
 
+    // reset colors
+    set_plane_bg(inputpl_, Color::ColorElement::INPUT_BACKGROUND);
+    set_plane_fg(inputpl_, Color::ColorElement::INPUT_TEXT);
+
     // draw any text following the cursor
     if (!after.empty()) {
-      set_plane_fg(inputpl_, Color::ColorElement::INPUT_TEXT);
       ncplane_putstr_yx(inputpl_, 1, cx + 1, after.c_str());
     }
   }

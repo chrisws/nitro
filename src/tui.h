@@ -124,7 +124,7 @@ namespace Color {
   namespace LightTheme {
     constexpr RGB INPUT_BORDER              = {80, 120, 160};
     constexpr RGB INPUT_PROMPT              = {100, 210, 255};
-    constexpr RGB INPUT_TEXT                = {230, 230, 230};
+    constexpr RGB INPUT_TEXT                = {108, 117, 125};
     constexpr RGB INPUT_CURSOR              = {180, 230, 255};
     constexpr RGB CHAT_BACKGROUND           = {253, 246, 227};
     constexpr RGB INPUT_BACKGROUND          = {238, 232, 213};
@@ -330,6 +330,7 @@ class Tui final: TuiContext {
   ThemeMode current_theme_;
   std::unique_ptr<ColorTheme> theme_;
 };
+
 
 
 
