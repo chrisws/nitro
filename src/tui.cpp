@@ -27,6 +27,7 @@ Tui::Tui()
     , chatpl_(nullptr)
     , inputpl_(nullptr)
     , modal_plane_(nullptr)
+    , current_model_("none")
     , tokens_per_sec_(0.0f)
     , kv_used_(0)
     , kv_total_(1)
@@ -63,6 +64,7 @@ void Tui::set_theme(ThemeMode mode) {
       theme_ = std::make_unique<Color::NavyTheme::Impl>();
       break;
   }
+  setup_backgrounds();
   redraw_all();
 }
 
@@ -78,7 +80,6 @@ void Tui::toggle_theme() {
       set_theme(ThemeMode::NAVY);
       break;
   }
-  setup_backgrounds();
 }
 
 // Apply background color to a plane
@@ -290,13 +291,17 @@ void Tui::redraw_input() const {
     char cursor_ch_val = cur_in_view < static_cast<int>(visible.size()) ? visible[cur_in_view] : ' ';
     set_plane_foreground(inputpl_, Color::ColorElement::INPUT_TEXT);
     ncplane_putstr_yx(inputpl_, 1, prompt_cols, before.c_str());
+
     int cx = prompt_cols + cur_in_view;
     const auto bg = theme_->get_color(Color::ColorElement::INPUT_BACKGROUND);
-    ncplane_set_channels(inputpl_, NCCHANNELS_INITIALIZER(bg.r, bg.g, bg.b, 180, 230, 255));
+    const auto fg = theme_->get_color(Color::ColorElement::INPUT_CURSOR);
+    ncplane_set_channels(inputpl_, NCCHANNELS_INITIALIZER(bg.r, bg.g, bg.b, fg.r, fg.g, fg.b));
     char cbuf[2] = { cursor_ch_val, '\0' };
     ncplane_putstr_yx(inputpl_, 1, cx, cbuf);
-    ncplane_set_channels(inputpl_, inp_ch(230, 230, 230));
+
+    ncplane_set_channels(inputpl_, inp_ch(bg.r, bg.g, bg.b));
     if (!after.empty()) {
+      set_plane_foreground(inputpl_, Color::ColorElement::INPUT_TEXT);
       ncplane_putstr_yx(inputpl_, 1, cx + 1, after.c_str());
     }
   }
