@@ -82,17 +82,16 @@ void Tui::toggle_theme() {
   }
 }
 
-// Apply background color to a plane
-void Tui::set_plane_background(struct ncplane *pl, Color::ColorElement elem) const {
-  const auto bg = theme_->get_color(elem);
-  uint64_t channels = NCCHANNELS_INITIALIZER(bg.r, bg.g, bg.b, bg.r, bg.g, bg.b);
-  ncplane_set_base(pl, " ", 0, channels);
-}
-
 // Apply foreground (text) color to a plane
-void Tui::set_plane_foreground(struct ncplane *pl, Color::ColorElement elem) const {
+void Tui::set_plane_fg(struct ncplane *pl, Color::ColorElement elem) const {
   const auto fg = theme_->get_color(elem);
   ncplane_set_fg_rgb8(pl, fg.r, fg.g, fg.b);
+}
+
+// Apply background (text) color to a plane
+void Tui::set_plane_bg(struct ncplane *pl, Color::ColorElement elem) const {
+  const auto bg = theme_->get_color(elem);
+  ncplane_set_bg_rgb8(pl, bg.r, bg.g, bg.b);
 }
 
 uint64_t Tui::chat_ch(uint32_t r, uint32_t g, uint32_t b) const {
@@ -105,11 +104,18 @@ uint64_t Tui::inp_ch(uint32_t r, uint32_t g, uint32_t b) const {
   return NCCHANNELS_INITIALIZER(r, g, b, bg.r, bg.g, bg.b);
 }
 
+// Apply background color to a plane
+void Tui::set_plane_base(struct ncplane *pl, Color::ColorElement elem) const {
+  const auto bg = theme_->get_color(elem);
+  uint64_t channels = NCCHANNELS_INITIALIZER(bg.r, bg.g, bg.b, bg.r, bg.g, bg.b);
+  ncplane_set_base(pl, " ", 0, channels);
+}
+
 void Tui::setup_backgrounds() const {
-  set_plane_background(stdpl_, Color::ColorElement::CHAT_BACKGROUND);
-  set_plane_background(header_, Color::ColorElement::HEADER_BACKGROUND);
-  set_plane_background(chatpl_, Color::ColorElement::CHAT_BACKGROUND);
-  set_plane_background(inputpl_, Color::ColorElement::INPUT_BACKGROUND);
+  set_plane_base(stdpl_, Color::ColorElement::CHAT_BACKGROUND);
+  set_plane_base(header_, Color::ColorElement::HEADER_BACKGROUND);
+  set_plane_base(chatpl_, Color::ColorElement::CHAT_BACKGROUND);
+  set_plane_base(inputpl_, Color::ColorElement::INPUT_BACKGROUND);
 }
 
 // ─── Tui::init ──────────────────────────────────────────────────────────
@@ -179,7 +185,7 @@ void Tui::redraw_header() const {
   if (n > term_cols_) buf[term_cols_] = '\0';
 
   // Apply header text color from theme
-  set_plane_foreground(header_, Color::ColorElement::HEADER_TEXT);
+  set_plane_fg(header_, Color::ColorElement::HEADER_TEXT);
   ncplane_putstr_yx(header_, 0, 0, buf);
 }
 
@@ -242,6 +248,7 @@ void Tui::redraw_chat() {
 
 void Tui::redraw_input() const {
   ncplane_erase(inputpl_);
+  set_plane_bg(inputpl_, Color::ColorElement::INPUT_BACKGROUND);
 
   if (thinking_) {
     static constexpr const char *BLOCKS[] = { "-", "~", "≈", "~", "-" };
@@ -270,13 +277,18 @@ void Tui::redraw_input() const {
     ncplane_set_channels(inputpl_, inp_ch(140, 140, 180));
     ncplane_putstr_yx(inputpl_, 1, 2, "thinking…");
   } else {
-    set_plane_foreground(inputpl_, Color::ColorElement::INPUT_BORDER);
+    // draw the border
+    set_plane_fg(inputpl_, Color::ColorElement::INPUT_BORDER);
     std::string sep(term_cols_, '-');
     ncplane_putstr_yx(inputpl_, 0, 0, sep.c_str());
+
+    // draw the prompt character
     const std::string prompt = " ❯ ";
     const int prompt_cols = 4;
-    set_plane_foreground(inputpl_, Color::ColorElement::INPUT_PROMPT);
+    set_plane_fg(inputpl_, Color::ColorElement::INPUT_PROMPT);
     ncplane_putstr_yx(inputpl_, 1, 0, prompt.c_str());
+
+    // draw the input text before the cursor
     int max_w = std::max(0, term_cols_ - prompt_cols - 1);
     std::string visible = input_.get_input_buf();
     int view_offset = 0;
@@ -289,19 +301,19 @@ void Tui::redraw_input() const {
     std::string before = visible.substr(0, cur_in_view);
     std::string after  = cur_in_view < static_cast<int>(visible.size()) ? visible.substr(cur_in_view + 1) : "";
     char cursor_ch_val = cur_in_view < static_cast<int>(visible.size()) ? visible[cur_in_view] : ' ';
-    set_plane_foreground(inputpl_, Color::ColorElement::INPUT_TEXT);
+    set_plane_fg(inputpl_, Color::ColorElement::INPUT_TEXT);
     ncplane_putstr_yx(inputpl_, 1, prompt_cols, before.c_str());
 
+    // draw the cursor
     int cx = prompt_cols + cur_in_view;
-    const auto bg = theme_->get_color(Color::ColorElement::INPUT_BACKGROUND);
-    const auto fg = theme_->get_color(Color::ColorElement::INPUT_CURSOR);
-    ncplane_set_channels(inputpl_, NCCHANNELS_INITIALIZER(bg.r, bg.g, bg.b, fg.r, fg.g, fg.b));
+    set_plane_fg(inputpl_, Color::ColorElement::INPUT_BACKGROUND);
+    set_plane_bg(inputpl_, Color::ColorElement::INPUT_CURSOR);
     char cbuf[2] = { cursor_ch_val, '\0' };
     ncplane_putstr_yx(inputpl_, 1, cx, cbuf);
 
-    ncplane_set_channels(inputpl_, inp_ch(bg.r, bg.g, bg.b));
+    // draw any text following the cursor
     if (!after.empty()) {
-      set_plane_foreground(inputpl_, Color::ColorElement::INPUT_TEXT);
+      set_plane_fg(inputpl_, Color::ColorElement::INPUT_TEXT);
       ncplane_putstr_yx(inputpl_, 1, cx + 1, after.c_str());
     }
   }

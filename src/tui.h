@@ -292,8 +292,9 @@ class Tui final: TuiContext {
 
   // ── theme management ───────────────────────────────────────────────
   void set_theme(ThemeMode mode);
-  void set_plane_background(struct ncplane *pl, Color::ColorElement elem) const;
-  void set_plane_foreground(struct ncplane *pl, Color::ColorElement elem) const;
+  void set_plane_base(struct ncplane *pl, Color::ColorElement elem) const;
+  void set_plane_fg(struct ncplane *pl, Color::ColorElement elem) const;
+  void set_plane_bg(struct ncplane *pl, Color::ColorElement elem) const;
   uint64_t chat_ch(uint32_t r, uint32_t g, uint32_t b) const;
   uint64_t inp_ch(uint32_t r, uint32_t g, uint32_t b) const;
   void setup_backgrounds() const;
