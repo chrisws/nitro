@@ -165,6 +165,31 @@ if(NOT CURL_FOUND_INTERNAL)
                    "Install libcurl-dev or set -DCURL_DIR=<prefix> to enable.")
 endif()
 
+# ── yyjson (MCP dependency) ───────────────────────────────────────────────
+set(JSON_FOUND FALSE)
+set(JSON_TARGET "")
+if(DEFINED JSON_DIR)
+  find_path(JSON_INCLUDE yyjson.h HINTS "${JSON_DIR}/src" REQUIRED)
+  if(JSON_INCLUDE)
+    set(JSON_TARGET json_imported)
+    set(JSON_FOUND TRUE)
+    set(JSON_INCLUDE_DIR "${JSON_INCLUDE}")
+  endif()
+else()
+  find_path(JSON_INCLUDE yyjson.h PATHS ${CMAKE_CURRENT_SOURCE_DIR}/yyjson/src)
+  if(JSON_INCLUDE)
+    add_library(json_imported INTERFACE IMPORTED)
+    target_include_directories(json_imported INTERFACE "${JSON_INCLUDE}")
+    set(JSON_TARGET json_imported)
+    set(JSON_FOUND TRUE)
+    set(JSON_INCLUDE_DIR "${JSON_INCLUDE}")
+  endif()
+endif()
+
+if(NOT JSON_FOUND)
+  message(FATAL_ERROR "yyjson.h not found. Install it or place it in yyjson/src/")
+endif()
+
 # -----------------------------
 # nitro executable
 # -----------------------------
@@ -178,6 +203,8 @@ add_executable(nitro
   src/curl.cpp
   src/logging.cpp
   src/main.cpp
+  src/mcp-client.cpp
+  yyjson/src/yyjson.c
 )
 
 target_include_directories(nitro PRIVATE
@@ -185,6 +212,7 @@ target_include_directories(nitro PRIVATE
   ${LLAMA_DIR}/ggml/include
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${CMAKE_CURRENT_SOURCE_DIR}/src
+  ${JSON_INCLUDE}
 )
 
 target_link_libraries(nitro PRIVATE
