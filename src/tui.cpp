@@ -1,4 +1,3 @@
-
 // This file is part of Nitro
 //
 // Copyright(C) 2026 Chris Warren-Smith.
