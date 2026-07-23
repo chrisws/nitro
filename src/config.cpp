@@ -37,89 +37,30 @@ void NitroConfig::load_settings() {
   std::ostringstream oss; oss << f.rdbuf();
   std::string json = oss.str();
 
-  thinking = true;
-
   // Parse JSON using json::JsonMutDoc
   auto doc = json::parse(json);
   if (!doc.valid()) {
     return;
   }
 
-  auto root = doc.get_root();
-  if (!root || !json::is_object(*root)) {
-    return;
-  }
-
-  // String fields
-  if (json::has_key(*root, "model_path")) {
-    std::string val;
-    json::get_string(*root, "model_path", val);
-    model_path = val;
-  }
-  if (json::has_key(*root, "embed_path")) {
-    std::string val;
-    json::get_string(*root, "embed_path", val);
-    embed_path = val;
-  }
-  if (json::has_key(*root, "sandbox")) {
-    std::string val;
-    json::get_string(*root, "sandbox", val);
-    sandbox = val;
-  }
+  // String fields - pass member refs directly, no temp vars
+  json::get_string(doc, "model_path", model_path);
+  json::get_string(doc, "embed_path", embed_path);
+  json::get_string(doc, "sandbox", sandbox);
 
   // Integer fields
-  if (json::has_key(*root, "n_ctx")) {
-    int val;
-    json::get_int(*root, "n_ctx", val);
-    n_ctx = val;
-  }
-  if (json::has_key(*root, "n_batch")) {
-    int val;
-    json::get_int(*root, "n_batch", val);
-    n_batch = val;
-  }
-  if (json::has_key(*root, "n_gpu_layers")) {
-    int val;
-    json::get_int(*root, "n_gpu_layers", val);
-    n_gpu_layers = val;
-  }
-  if (json::has_key(*root, "top_k")) {
-    int val;
-    json::get_int(*root, "top_k", val);
-    top_k = val;
-  }
-  if (json::has_key(*root, "penalty_last_n")) {
-    int val;
-    json::get_int(*root, "penalty_last_n", val);
-    penalty_last_n = val;
-  }
-  if (json::has_key(*root, "rag_top_k")) {
-    int val;
-    json::get_int(*root, "rag_top_k", val);
-    rag_top_k = val;
-  }
+  json::get_int(doc, "n_ctx", n_ctx);
+  json::get_int(doc, "n_batch", n_batch);
+  json::get_int(doc, "n_gpu_layers", n_gpu_layers);
+  json::get_int(doc, "top_k", top_k);
+  json::get_int(doc, "penalty_last_n", penalty_last_n);
+  json::get_int(doc, "rag_top_k", rag_top_k);
 
   // Float fields
-  if (json::has_key(*root, "temperature")) {
-    float val;
-    json::get_float(*root, "temperature", val);
-    temperature = val;
-  }
-  if (json::has_key(*root, "top_p")) {
-    float val;
-    json::get_float(*root, "top_p", val);
-    top_p = val;
-  }
-  if (json::has_key(*root, "min_p")) {
-    float val;
-    json::get_float(*root, "min_p", val);
-    min_p = val;
-  }
-  if (json::has_key(*root, "penalty_repeat")) {
-    float val;
-    json::get_float(*root, "penalty_repeat", val);
-    penalty_repeat = val;
-  }
+  json::get_float(doc, "temperature", temperature);
+  json::get_float(doc, "top_p", top_p);
+  json::get_float(doc, "min_p", min_p);
+  json::get_float(doc, "penalty_repeat", penalty_repeat);
 }
 
 // Persist the current cfg to ~/.config/nitro/settings.json.
@@ -138,6 +79,7 @@ bool NitroConfig::save_settings() const {
 
   return f.good();
 }
+
 //
 // System prompt
 //
@@ -291,3 +233,4 @@ std::string NitroConfig::introspect() const {
                      penalty_last_n,
                      rag_top_k);
 }
+
