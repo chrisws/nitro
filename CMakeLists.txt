@@ -194,17 +194,18 @@ endif()
 # nitro executable
 # -----------------------------
 add_executable(nitro
+  yyjson/src/yyjson.c
+  src/config.cpp
+  src/mcp-client.cpp
+  src/json.cpp
   src/input.cpp
   src/llama-sb-rag.cpp
   src/llama-sb.cpp
   src/agent_state.cpp
   src/tui.cpp
-  src/config.cpp
   src/curl.cpp
   src/logging.cpp
   src/main.cpp
-  src/mcp-client.cpp
-  yyjson/src/yyjson.c
 )
 
 target_include_directories(nitro PRIVATE

@@ -49,34 +49,36 @@ static std::string load_mcp_settings() {
 
     auto root = mut_doc.get_root();
 
-    // Use raw yyjson_mut functions for mutable values
-    if (root && yyjson_mut_is_obj(root)) {
-      auto server = yyjson_mut_obj_get(root, "server");
-      if (server && yyjson_mut_is_obj(server)) {
-        auto host = yyjson_mut_obj_get(server, "host");
-        auto port = yyjson_mut_obj_get(server, "port");
-        if (host && yyjson_mut_is_str(host) && port && yyjson_mut_is_num(port)) {
-          std::string host_str = yyjson_mut_get_str(host);
-          int port_num = yyjson_mut_get_num(port);
-          return host_str + ":" + std::to_string(port_num);
+    // Use new combined wrapper methods
+    if (root && json::has_obj_mut(mut_doc, "server")) {
+      yyjson_mut_val *server;
+      json::get_obj_mut(mut_doc, "server", &server);
+      if (server) {
+        std::string host;
+        int port;
+        if (json::get_str_mut(mut_doc, "server.host", host) &&
+            json::get_int_mut(mut_doc, "server.port", port)) {
+          return host + ":" + std::to_string(port);
         }
       }
     }
 
     // Alternative: top-level host/port
-    if (root && yyjson_mut_is_obj(root)) {
-      auto host = yyjson_mut_obj_get(root, "host");
-      auto port = yyjson_mut_obj_get(root, "port");
-      if (host && yyjson_mut_is_str(host) && port && yyjson_mut_is_num(port)) {
-        std::string host_str = yyjson_mut_get_str(host);
-        int port_num = yyjson_mut_get_num(port);
-        return host_str + ":" + std::to_string(port_num);
+    if (root && json::has_str_mut(mut_doc, "host") &&
+        json::has_str_mut(mut_doc, "port")) {
+      std::string host;
+      std::string port;
+      if (json::get_str_mut(mut_doc, "host", host) &&
+          json::get_str_mut(mut_doc, "port", port)) {
+        return host + ":" + port;
       }
     }
 
     // Alternative: base_url as string
-    if (root && yyjson_mut_is_str(root)) {
-      return yyjson_mut_get_str(root);
+    if (json::has_str_mut(mut_doc, "base_url")) {
+      std::string base_url;
+      json::get_str_mut(mut_doc, "base_url", base_url);
+      return base_url;
     }
 
   } catch (...) {
@@ -197,33 +199,38 @@ std::vector<McpTool> McpClient::list_tools() {
 
   auto resp_root = resp_doc.get_root();
 
-  if (resp_root && yyjson_is_obj(resp_root) && yyjson_obj_get(resp_root, "result")) {
-    auto result = yyjson_obj_get(resp_root, "result");
-    if (result && yyjson_is_obj(result)) {
-      auto tools_arr = yyjson_obj_get(result, "tools");
-      if (tools_arr && yyjson_is_arr(tools_arr)) {
-        for (size_t i = 0; i < yyjson_arr_size(result); i++) {
-          auto tool = yyjson_arr_get(tools_arr, i);
+  if (resp_root && json::is_object(resp_doc) && json::has_string_key(resp_doc, "result")) {
+    // Use new combined wrapper for mutable extraction
+    auto mut_doc = json::JsonMutDoc::parse(request);
+    yyjson_mut_val *result;
+    json::get_obj_mut(mut_doc, "result", &result);
+    if (result && json::has_obj_mut(mut_doc, "result")) {
+      // Get tools array - use get_value to get the raw pointer
+      yyjson_val *tools_val = json::get_value(resp_doc, "result");
+      if (tools_val && yyjson_is_arr(tools_val)) {
+        for (size_t i = 0; i < yyjson_arr_size(tools_val); i++) {
+          yyjson_val *tool = yyjson_arr_get(tools_val, i);
           McpTool mcp_tool;
 
-          if (tool) {
-            if (yyjson_is_str(tool)) {
-              mcp_tool.name = yyjson_get_str(tool);
-            } else if (yyjson_is_obj(tool)) {
-              mcp_tool.name = yyjson_get_str(tool);
-              mcp_tool.description = yyjson_get_str(tool);
+          if (tool && yyjson_is_obj(tool)) {
+            // Extract name
+            yyjson_val *name_val = yyjson_obj_get(tool, "name");
+            if (name_val && yyjson_is_str(name_val)) {
+              mcp_tool.name = yyjson_get_str(name_val);
+            }
 
-              // Extract param names by iterating over object keys
-              std::vector<std::string> keys;
-              yyjson_val *key_ptr;
-              yyjson_obj_iter iter;
-              yyjson_obj_iter_init(tool, &iter);
-              for (key_ptr = yyjson_obj_iter_next(&iter); key_ptr != nullptr; key_ptr = yyjson_obj_iter_next(&iter)) {
-                keys.push_back(yyjson_get_str(key_ptr));
-              }
-              for (const auto& key : keys) {
-                mcp_tool.params.push_back(key);
-              }
+            // Extract description
+            yyjson_val *desc_val = yyjson_obj_get(tool, "description");
+            if (desc_val && yyjson_is_str(desc_val)) {
+              mcp_tool.description = yyjson_get_str(desc_val);
+            }
+
+            // Extract param names by iterating over object keys
+            yyjson_val *key_ptr;
+            yyjson_obj_iter iter;
+            yyjson_obj_iter_init(tool, &iter);
+            for (key_ptr = yyjson_obj_iter_next(&iter); key_ptr != nullptr; key_ptr = yyjson_obj_iter_next(&iter)) {
+              mcp_tool.params.push_back(yyjson_get_str(key_ptr));
             }
           }
 
@@ -237,9 +244,8 @@ std::vector<McpTool> McpClient::list_tools() {
   return tools;
 }
 
-std::string McpClient::make_request(const std::string& method, const std::string& params_str) {
+std::string McpClient::make_request(const std::string &method, const std::string &params_str) {
   std::string request_body = params_str;
-
   std::string url = _base_url;
   std::string session_header = "";
 
@@ -262,14 +268,12 @@ std::string McpClient::make_request(const std::string& method, const std::string
   return oss.str();
 }
 
-std::string McpClient::parse_response(const std::string& response) {
+std::string McpClient::parse_response(const std::string &response) {
   // For MCP, responses can be JSON or SSE
   // Try to parse as JSON first
   auto doc = json::parse(response);
-  if (doc.valid() && yyjson_is_obj(doc.get_root())) {
-    if (yyjson_obj_get(doc.get_root(), "result")) {
-      return response;
-    }
+  if (doc.valid() && json::is_object(doc) && json::has_string_key(doc, "result")) {
+    return response;
   }
 
   // Try SSE format
@@ -288,7 +292,7 @@ std::string McpClient::parse_response(const std::string& response) {
   return response;
 }
 
-std::string McpClient::extract_text_content(const std::string& response) {
+std::string McpClient::extract_text_content(const std::string &response) {
   auto doc = json::parse(response);
   if (!doc.valid()) {
     return "";
@@ -296,23 +300,31 @@ std::string McpClient::extract_text_content(const std::string& response) {
 
   auto root = doc.get_root();
 
-  if (root && yyjson_is_obj(root)) {
-    auto content = yyjson_obj_get(root, "content");
+  if (root && json::is_object(doc)) {
+    // Use new combined wrapper for mutable extraction
+    auto mut_doc = json::JsonMutDoc::parse(response);
+    yyjson_mut_val *content;
+    json::get_obj_mut(mut_doc, "content", &content);
     if (content) {
-      if (yyjson_is_arr(content)) {
-        for (size_t i = 0; i < yyjson_arr_size(root); i++) {
-          auto item = yyjson_arr_get(yyjson_obj_get(root, "content"), i);
-          if (item && yyjson_is_obj(item)) {
+      // Check if content is an array using the raw pointer
+      if (yyjson_mut_is_arr(content)) {
+        for (size_t i = 0; i < yyjson_mut_arr_size(content); i++) {
+          yyjson_mut_val *item = yyjson_mut_arr_get(content, i);
+          if (item && json::is_object_mut(mut_doc)) {
             // Use yyjson_ptr_get_str for mutable API or yyjson_get_str for immutable
-            auto type = yyjson_get_str(yyjson_obj_get(item, "type"));
-            if (type == "text") {
-              auto text = yyjson_get_str(item);
-              return text;
+            yyjson_val *type_val = yyjson_obj_get(item, "type");
+            yyjson_val *text_val = yyjson_obj_get(item, "text");
+            if (type_val && yyjson_is_str(type_val) &&
+                yyjson_get_str(type_val) == "text" &&
+                text_val && yyjson_is_str(text_val)) {
+              return yyjson_get_str(text_val);
             }
           }
         }
-      } else if (yyjson_is_str(content)) {
-        return yyjson_get_str(content);
+      } else if (json::has_str_mut(mut_doc, "content")) {
+        std::string text;
+        json::get_str_mut(mut_doc, "content", text);
+        return text;
       }
     }
   }
@@ -334,7 +346,7 @@ void McpClient::disconnect() {
   _tools_json.clear();
 }
 
-McpResult McpClient::call_tool(const std::string& name, const std::string& args_str) {
+McpResult McpClient::call_tool(const std::string &name, const std::string &args_str) {
   McpResult result;
   result.success = true;
   result.isError = "";
@@ -392,13 +404,16 @@ McpResult McpClient::call_tool(const std::string& name, const std::string& args_
 
   auto resp_root = resp_doc.get_root();
 
-  if (resp_root && yyjson_is_obj(resp_root)) {
-    auto result_val = yyjson_obj_get(resp_root, "result");
-    if (result_val && yyjson_is_obj(result_val)) {
+  if (resp_root && json::is_object(resp_doc)) {
+    // Use new combined wrapper for mutable extraction
+    auto mut_doc = json::JsonMutDoc::parse(response);
+    yyjson_mut_val *result_val;
+    json::get_obj_mut(mut_doc, "result", &result_val);
+    if (result_val && json::has_obj_mut(mut_doc, "result")) {
       result.content = extract_text_content(response);
     } else {
       result.isError = "MCP server returned error";
-      if (yyjson_obj_get(resp_root, "error")) {
+      if (json::has_string_key(resp_doc, "error")) {
         result.content = response;
       }
       result.success = false;
@@ -413,10 +428,11 @@ McpResult McpClient::call_tool(const std::string& name, const std::string& args_
 }
 
 // Helper function to parse URL host
-std::string McpClient::parse_url_host(const std::string& url) {
+std::string McpClient::parse_url_host(const std::string &url) {
   size_t colon_pos = url.find(':');
   if (colon_pos != std::string::npos) {
     return url.substr(0, colon_pos);
   }
   return url;
 }
+

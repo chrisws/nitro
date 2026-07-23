@@ -1,28 +1,23 @@
-// This file is part of Nitro
-//
-// Copyright(C) 2026 Chris Warren-Smith.
-//
-// This program is distributed under the terms of the GPL v2.0
-// Download the GNU Public License (GPL) from www.gnu.org
-//
-
 #pragma once
+
+// Forward declare yyjson types before they're used
+namespace yyjson {
+  typedef void* yyjson_val;
+  typedef void* yyjson_mut_val;
+  typedef void* yyjson_doc;
+  typedef void* yyjson_mut_doc;
+}
 
 #include <string>
 #include <vector>
 #include <map>
 #include <functional>
-#include <yyjson.h>
+#include "yyjson.h"
 
 // JSON dependency inversion layer header
 // Provides a C++ wrapper around yyjson for JSON parsing and manipulation
 
 namespace json {
-
-// Forward declarations for type aliases
-using JsonString = std::string;
-using JsonArray = std::vector<std::string>;
-using JsonObject = std::map<std::string, std::string>;
 
 // Parse flags for yyjson_write
 enum class WriteFlag {
@@ -59,14 +54,13 @@ public:
   // Check if doc is valid
   bool valid() const { return doc_ != nullptr; }
 
-  // Get raw yyjson_doc pointer
+  // Get raw yyjson_doc pointer (for writing)
   yyjson_doc *get() const { return doc_; }
 
-  // Get root value
+  // Get root value pointer
   yyjson_val *get_root() const { return doc_ ? yyjson_doc_get_root(doc_) : nullptr; }
 
 private:
-  yyjson_val *root_ = nullptr;
   yyjson_doc *doc_ = nullptr;
 };
 
@@ -99,29 +93,17 @@ public:
   // Check if doc is valid
   bool valid() const { return doc_ != nullptr; }
 
-  // Get raw yyjson_mut_doc pointer
+  // Get raw yyjson_mut_doc pointer (for writing)
   yyjson_mut_doc *get() const { return doc_; }
 
-  // Get root value
+  // Get root value pointer
   yyjson_mut_val *get_root() const { return doc_ ? yyjson_mut_doc_get_root(doc_) : nullptr; }
 
 private:
-
   yyjson_mut_doc *doc_ = nullptr;
 };
 
 // String utility functions (inline implementations in header)
-inline std::string to_string(const JsonDoc &doc) {
-  std::string result;
-  if (doc.valid()) {
-    char *buffer = yyjson_write(doc.get(), 0, nullptr);
-    if (buffer) {
-      result = std::string(buffer);
-      free(buffer);
-    }
-  }
-  return result;
-}
 
 inline std::string to_string(const JsonMutDoc &doc) {
   std::string result;
@@ -163,17 +145,17 @@ inline std::string to_string(const JsonMutDoc &doc, WriteFlag flags) {
 
 /**
  * Create a JsonDoc from a string
- * @param json The JSON string
+ * @param json_str The JSON string
  * @return JsonDoc wrapper around the parsed document
  */
-JsonDoc parse(const std::string &json);
+JsonDoc parse(const std::string &json_str);
 
 /**
  * Create a JsonMutDoc from a string
- * @param json The JSON string
+ * @param json_str The JSON string
  * @return JsonMutDoc wrapper around the parsed mutable document
  */
-JsonMutDoc parse_mutable(const std::string &json);
+JsonMutDoc parse_mutable(const std::string &json_str);
 
 // Read/write convenience functions
 
@@ -353,12 +335,10 @@ bool get_keys(const JsonDoc &doc,
  * Get a value as raw yyjson_val pointer from JsonDoc
  * @param doc The JsonDoc
  * @param key The key to look up
- * @param out Output parameter for the yyjson_val pointer
- * @return true if successful, false otherwise
+ * @return yyjson_val pointer (nullptr if not found)
  */
-bool get_value(const JsonDoc &doc,
-               const std::string &key,
-               yyjson_val** out);
+yyjson_val* get_value(const JsonDoc &doc,
+               const std::string &key);
 
 /**
  * Get the length of an array in JsonDoc
@@ -433,6 +413,94 @@ bool has_string_key(const JsonDoc &doc,
 bool has_array_key(const JsonDoc &doc,
                    const std::string &key);
 
+// Mutable value access functions - work with JsonMutDoc
+// These combine type checking with extraction to reduce boilerplate
+
+/**
+ * Get a string from a mutable JSON object by key
+ * Combines yyjson_mut_obj_get + yyjson_mut_is_str into one call
+ * @param doc The JsonMutDoc
+ * @param key The key to look up
+ * @param out Output parameter for the string value
+ * @return true if successful, false otherwise
+ */
+bool get_str_mut(JsonMutDoc &doc,
+                 const std::string &key,
+                 std::string &out);
+
+/**
+ * Get an integer from a mutable JSON object by key
+ * @param doc The JsonMutDoc
+ * @param key The key to look up
+ * @param out Output parameter for the integer value
+ * @return true if successful, false otherwise
+ */
+bool get_int_mut(JsonMutDoc &doc,
+                 const std::string &key,
+                 int &out);
+
+/**
+ * Get a float from a mutable JSON object by key
+ * @param doc The JsonMutDoc
+ * @param key The key to look up
+ * @param out Output parameter for the float value
+ * @return true if successful, false otherwise
+ */
+bool get_float_mut(JsonMutDoc &doc,
+                    const std::string &key,
+                    float &out);
+
+/**
+ * Get a boolean from a mutable JSON object by key
+ * @param doc The JsonMutDoc
+ * @param key The key to look up
+ * @param out Output parameter for the boolean value
+ * @return true if successful, false otherwise
+ */
+bool get_bool_mut(JsonMutDoc &doc,
+                  const std::string &key,
+                  bool &out);
+
+/**
+ * Get an array from a mutable JSON object by key
+ * @param doc The JsonMutDoc
+ * @param key The key to look up
+ * @param out Output parameter for the array
+ * @return true if successful, false otherwise
+ */
+bool get_array_mut(JsonMutDoc &doc,
+                   const std::string &key,
+                   std::vector<std::string> &out);
+
+/**
+ * Get an object from a mutable JSON object by key
+ * @param doc The JsonMutDoc
+ * @param key The key to look up
+ * @param out Output parameter for the yyjson_mut_val pointer
+ * @return true if successful, false otherwise
+ */
+bool get_obj_mut(JsonMutDoc &doc,
+                 const std::string &key,
+                 yyjson_mut_val** out);
+
+/**
+ * Check if a key exists and is a valid string in mutable JSON
+ * @param doc The JsonMutDoc
+ * @param key The key to check
+ * @return true if key exists and is a string, false otherwise
+ */
+bool has_str_mut(JsonMutDoc &doc,
+                 const std::string &key);
+
+/**
+ * Check if a key exists and is a valid object in mutable JSON
+ * @param doc The JsonMutDoc
+ * @param key The key to check
+ * @return true if key exists and is an object, false otherwise
+ */
+bool has_obj_mut(JsonMutDoc &doc,
+                 const std::string &key);
+
 // Mutation functions - work with JsonMutDoc
 
 /**
@@ -446,4 +514,49 @@ bool set_string(JsonMutDoc &doc,
                 const std::string &key,
                 const std::string &value);
 
+// Type checking for mutable JSON
+
+/**
+ * Check if mutable JSON is a valid object
+ * @param doc The JsonMutDoc to check
+ * @return true if object, false otherwise
+ */
+bool is_object_mut(const JsonMutDoc &doc);
+
+/**
+ * Check if mutable JSON is a valid array
+ * @param doc The JsonMutDoc to check
+ * @return true if array, false otherwise
+ */
+bool is_array_mut(const JsonMutDoc &doc);
+
+/**
+ * Check if mutable JSON is a valid string
+ * @param doc The JsonMutDoc to check
+ * @return true if string, false otherwise
+ */
+bool is_string_mut(const JsonMutDoc &doc);
+
+/**
+ * Check if mutable JSON is a valid number
+ * @param doc The JsonMutDoc to check
+ * @return true if number, false otherwise
+ */
+bool is_number_mut(const JsonMutDoc &doc);
+
+/**
+ * Check if mutable JSON is a valid boolean
+ * @param doc The JsonMutDoc to check
+ * @return true if boolean, false otherwise
+ */
+bool is_bool_mut(const JsonMutDoc &doc);
+
+/**
+ * Check if mutable JSON is null
+ * @param doc The JsonMutDoc to check
+ * @return true if null, false otherwise
+ */
+bool is_null_mut(const JsonMutDoc &doc);
+
 } // namespace json
+
