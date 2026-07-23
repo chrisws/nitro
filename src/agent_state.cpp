@@ -339,7 +339,7 @@ std::string AgentState::rag_tool(const NitroConfig &cfg, const std::string &agen
   if (embed_llama && rag_db && rag_session) {
     result = embed_llama->rag_retrieve(*rag_db, agent_query, cfg.rag_top_k, *rag_session);
     if (result.empty()) {
-      result = "RAG: no context found";
+      result = std::string("RAG: no context found: ") + embed_llama->last_error();
     }
   } else {
     result = "RAG: not enabled";

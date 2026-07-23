@@ -447,4 +447,3 @@ bool set_string(JsonMutDoc &doc,
                 const std::string &value);
 
 } // namespace json
-

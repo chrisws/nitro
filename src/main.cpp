@@ -114,7 +114,7 @@ static void handle_slash(const std::string &input,
         return;
       }
     }
-    if (path.find_last_not_of(".bin") != std::string::npos) {
+    if (path.ends_with(".bin")) {
       tui.append_line(ICON_SYS + "Loading index: " + path);
       tui.redraw_all();
       agent.rag_load_index(path, tui);
