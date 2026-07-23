@@ -11,97 +11,7 @@
 #include <format>
 #include <sstream>
 #include "config.h"
-
-//
-// A minimal hand-rolled JSON reader/writer for the flat key-value settings
-// we care about.  We deliberately avoid a full JSON library dependency.
-//
-static bool json_get_string(const std::string &json,
-                            const std::string &key,
-                            std::string       &out) {
-  std::string search = "\"" + key + "\":";
-  size_t pos = json.find(search);
-  if (pos == std::string::npos) return false;
-  pos += search.size();
-  while (pos < json.size() && json[pos] == ' ') ++pos;
-  if (pos >= json.size() || json[pos] != '"') return false;
-  ++pos;
-  out.clear();
-  while (pos < json.size()) {
-    char c = json[pos++];
-    if (c == '\\' && pos < json.size()) {
-      char e = json[pos++];
-      switch (e) {
-      case 'n':  out += '\n'; break;
-      case 't':  out += '\t'; break;
-      case '"':  out += '"';  break;
-      case '\\': out += '\\'; break;
-      default:   out += e;    break;
-      }
-    } else if (c == '"') {
-      break;
-    } else {
-      out += c;
-    }
-  }
-  return true;
-}
-
-// Tiny helper: extract a quoted string value from flat JSON for a known key.
-static bool settings_get_str(const std::string &json,
-                             const std::string &key,
-                             std::string &out) {
-  return json_get_string(json, key, out);
-}
-
-// Tiny helper: extract an integer value from flat JSON.
-static bool settings_get_int(const std::string &json,
-                             const std::string &key,
-                             int &out) {
-  std::string search = "\"" + key + "\":";
-  size_t pos = json.find(search);
-  if (pos == std::string::npos) return false;
-  pos += search.size();
-  while (pos < json.size() && (json[pos] == ' ' || json[pos] == '\t')) ++pos;
-  if (pos >= json.size()) return false;
-  // read digits (and optional leading minus)
-  size_t start = pos;
-  if (json[pos] == '-') ++pos;
-  while (pos < json.size() && std::isdigit((unsigned char)json[pos])) ++pos;
-  if (pos == start) return false;
-  out = std::stoi(json.substr(start, pos - start));
-  return true;
-}
-
-// Tiny helper: extract a float value from flat JSON.
-static bool settings_get_float(const std::string &json,
-                               const std::string &key,
-                               float &out) {
-  std::string search = "\"" + key + "\":";
-  size_t pos = json.find(search);
-  if (pos == std::string::npos) {
-    return false;
-  }
-  pos += search.size();
-  while (pos < json.size() && (json[pos] == ' ' || json[pos] == '\t')) {
-    ++pos;
-  }
-  if (pos >= json.size()) {
-    return false;
-  }
-  size_t start = pos;
-  if (json[pos] == '-') {
-    ++pos;
-  }
-  while (pos < json.size() && (std::isdigit((unsigned char)json[pos]) || json[pos] == '.')) {
-    ++pos;
-  }
-  if (pos == start) {
-    return false;
-  }
-  out = std::stof(json.substr(start, pos - start));
-  return true;
-}
+#include "json.h"
 
 //
 // Settings persistence  (~/.config/nitro/nitro.settings.json)
@@ -129,24 +39,87 @@ void NitroConfig::load_settings() {
 
   thinking = true;
 
+  // Parse JSON using json::JsonMutDoc
+  auto doc = json::parse(json);
+  if (!doc.valid()) {
+    return;
+  }
+
+  auto root = doc.get_root();
+  if (!root || !json::is_object(*root)) {
+    return;
+  }
+
   // String fields
-  settings_get_str(json, "model_path",  model_path);
-  settings_get_str(json, "embed_path",  embed_path);
-  settings_get_str(json, "sandbox",     sandbox);
+  if (json::has_key(*root, "model_path")) {
+    std::string val;
+    json::get_string(*root, "model_path", val);
+    model_path = val;
+  }
+  if (json::has_key(*root, "embed_path")) {
+    std::string val;
+    json::get_string(*root, "embed_path", val);
+    embed_path = val;
+  }
+  if (json::has_key(*root, "sandbox")) {
+    std::string val;
+    json::get_string(*root, "sandbox", val);
+    sandbox = val;
+  }
 
   // Integer fields
-  settings_get_int(json, "n_ctx",          n_ctx);
-  settings_get_int(json, "n_batch",        n_batch);
-  settings_get_int(json, "n_gpu_layers",   n_gpu_layers);
-  settings_get_int(json, "top_k",          top_k);
-  settings_get_int(json, "penalty_last_n", penalty_last_n);
-  settings_get_int(json, "rag_top_k",      rag_top_k);
+  if (json::has_key(*root, "n_ctx")) {
+    int val;
+    json::get_int(*root, "n_ctx", val);
+    n_ctx = val;
+  }
+  if (json::has_key(*root, "n_batch")) {
+    int val;
+    json::get_int(*root, "n_batch", val);
+    n_batch = val;
+  }
+  if (json::has_key(*root, "n_gpu_layers")) {
+    int val;
+    json::get_int(*root, "n_gpu_layers", val);
+    n_gpu_layers = val;
+  }
+  if (json::has_key(*root, "top_k")) {
+    int val;
+    json::get_int(*root, "top_k", val);
+    top_k = val;
+  }
+  if (json::has_key(*root, "penalty_last_n")) {
+    int val;
+    json::get_int(*root, "penalty_last_n", val);
+    penalty_last_n = val;
+  }
+  if (json::has_key(*root, "rag_top_k")) {
+    int val;
+    json::get_int(*root, "rag_top_k", val);
+    rag_top_k = val;
+  }
 
   // Float fields
-  settings_get_float(json, "temperature",    temperature);
-  settings_get_float(json, "top_p",          top_p);
-  settings_get_float(json, "min_p",          min_p);
-  settings_get_float(json, "penalty_repeat", penalty_repeat);
+  if (json::has_key(*root, "temperature")) {
+    float val;
+    json::get_float(*root, "temperature", val);
+    temperature = val;
+  }
+  if (json::has_key(*root, "top_p")) {
+    float val;
+    json::get_float(*root, "top_p", val);
+    top_p = val;
+  }
+  if (json::has_key(*root, "min_p")) {
+    float val;
+    json::get_float(*root, "min_p", val);
+    min_p = val;
+  }
+  if (json::has_key(*root, "penalty_repeat")) {
+    float val;
+    json::get_float(*root, "penalty_repeat", val);
+    penalty_repeat = val;
+  }
 }
 
 // Persist the current cfg to ~/.config/nitro/settings.json.
@@ -165,7 +138,6 @@ bool NitroConfig::save_settings() const {
 
   return f.good();
 }
-
 //
 // System prompt
 //
