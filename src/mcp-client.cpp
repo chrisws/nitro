@@ -45,7 +45,7 @@ static std::string load_mcp_settings() {
 
   try {
     auto doc = json::parse(content);
-    if (!doc.valid()) {
+    if (!doc.is_valid()) {
       return "";
     }
 
@@ -117,8 +117,8 @@ bool McpClient::connect(const std::string &host, int port) {
   }
 
   // Initialize handshake using mutable API
-  auto doc = json::JsonMutDoc::parse("{}");
-  if (!doc.valid()) {
+  auto doc = json::parse_mutable("{}");
+  if (!doc.is_valid()) {
     return false;
   }
 
@@ -167,41 +167,45 @@ std::vector<McpTool> McpClient::list_tools() {
   }
 
   // // Request tools/list using mutable API
-  auto mut_doc = json::JsonMutDoc::parse("{}");
-  if (!mut_doc.valid()) {
+  auto doc = json::parse_mutable("{}");
+  if (!doc.is_valid()) {
     return tools;
   }
 
-  // // Set method
-  // json::set_string(mut_doc, "method", "tools/list");
+  auto root = doc.get_root();
+  if (!root.is_valid()) {
+    return tools;
+  }
 
-  // // Set params
-  // json::set_string(mut_doc, "params", "{\"sessionId\":\"" + session_id + "\"}");
+  // Set method
+  root.set_str("method", "tools/list");
 
-  // // Convert to string
-  // std::string params_str = json::write_mutable(mut_doc);
-  // if (params_str.empty()) {
-  //   return tools;
-  // }
+  // Set params
+  // TODO: FIXME: can't set the value arg like that
+  root.set_str("params", "{\"sessionId\":\"" + session_id + "\"}");
 
-  // // Send request
-  // std::string request = make_request("tools/list", params_str);
+  std::string params_str = doc.write();
+  if (params_str.empty()) {
+    return tools;
+  }
 
-  // if (request.empty()) {
-  //   return tools;
-  // }
+  // Send request
+  std::string request = make_request("tools/list", params_str);
 
-  // // Parse response using immutable API
-  // auto resp_doc = json::parse(request);
-  // if (!resp_doc.valid()) {
-  //   return tools;
-  // }
+  if (request.empty()) {
+    return tools;
+  }
 
-  // auto resp_root = resp_doc.get_root();
+  // Parse response using immutable API
+  auto resp_doc = json::parse(request);
+  if (!resp_doc.is_valid()) {
+    return tools;
+  }
 
-  // if (resp_root && json::is_object(resp_doc) && json::has_string_key(resp_doc, "result")) {
-  //   // Use new combined wrapper for mutable extraction
-  //   auto mut_doc = json::JsonMutDoc::parse(request);
+  auto resp_root = resp_doc.get_root();
+
+  if (resp_root.is_object() && resp_root.has_string_key("result")) {
+  //   auto mut_doc = json::parse_mutable(request);
   //   yyjson_mut_val *result;
   //   json::get_obj_mut(mut_doc, "result", &result);
   //   if (result && json::has_obj_mut(mut_doc, "result")) {
@@ -238,7 +242,7 @@ std::vector<McpTool> McpClient::list_tools() {
   //       }
   //     }
   //   }
-  // }
+  }
 
   //  _tools_json = request;
   return tools;
@@ -271,39 +275,41 @@ std::string McpClient::make_request(const std::string &method, const std::string
 std::string McpClient::parse_response(const std::string &response) {
   // For MCP, responses can be JSON or SSE
   // Try to parse as JSON first
-  // auto doc = json::parse(response);
-  // if (doc.valid() && json::is_object(doc) && json::has_string_key(doc, "result")) {
-  //   return response;
-  // }
+  auto doc = json::parse(response);
+  if (doc.is_valid()) {
+    auto root = doc.get_root();
+    if (root.is_object() && root.has_string_key("result")) {
+      return response;
+    }
+  }
 
-  // // Try SSE format
-  // size_t pos = response.find("data:");
-  // if (pos != std::string::npos) {
-  //   std::string data = response.substr(pos + 5);
-  //   // Remove trailing whitespace and parse
-  //   while (!data.empty() && (data.back() == '\n' || data.back() == '\r' || data.back() == ' ')) {
-  //     data.pop_back();
-  //   }
-  //   if (!data.empty()) {
-  //     return data;
-  //   }
-  // }
+  // Try SSE format
+  size_t pos = response.find("data:");
+  if (pos != std::string::npos) {
+    std::string data = response.substr(pos + 5);
+    // Remove trailing whitespace and parse
+    while (!data.empty() && (data.back() == '\n' || data.back() == '\r' || data.back() == ' ')) {
+      data.pop_back();
+    }
+    if (!data.empty()) {
+      return data;
+    }
+  }
 
-  //  return response;
-  return "";
+  return response;
 }
 
 std::string McpClient::extract_text_content(const std::string &response) {
   auto doc = json::parse(response);
-  if (!doc.valid()) {
+  if (!doc.is_valid()) {
     return "";
   }
 
-  // auto root = doc.get_root();
+  auto root = doc.get_root();
 
-  // if (root && json::is_object(doc)) {
+  if (root.is_object()) {
   //   // Use new combined wrapper for mutable extraction
-  //   auto mut_doc = json::JsonMutDoc::parse(response);
+  //   auto mut_doc = json::parse_mutable(response);
   //   yyjson_mut_val *content;
   //   json::get_obj_mut(mut_doc, "content", &content);
   //   if (content) {
@@ -328,7 +334,7 @@ std::string McpClient::extract_text_content(const std::string &response) {
   //       return text;
   //     }
   //   }
-  // }
+  }
 
   return "";
 }
@@ -365,65 +371,69 @@ McpResult McpClient::call_tool(const std::string &name, const std::string &args_
   }
 
   // Build request using mutable API
-  auto mut_doc = json::JsonMutDoc::parse("{}");
-  if (!mut_doc.valid()) {
+  auto doc = json::parse_mutable("{}");
+  if (!doc.is_valid()) {
     result.success = false;
     result.isError = "Failed to create request";
     return result;
   }
 
-  // // Set method
-  // json::set_string(mut_doc, "method", "tools/call");
+  auto root = doc.get_root();
+  if (!root.is_valid()) {
+    result.success = false;
+    result.isError = "Failed to create request";
+  }
 
-  // // Set params
-  // json::set_string(mut_doc, "params", "{\"name\":\"" + name + "\",\"arguments\":\"" + args_str + "\"}");
+  // Set method
+  root.set_str("method", "tools/call");
 
-  // // Convert to string
-  // std::string request_str = json::write_mutable(mut_doc);
-  // if (request_str.empty()) {
-  //   result.success = false;
-  //   result.isError = "Failed to serialize request";
-  //   return result;
-  // }
+  // Set params
+  // TODO: FIXME
+  root.set_str("params", "{\"name\":\"" + name + "\",\"arguments\":\"" + args_str + "\"}");
 
-  // std::string response = make_request("tools/call", request_str);
+  // Convert to string
+  std::string request_str = doc.write();
+  if (request_str.empty()) {
+    result.success = false;
+    result.isError = "Failed to serialize request";
+    return result;
+  }
 
-  // if (response.empty()) {
-  //   result.success = false;
-  //   result.isError = "Failed to communicate with MCP server";
-  //   return result;
-  // }
+  std::string response = make_request("tools/call", request_str);
+
+  if (response.empty()) {
+    result.success = false;
+    result.isError = "Failed to communicate with MCP server";
+    return result;
+  }
 
   // // Parse response using immutable API
-  // auto resp_doc = json::parse(response);
-  // if (!resp_doc.valid()) {
-  //   result.success = false;
-  //   result.isError = "Failed to parse response";
-  //   result.content = response;
-  //   return result;
-  // }
+  auto resp_doc = json::parse(response);
+  if (!resp_doc.is_valid()) {
+    result.success = false;
+    result.isError = "Failed to parse response";
+    result.content = response;
+    return result;
+  }
 
-  // auto resp_root = resp_doc.get_root();
+  auto resp_root = resp_doc.get_root();
 
-  // if (resp_root && json::is_object(resp_doc)) {
-  //   // Use new combined wrapper for mutable extraction
-  //   auto mut_doc = json::JsonMutDoc::parse(response);
-  //   yyjson_mut_val *result_val;
-  //   json::get_obj_mut(mut_doc, "result", &result_val);
-  //   if (result_val && json::has_obj_mut(mut_doc, "result")) {
-  //     result.content = extract_text_content(response);
-  //   } else {
-  //     result.isError = "MCP server returned error";
-  //     if (json::has_string_key(resp_doc, "error")) {
-  //       result.content = response;
-  //     }
-  //     result.success = false;
-  //   }
-  // } else {
-  //   result.isError = "Unexpected response format";
-  //   result.content = response;
-  //   result.success = false;
-  // }
+  if (resp_root.is_object()) {
+    auto result_val = resp_root.get("result");
+    if (result_val.is_object()) {
+      // result.content = extract_text_content(response);
+    } else {
+      result.isError = "MCP server returned error";
+      if (resp_root.has_string_key("error")) {
+        result.content = response;
+      }
+      result.success = false;
+    }
+  } else {
+    result.isError = "Unexpected response format";
+    result.content = response;
+    result.success = false;
+  }
 
   return result;
 }

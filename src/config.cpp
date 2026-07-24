@@ -39,7 +39,7 @@ void NitroConfig::load_settings() {
 
   // Parse JSON using json::JsonMutDoc
   auto doc = json::parse(json);
-  if (!doc.valid()) {
+  if (!doc.is_valid()) {
     return;
   }
 
