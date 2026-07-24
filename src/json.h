@@ -32,13 +32,15 @@ struct JsonValue {
   ~JsonValue() = default;
   explicit JsonValue(yyjson_val *value) : value_(value) {}
 
+  bool get_array(const std::string &key, std::vector<JsonValue> &out) const;
+  bool get_float(const std::string &key, float &out) const;
+  bool get_int(const std::string &key, int &out) const;
+  bool get_keys(std::vector<std::string> &out) const;
+  bool get_str(const std::string &key, std::string &out) const;
+  bool has_string_key(const std::string &key) const;
   bool is_arr() const { return value_ && yyjson_is_arr(value_); }
   bool is_object() const { return value_ && yyjson_is_obj(value_); }
   bool is_valid() const { return value_ != nullptr; }
-  bool get_str(const std::string &key, std::string &out) const;
-  bool get_int(const std::string &key, int &out) const;
-  bool get_float(const std::string &key, float &out) const;
-  bool has_string_key(const std::string &key) const;
   JsonValue get(const std::string &key) const;
 
   private:
@@ -55,6 +57,7 @@ struct JsonMutValue {
   }
 
   bool is_valid() const { return value_ != nullptr; }
+  bool is_arr() const { return value_ && yyjson_mut_is_arr(value_); }
   bool set_str(const std::string &key, const std::string &value);
 
   private:

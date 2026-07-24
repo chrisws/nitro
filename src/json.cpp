@@ -53,6 +53,34 @@ JsonValue JsonValue::get(const std::string &key) const {
   return JsonValue(yyjson_obj_get(value_, key.c_str()));
 }
 
+bool JsonValue::get_array(const std::string &key, std::vector<JsonValue> &out) const {
+  if (!is_valid()) return false;
+
+  yyjson_val *val = yyjson_obj_get(value_, key.c_str());
+  if (!val || !yyjson_is_arr(val)) return false;
+
+  out.reserve(yyjson_arr_size(val));
+  for (size_t i = 0; i < yyjson_arr_size(val); i++) {
+    yyjson_val *item = yyjson_arr_get(val, i);
+    if (item) {
+      out.push_back(JsonValue(item));
+    }
+  }
+  return true;
+}
+
+bool JsonValue::get_keys(std::vector<std::string> &out) const {
+  if (!is_valid()) return false;
+
+  yyjson_val *key_ptr;
+  yyjson_obj_iter iter;
+  yyjson_obj_iter_init(value_, &iter);
+  for (key_ptr = yyjson_obj_iter_next(&iter); key_ptr != nullptr; key_ptr = yyjson_obj_iter_next(&iter)) {
+    out.push_back(yyjson_get_str(key_ptr));
+  }
+  return true;
+}
+
 bool JsonValue::has_string_key(const std::string &key) const {
   if (!is_valid()) return false;
 

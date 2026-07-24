@@ -45,6 +45,5 @@ class McpClient {
 
   std::string make_request(const std::string& method, const std::string& params);
   std::string parse_response(const std::string& response);
-  std::string extract_text_content(const std::string& response);
   std::string parse_url_host(const std::string& url);
 };

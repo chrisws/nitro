@@ -301,6 +301,8 @@ void AgentState::reset_conversation(const std::string &sysprompt, Tui &tui) {
   if (!llama->add_message(*iter, "system", system_prompt)) {
     tui.append_line(ICON_ERR + "System prompt injection: " + llama->last_error());
     tui.redraw_all();
+  } else {
+    tui.update_usage(tokens_per_sec(), llama->memory_info());
   }
 }
 

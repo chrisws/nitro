@@ -15,8 +15,10 @@
 #include "json.h"
 #include "logging.h"
 
+//
 // Try to load MCP settings from mcp.json or mcp-settings.json in the sandbox
 // Returns empty string if file not found (MCP functionality not available)
+//
 static std::string load_mcp_settings() {
   std::string settings_path = "";
 
@@ -134,6 +136,7 @@ bool McpClient::connect(const std::string &host, int port) {
   root.set_str("capabilities", "{}");
 
   // Set client info
+  // TODO: fixme
   root.set_str("clientInfo", "{\"name\":\"nitro\",\"version\":\"0.1\"}");
 
   // Convert to string
@@ -166,7 +169,7 @@ std::vector<McpTool> McpClient::list_tools() {
     session_id = "default-session";
   }
 
-  // // Request tools/list using mutable API
+  // Request tools/list using mutable API
   auto doc = json::parse_mutable("{}");
   if (!doc.is_valid()) {
     return tools;
@@ -181,7 +184,6 @@ std::vector<McpTool> McpClient::list_tools() {
   root.set_str("method", "tools/list");
 
   // Set params
-  // TODO: FIXME: can't set the value arg like that
   root.set_str("params", "{\"sessionId\":\"" + session_id + "\"}");
 
   std::string params_str = doc.write();
@@ -205,46 +207,34 @@ std::vector<McpTool> McpClient::list_tools() {
   auto resp_root = resp_doc.get_root();
 
   if (resp_root.is_object() && resp_root.has_string_key("result")) {
-  //   auto mut_doc = json::parse_mutable(request);
-  //   yyjson_mut_val *result;
-  //   json::get_obj_mut(mut_doc, "result", &result);
-  //   if (result && json::has_obj_mut(mut_doc, "result")) {
-  //     // Get tools array - use get_value to get the raw pointer
-  //     yyjson_val *tools_val = json::get_value(resp_doc, "result");
-  //     if (tools_val && yyjson_is_arr(tools_val)) {
-  //       for (size_t i = 0; i < yyjson_arr_size(tools_val); i++) {
-  //         yyjson_val *tool = yyjson_arr_get(tools_val, i);
-  //         McpTool mcp_tool;
+    std::vector<json::JsonValue> vec;
+    if (resp_root.get_array("result", vec)) {
+      for (const auto &tool: vec) {
+        if (tool.is_object()) {
+          McpTool mcp_tool;
 
-  //         if (tool && yyjson_is_obj(tool)) {
-  //           // Extract name
-  //           yyjson_val *name_val = yyjson_obj_get(tool, "name");
-  //           if (name_val && yyjson_is_str(name_val)) {
-  //             mcp_tool.name = yyjson_get_str(name_val);
-  //           }
+          // Extract name
+          std::string name;
+          if (tool.get_str("name", name)) {
+            mcp_tool.name = name;
+          }
 
-  //           // Extract description
-  //           yyjson_val *desc_val = yyjson_obj_get(tool, "description");
-  //           if (desc_val && yyjson_is_str(desc_val)) {
-  //             mcp_tool.description = yyjson_get_str(desc_val);
-  //           }
+          // Extract description
+          std::string description;
+          if (tool.get_str("description", description)) {
+            mcp_tool.description = description;
+          }
 
-  //           // Extract param names by iterating over object keys
-  //           yyjson_val *key_ptr;
-  //           yyjson_obj_iter iter;
-  //           yyjson_obj_iter_init(tool, &iter);
-  //           for (key_ptr = yyjson_obj_iter_next(&iter); key_ptr != nullptr; key_ptr = yyjson_obj_iter_next(&iter)) {
-  //             mcp_tool.params.push_back(yyjson_get_str(key_ptr));
-  //           }
-  //         }
+          // Extract param names by iterating over object keys
+          tool.get_keys(mcp_tool.params);
 
-  //         tools.push_back(mcp_tool);
-  //       }
-  //     }
-  //   }
+          tools.push_back(mcp_tool);
+        }
+      }
+    }
   }
 
-  //  _tools_json = request;
+  _tools_json = request;
   return tools;
 }
 
@@ -299,46 +289,6 @@ std::string McpClient::parse_response(const std::string &response) {
   return response;
 }
 
-std::string McpClient::extract_text_content(const std::string &response) {
-  auto doc = json::parse(response);
-  if (!doc.is_valid()) {
-    return "";
-  }
-
-  auto root = doc.get_root();
-
-  if (root.is_object()) {
-  //   // Use new combined wrapper for mutable extraction
-  //   auto mut_doc = json::parse_mutable(response);
-  //   yyjson_mut_val *content;
-  //   json::get_obj_mut(mut_doc, "content", &content);
-  //   if (content) {
-  //     // Check if content is an array using the raw pointer
-  //     if (yyjson_mut_is_arr(content)) {
-  //       for (size_t i = 0; i < yyjson_mut_arr_size(content); i++) {
-  //         yyjson_mut_val *item = yyjson_mut_arr_get(content, i);
-  //         if (item && json::is_object_mut(mut_doc)) {
-  //           // Use yyjson_ptr_get_str for mutable API or yyjson_get_str for immutable
-  //           yyjson_val *type_val = yyjson_obj_get(item, "type");
-  //           yyjson_val *text_val = yyjson_obj_get(item, "text");
-  //           if (type_val && yyjson_is_str(type_val) &&
-  //               yyjson_get_str(type_val) == "text" &&
-  //               text_val && yyjson_is_str(text_val)) {
-  //             return yyjson_get_str(text_val);
-  //           }
-  //         }
-  //       }
-  //     } else if (json::has_str_mut(mut_doc, "content")) {
-  //       std::string text;
-  //       json::get_str_mut(mut_doc, "content", text);
-  //       return text;
-  //     }
-  //   }
-  }
-
-  return "";
-}
-
 std::string McpClient::get_session_id() const {
   return _session_id;
 }
@@ -351,6 +301,33 @@ void McpClient::disconnect() {
   _connected = false;
   _session_id.clear();
   _tools_json.clear();
+}
+
+static std::string extract_text_content(const json::JsonValue &root) {
+  // Check if root has "content" key
+  std::string text;
+  if (root.get_str("content", text)) {
+    return text;
+  }
+
+  // Check if content is an array
+  std::vector<json::JsonValue> vec;
+  if (root.get_array("content", vec)) {
+    for (const auto &item: vec) {
+      if (item.is_object()) {
+        // Check type
+        std::string type;
+        if (item.get_str("type", type) && type == "text") {
+          // Extract text
+          std::string text_val;
+          if (item.get_str("text", text_val)) {
+            return text_val;
+          }
+        }
+      }
+    }
+  }
+  return "";
 }
 
 McpResult McpClient::call_tool(const std::string &name, const std::string &args_str) {
@@ -407,7 +384,7 @@ McpResult McpClient::call_tool(const std::string &name, const std::string &args_
     return result;
   }
 
-  // // Parse response using immutable API
+  // Parse response using immutable API
   auto resp_doc = json::parse(response);
   if (!resp_doc.is_valid()) {
     result.success = false;
@@ -421,7 +398,7 @@ McpResult McpClient::call_tool(const std::string &name, const std::string &args_
   if (resp_root.is_object()) {
     auto result_val = resp_root.get("result");
     if (result_val.is_object()) {
-      // result.content = extract_text_content(response);
+      result.content = extract_text_content(result_val);
     } else {
       result.isError = "MCP server returned error";
       if (resp_root.has_string_key("error")) {
@@ -446,4 +423,5 @@ std::string McpClient::parse_url_host(const std::string &url) {
   }
   return url;
 }
+
 
