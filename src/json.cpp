@@ -135,6 +135,12 @@ bool JsonMutValue::set_str(const std::string &key, const std::string &value) {
   return true;
 }
 
+bool JsonMutValue::set_obj(const std::string &key, const JsonMutValue &value) {
+  if (!is_valid() || !value.is_valid()) return false;
+  yyjson_mut_obj_add(value_, yyjson_mut_str(doc_, key.c_str()), value.value_);
+  return true;
+}
+
 //
 // JsonMutDoc implementation
 //

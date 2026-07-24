@@ -59,6 +59,7 @@ struct JsonMutValue {
   bool is_valid() const { return value_ != nullptr; }
   bool is_arr() const { return value_ && yyjson_mut_is_arr(value_); }
   bool set_str(const std::string &key, const std::string &value);
+  bool set_obj(const std::string &key, const JsonMutValue &value);
 
   private:
   yyjson_mut_doc *doc_;
@@ -126,6 +127,7 @@ public:
   }
 
   JsonMutValue get_root() const;
+  JsonMutValue get_child() const { return JsonMutValue(doc_, yyjson_mut_obj(doc_)); }
   std::string write(WriteFlag flags = WriteFlag::Compact) const;
   bool is_valid() const { return doc_ != nullptr; }
 

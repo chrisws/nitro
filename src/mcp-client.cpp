@@ -136,8 +136,10 @@ bool McpClient::connect(const std::string &host, int port) {
   root.set_str("capabilities", "{}");
 
   // Set client info
-  // TODO: fixme
-  root.set_str("clientInfo", "{\"name\":\"nitro\",\"version\":\"0.1\"}");
+  auto params = doc.get_child();
+  params.set_str("name", "nitro");
+  params.set_str("version", "0.1");
+  root.set_obj("clientInfo", params);
 
   // Convert to string
   std::string params_str = doc.write();
@@ -184,7 +186,9 @@ std::vector<McpTool> McpClient::list_tools() {
   root.set_str("method", "tools/list");
 
   // Set params
-  root.set_str("params", "{\"sessionId\":\"" + session_id + "\"}");
+  auto params = doc.get_child();
+  params.set_str("session", session_id);
+  root.set_obj("params", params);
 
   std::string params_str = doc.write();
   if (params_str.empty()) {
@@ -364,9 +368,11 @@ McpResult McpClient::call_tool(const std::string &name, const std::string &args_
   // Set method
   root.set_str("method", "tools/call");
 
-  // Set params
-  // TODO: FIXME
-  root.set_str("params", "{\"name\":\"" + name + "\",\"arguments\":\"" + args_str + "\"}");
+  // Create params object with nested values
+  auto params = doc.get_child();
+  params.set_str("name", name);
+  params.set_str("arguments", args_str);
+  root.set_obj("params", params);
 
   // Convert to string
   std::string request_str = doc.write();
@@ -423,5 +429,3 @@ std::string McpClient::parse_url_host(const std::string &url) {
   }
   return url;
 }
-
-
