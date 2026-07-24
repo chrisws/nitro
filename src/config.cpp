@@ -43,24 +43,26 @@ void NitroConfig::load_settings() {
     return;
   }
 
+  auto root = doc.get_root();
+
   // String fields - pass member refs directly, no temp vars
-  json::get_string(doc, "model_path", model_path);
-  json::get_string(doc, "embed_path", embed_path);
-  json::get_string(doc, "sandbox", sandbox);
+  root.get_str("model_path", model_path);
+  root.get_str("embed_path", embed_path);
+  root.get_str("sandbox", sandbox);
 
   // Integer fields
-  json::get_int(doc, "n_ctx", n_ctx);
-  json::get_int(doc, "n_batch", n_batch);
-  json::get_int(doc, "n_gpu_layers", n_gpu_layers);
-  json::get_int(doc, "top_k", top_k);
-  json::get_int(doc, "penalty_last_n", penalty_last_n);
-  json::get_int(doc, "rag_top_k", rag_top_k);
+  root.get_int("n_ctx", n_ctx);
+  root.get_int("n_batch", n_batch);
+  root.get_int("n_gpu_layers", n_gpu_layers);
+  root.get_int("top_k", top_k);
+  root.get_int("penalty_last_n", penalty_last_n);
+  root.get_int("rag_top_k", rag_top_k);
 
   // Float fields
-  json::get_float(doc, "temperature", temperature);
-  json::get_float(doc, "top_p", top_p);
-  json::get_float(doc, "min_p", min_p);
-  json::get_float(doc, "penalty_repeat", penalty_repeat);
+  root.get_float("temperature", temperature);
+  root.get_float("top_p", top_p);
+  root.get_float("min_p", min_p);
+  root.get_float("penalty_repeat", penalty_repeat);
 }
 
 // Persist the current cfg to ~/.config/nitro/settings.json.

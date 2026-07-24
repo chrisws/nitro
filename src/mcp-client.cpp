@@ -6,12 +6,14 @@
 // Download the GNU Public License (GPL) from www.gnu.org
 //
 
-#include "mcp-client.h"
-#include "json.h"
 #include <sstream>
 #include <regex>
 #include <fstream>
 #include <filesystem>
+
+#include "mcp-client.h"
+#include "json.h"
+#include "logging.h"
 
 // Try to load MCP settings from mcp.json or mcp-settings.json in the sandbox
 // Returns empty string if file not found (MCP functionality not available)
@@ -22,6 +24,7 @@ static std::string load_mcp_settings() {
   if (std::filesystem::exists("mcp.json")) {
     settings_path = "mcp.json";
   }
+
   // Try mcp-settings.json
   else if (std::filesystem::exists("mcp-settings.json")) {
     settings_path = "mcp-settings.json";
@@ -41,48 +44,41 @@ static std::string load_mcp_settings() {
   std::string content = oss.str();
 
   try {
-    // Parse JSON using mutable API
-    auto mut_doc = json::parse_mutable(content);
-    if (!mut_doc.valid()) {
+    auto doc = json::parse(content);
+    if (!doc.valid()) {
       return "";
     }
 
-    auto root = mut_doc.get_root();
-
-    // Use new combined wrapper methods
-    if (root && json::has_obj_mut(mut_doc, "server")) {
-      yyjson_mut_val *server;
-      json::get_obj_mut(mut_doc, "server", &server);
-      if (server) {
-        std::string host;
-        int port;
-        if (json::get_str_mut(mut_doc, "server.host", host) &&
-            json::get_int_mut(mut_doc, "server.port", port)) {
-          return host + ":" + std::to_string(port);
-        }
-      }
+    auto root = doc.get_root();
+    if (!root.is_valid()) {
+      return "";
     }
 
-    // Alternative: top-level host/port
-    if (root && json::has_str_mut(mut_doc, "host") &&
-        json::has_str_mut(mut_doc, "port")) {
+    auto server = root.get("server");
+    if (server.is_object()) {
       std::string host;
-      std::string port;
-      if (json::get_str_mut(mut_doc, "host", host) &&
-          json::get_str_mut(mut_doc, "port", port)) {
-        return host + ":" + port;
+      int port;
+      if (server.get_str("host", host) &&
+          server.get_int("port", port)) {
+        return host + ":" + std::to_string(port);
       }
     }
 
-    // Alternative: base_url as string
-    if (json::has_str_mut(mut_doc, "base_url")) {
-      std::string base_url;
-      json::get_str_mut(mut_doc, "base_url", base_url);
+    // alternative: top-level host/port
+    std::string host;
+    int port;
+    if (root.get_str("host", host) &&
+        root.get_int("port", port)) {
+      return host + ":" + std::to_string(port);
+    }
+
+    // alternative: base_url as string
+    std::string base_url;
+    if (root.get_str("base_url", base_url)) {
       return base_url;
     }
-
   } catch (...) {
-    // JSON parsing failed
+    log_write(LogLevel::ERROR_LEVEL, "JSON parsing failed");
   }
 
   return "";
@@ -98,8 +94,7 @@ McpClient::McpClient()
   if (!settings.empty()) {
     size_t colon_pos = settings.find(':');
     if (colon_pos != std::string::npos) {
-      _base_url = "http://" + settings.substr(0, colon_pos) + ":" +
-        settings.substr(colon_pos + 1) + "/stream";
+      _base_url = "http://" + settings.substr(0, colon_pos) + ":" +  settings.substr(colon_pos + 1) + "/stream";
     }
   }
 }
@@ -122,22 +117,27 @@ bool McpClient::connect(const std::string &host, int port) {
   }
 
   // Initialize handshake using mutable API
-  auto mut_doc = json::JsonMutDoc::parse("{}");
-  if (!mut_doc.valid()) {
+  auto doc = json::JsonMutDoc::parse("{}");
+  if (!doc.valid()) {
     return false;
   }
 
+  auto root = doc.get_root();
+  if (!root.is_valid()) {
+    return "";
+  }
+
   // Set protocol version
-  json::set_string(mut_doc, "protocolVersion", "2025-06-18");
+  root.set_str("protocolVersion", "2025-06-18");
 
   // Set capabilities - create empty object
-  json::set_string(mut_doc, "capabilities", "{}");
+  root.set_str("capabilities", "{}");
 
   // Set client info
-  json::set_string(mut_doc, "clientInfo", "{\"name\":\"nitro\",\"version\":\"0.1\"}");
+  root.set_str("clientInfo", "{\"name\":\"nitro\",\"version\":\"0.1\"}");
 
   // Convert to string
-  std::string params_str = json::write_mutable(mut_doc);
+  std::string params_str = doc.write();
   if (params_str.empty()) {
     return false;
   }
@@ -166,81 +166,81 @@ std::vector<McpTool> McpClient::list_tools() {
     session_id = "default-session";
   }
 
-  // Request tools/list using mutable API
+  // // Request tools/list using mutable API
   auto mut_doc = json::JsonMutDoc::parse("{}");
   if (!mut_doc.valid()) {
     return tools;
   }
 
-  // Set method
-  json::set_string(mut_doc, "method", "tools/list");
+  // // Set method
+  // json::set_string(mut_doc, "method", "tools/list");
 
-  // Set params
-  json::set_string(mut_doc, "params", "{\"sessionId\":\"" + session_id + "\"}");
+  // // Set params
+  // json::set_string(mut_doc, "params", "{\"sessionId\":\"" + session_id + "\"}");
 
-  // Convert to string
-  std::string params_str = json::write_mutable(mut_doc);
-  if (params_str.empty()) {
-    return tools;
-  }
+  // // Convert to string
+  // std::string params_str = json::write_mutable(mut_doc);
+  // if (params_str.empty()) {
+  //   return tools;
+  // }
 
-  // Send request
-  std::string request = make_request("tools/list", params_str);
+  // // Send request
+  // std::string request = make_request("tools/list", params_str);
 
-  if (request.empty()) {
-    return tools;
-  }
+  // if (request.empty()) {
+  //   return tools;
+  // }
 
-  // Parse response using immutable API
-  auto resp_doc = json::parse(request);
-  if (!resp_doc.valid()) {
-    return tools;
-  }
+  // // Parse response using immutable API
+  // auto resp_doc = json::parse(request);
+  // if (!resp_doc.valid()) {
+  //   return tools;
+  // }
 
-  auto resp_root = resp_doc.get_root();
+  // auto resp_root = resp_doc.get_root();
 
-  if (resp_root && json::is_object(resp_doc) && json::has_string_key(resp_doc, "result")) {
-    // Use new combined wrapper for mutable extraction
-    auto mut_doc = json::JsonMutDoc::parse(request);
-    yyjson_mut_val *result;
-    json::get_obj_mut(mut_doc, "result", &result);
-    if (result && json::has_obj_mut(mut_doc, "result")) {
-      // Get tools array - use get_value to get the raw pointer
-      yyjson_val *tools_val = json::get_value(resp_doc, "result");
-      if (tools_val && yyjson_is_arr(tools_val)) {
-        for (size_t i = 0; i < yyjson_arr_size(tools_val); i++) {
-          yyjson_val *tool = yyjson_arr_get(tools_val, i);
-          McpTool mcp_tool;
+  // if (resp_root && json::is_object(resp_doc) && json::has_string_key(resp_doc, "result")) {
+  //   // Use new combined wrapper for mutable extraction
+  //   auto mut_doc = json::JsonMutDoc::parse(request);
+  //   yyjson_mut_val *result;
+  //   json::get_obj_mut(mut_doc, "result", &result);
+  //   if (result && json::has_obj_mut(mut_doc, "result")) {
+  //     // Get tools array - use get_value to get the raw pointer
+  //     yyjson_val *tools_val = json::get_value(resp_doc, "result");
+  //     if (tools_val && yyjson_is_arr(tools_val)) {
+  //       for (size_t i = 0; i < yyjson_arr_size(tools_val); i++) {
+  //         yyjson_val *tool = yyjson_arr_get(tools_val, i);
+  //         McpTool mcp_tool;
 
-          if (tool && yyjson_is_obj(tool)) {
-            // Extract name
-            yyjson_val *name_val = yyjson_obj_get(tool, "name");
-            if (name_val && yyjson_is_str(name_val)) {
-              mcp_tool.name = yyjson_get_str(name_val);
-            }
+  //         if (tool && yyjson_is_obj(tool)) {
+  //           // Extract name
+  //           yyjson_val *name_val = yyjson_obj_get(tool, "name");
+  //           if (name_val && yyjson_is_str(name_val)) {
+  //             mcp_tool.name = yyjson_get_str(name_val);
+  //           }
 
-            // Extract description
-            yyjson_val *desc_val = yyjson_obj_get(tool, "description");
-            if (desc_val && yyjson_is_str(desc_val)) {
-              mcp_tool.description = yyjson_get_str(desc_val);
-            }
+  //           // Extract description
+  //           yyjson_val *desc_val = yyjson_obj_get(tool, "description");
+  //           if (desc_val && yyjson_is_str(desc_val)) {
+  //             mcp_tool.description = yyjson_get_str(desc_val);
+  //           }
 
-            // Extract param names by iterating over object keys
-            yyjson_val *key_ptr;
-            yyjson_obj_iter iter;
-            yyjson_obj_iter_init(tool, &iter);
-            for (key_ptr = yyjson_obj_iter_next(&iter); key_ptr != nullptr; key_ptr = yyjson_obj_iter_next(&iter)) {
-              mcp_tool.params.push_back(yyjson_get_str(key_ptr));
-            }
-          }
+  //           // Extract param names by iterating over object keys
+  //           yyjson_val *key_ptr;
+  //           yyjson_obj_iter iter;
+  //           yyjson_obj_iter_init(tool, &iter);
+  //           for (key_ptr = yyjson_obj_iter_next(&iter); key_ptr != nullptr; key_ptr = yyjson_obj_iter_next(&iter)) {
+  //             mcp_tool.params.push_back(yyjson_get_str(key_ptr));
+  //           }
+  //         }
 
-          tools.push_back(mcp_tool);
-        }
-      }
-    }
-  }
+  //         tools.push_back(mcp_tool);
+  //       }
+  //     }
+  //   }
+  // }
 
-  _tools_json = request;
+  //  _tools_json = request;
   return tools;
 }
 
@@ -271,25 +271,26 @@ std::string McpClient::make_request(const std::string &method, const std::string
 std::string McpClient::parse_response(const std::string &response) {
   // For MCP, responses can be JSON or SSE
   // Try to parse as JSON first
-  auto doc = json::parse(response);
-  if (doc.valid() && json::is_object(doc) && json::has_string_key(doc, "result")) {
-    return response;
-  }
+  // auto doc = json::parse(response);
+  // if (doc.valid() && json::is_object(doc) && json::has_string_key(doc, "result")) {
+  //   return response;
+  // }
 
-  // Try SSE format
-  size_t pos = response.find("data:");
-  if (pos != std::string::npos) {
-    std::string data = response.substr(pos + 5);
-    // Remove trailing whitespace and parse
-    while (!data.empty() && (data.back() == '\n' || data.back() == '\r' || data.back() == ' ')) {
-      data.pop_back();
-    }
-    if (!data.empty()) {
-      return data;
-    }
-  }
+  // // Try SSE format
+  // size_t pos = response.find("data:");
+  // if (pos != std::string::npos) {
+  //   std::string data = response.substr(pos + 5);
+  //   // Remove trailing whitespace and parse
+  //   while (!data.empty() && (data.back() == '\n' || data.back() == '\r' || data.back() == ' ')) {
+  //     data.pop_back();
+  //   }
+  //   if (!data.empty()) {
+  //     return data;
+  //   }
+  // }
 
-  return response;
+  //  return response;
+  return "";
 }
 
 std::string McpClient::extract_text_content(const std::string &response) {
@@ -298,36 +299,36 @@ std::string McpClient::extract_text_content(const std::string &response) {
     return "";
   }
 
-  auto root = doc.get_root();
+  // auto root = doc.get_root();
 
-  if (root && json::is_object(doc)) {
-    // Use new combined wrapper for mutable extraction
-    auto mut_doc = json::JsonMutDoc::parse(response);
-    yyjson_mut_val *content;
-    json::get_obj_mut(mut_doc, "content", &content);
-    if (content) {
-      // Check if content is an array using the raw pointer
-      if (yyjson_mut_is_arr(content)) {
-        for (size_t i = 0; i < yyjson_mut_arr_size(content); i++) {
-          yyjson_mut_val *item = yyjson_mut_arr_get(content, i);
-          if (item && json::is_object_mut(mut_doc)) {
-            // Use yyjson_ptr_get_str for mutable API or yyjson_get_str for immutable
-            yyjson_val *type_val = yyjson_obj_get(item, "type");
-            yyjson_val *text_val = yyjson_obj_get(item, "text");
-            if (type_val && yyjson_is_str(type_val) &&
-                yyjson_get_str(type_val) == "text" &&
-                text_val && yyjson_is_str(text_val)) {
-              return yyjson_get_str(text_val);
-            }
-          }
-        }
-      } else if (json::has_str_mut(mut_doc, "content")) {
-        std::string text;
-        json::get_str_mut(mut_doc, "content", text);
-        return text;
-      }
-    }
-  }
+  // if (root && json::is_object(doc)) {
+  //   // Use new combined wrapper for mutable extraction
+  //   auto mut_doc = json::JsonMutDoc::parse(response);
+  //   yyjson_mut_val *content;
+  //   json::get_obj_mut(mut_doc, "content", &content);
+  //   if (content) {
+  //     // Check if content is an array using the raw pointer
+  //     if (yyjson_mut_is_arr(content)) {
+  //       for (size_t i = 0; i < yyjson_mut_arr_size(content); i++) {
+  //         yyjson_mut_val *item = yyjson_mut_arr_get(content, i);
+  //         if (item && json::is_object_mut(mut_doc)) {
+  //           // Use yyjson_ptr_get_str for mutable API or yyjson_get_str for immutable
+  //           yyjson_val *type_val = yyjson_obj_get(item, "type");
+  //           yyjson_val *text_val = yyjson_obj_get(item, "text");
+  //           if (type_val && yyjson_is_str(type_val) &&
+  //               yyjson_get_str(type_val) == "text" &&
+  //               text_val && yyjson_is_str(text_val)) {
+  //             return yyjson_get_str(text_val);
+  //           }
+  //         }
+  //       }
+  //     } else if (json::has_str_mut(mut_doc, "content")) {
+  //       std::string text;
+  //       json::get_str_mut(mut_doc, "content", text);
+  //       return text;
+  //     }
+  //   }
+  // }
 
   return "";
 }
@@ -371,58 +372,58 @@ McpResult McpClient::call_tool(const std::string &name, const std::string &args_
     return result;
   }
 
-  // Set method
-  json::set_string(mut_doc, "method", "tools/call");
+  // // Set method
+  // json::set_string(mut_doc, "method", "tools/call");
 
-  // Set params
-  json::set_string(mut_doc, "params", "{\"name\":\"" + name + "\",\"arguments\":\"" + args_str + "\"}");
+  // // Set params
+  // json::set_string(mut_doc, "params", "{\"name\":\"" + name + "\",\"arguments\":\"" + args_str + "\"}");
 
-  // Convert to string
-  std::string request_str = json::write_mutable(mut_doc);
-  if (request_str.empty()) {
-    result.success = false;
-    result.isError = "Failed to serialize request";
-    return result;
-  }
+  // // Convert to string
+  // std::string request_str = json::write_mutable(mut_doc);
+  // if (request_str.empty()) {
+  //   result.success = false;
+  //   result.isError = "Failed to serialize request";
+  //   return result;
+  // }
 
-  std::string response = make_request("tools/call", request_str);
+  // std::string response = make_request("tools/call", request_str);
 
-  if (response.empty()) {
-    result.success = false;
-    result.isError = "Failed to communicate with MCP server";
-    return result;
-  }
+  // if (response.empty()) {
+  //   result.success = false;
+  //   result.isError = "Failed to communicate with MCP server";
+  //   return result;
+  // }
 
-  // Parse response using immutable API
-  auto resp_doc = json::parse(response);
-  if (!resp_doc.valid()) {
-    result.success = false;
-    result.isError = "Failed to parse response";
-    result.content = response;
-    return result;
-  }
+  // // Parse response using immutable API
+  // auto resp_doc = json::parse(response);
+  // if (!resp_doc.valid()) {
+  //   result.success = false;
+  //   result.isError = "Failed to parse response";
+  //   result.content = response;
+  //   return result;
+  // }
 
-  auto resp_root = resp_doc.get_root();
+  // auto resp_root = resp_doc.get_root();
 
-  if (resp_root && json::is_object(resp_doc)) {
-    // Use new combined wrapper for mutable extraction
-    auto mut_doc = json::JsonMutDoc::parse(response);
-    yyjson_mut_val *result_val;
-    json::get_obj_mut(mut_doc, "result", &result_val);
-    if (result_val && json::has_obj_mut(mut_doc, "result")) {
-      result.content = extract_text_content(response);
-    } else {
-      result.isError = "MCP server returned error";
-      if (json::has_string_key(resp_doc, "error")) {
-        result.content = response;
-      }
-      result.success = false;
-    }
-  } else {
-    result.isError = "Unexpected response format";
-    result.content = response;
-    result.success = false;
-  }
+  // if (resp_root && json::is_object(resp_doc)) {
+  //   // Use new combined wrapper for mutable extraction
+  //   auto mut_doc = json::JsonMutDoc::parse(response);
+  //   yyjson_mut_val *result_val;
+  //   json::get_obj_mut(mut_doc, "result", &result_val);
+  //   if (result_val && json::has_obj_mut(mut_doc, "result")) {
+  //     result.content = extract_text_content(response);
+  //   } else {
+  //     result.isError = "MCP server returned error";
+  //     if (json::has_string_key(resp_doc, "error")) {
+  //       result.content = response;
+  //     }
+  //     result.success = false;
+  //   }
+  // } else {
+  //   result.isError = "Unexpected response format";
+  //   result.content = response;
+  //   result.success = false;
+  // }
 
   return result;
 }
