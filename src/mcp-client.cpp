@@ -161,7 +161,7 @@ bool McpClient::connect(const std::string &host, int port) {
   }
 
   // Send request and get session ID
-  session_id_ = send_request("initialize", params_str);
+  session_id_ = send_request(params_str);
 
   if (session_id_.empty()) {
     log_write(LogLevel::ERROR_LEVEL, "mcp request failed");
@@ -214,7 +214,7 @@ std::vector<McpTool> McpClient::list_tools() {
   }
 
   // Send request
-  std::string request = send_request("tools/list", params_str);
+  std::string request = send_request(params_str);
 
   if (request.empty()) {
     return tools;
@@ -260,7 +260,7 @@ std::vector<McpTool> McpClient::list_tools() {
   return tools;
 }
 
-std::string McpClient::send_request(const std::string &mcp_method, const std::string &params_str) {
+std::string McpClient::send_request(const std::string &params_str) {
   std::string request_body = params_str;
   std::string url = base_url_;
   std::string session_header = "";
@@ -300,33 +300,6 @@ std::string McpClient::send_request(const std::string &mcp_method, const std::st
   }
 
   return body;
-}
-
-std::string McpClient::parse_response(const std::string &response) {
-  // For MCP, responses can be JSON or SSE
-  // Try to parse as JSON first
-  auto doc = json::parse(response);
-  if (doc.is_valid()) {
-    auto root = doc.get_root();
-    if (root.is_object() && root.has_string_key("result")) {
-      return response;
-    }
-  }
-
-  // Try SSE format
-  size_t pos = response.find("data:");
-  if (pos != std::string::npos) {
-    std::string data = response.substr(pos + 5);
-    // Remove trailing whitespace and parse
-    while (!data.empty() && (data.back() == '\n' || data.back() == '\r' || data.back() == ' ')) {
-      data.pop_back();
-    }
-    if (!data.empty()) {
-      return data;
-    }
-  }
-
-  return response;
 }
 
 std::string McpClient::get_session_id() const {
@@ -429,7 +402,7 @@ McpResult McpClient::call_tool(const std::string &name, const std::string &args_
     return result;
   }
 
-  std::string response = send_request("tools/call", request_str);
+  std::string response = send_request(request_str);
 
   if (response.empty()) {
     result.success = false;
@@ -466,14 +439,5 @@ McpResult McpClient::call_tool(const std::string &name, const std::string &args_
   }
 
   return result;
-}
-
-// Helper function to parse URL host
-std::string McpClient::parse_url_host(const std::string &url) {
-  size_t colon_pos = url.find(':');
-  if (colon_pos != std::string::npos) {
-    return url.substr(0, colon_pos);
-  }
-  return url;
 }
 

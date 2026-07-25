@@ -43,7 +43,5 @@ class McpClient {
   bool connected_;
   CURL *curl_;
 
-  std::string send_request(const std::string &mcp_method, const std::string &params);
-  std::string parse_response(const std::string &response);
-  std::string parse_url_host(const std::string &url);
+  std::string send_request(const std::string &params);
 };
