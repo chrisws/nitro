@@ -125,7 +125,7 @@ bool McpClient::connect(const std::string &host, int port) {
   curl_set_opts(curl_);
 
   // Initialize handshake using mutable API
-  auto doc = json::parse_mutable("{}");
+  auto doc = json::parse_mutable("");
   if (!doc.is_valid()) {
     log_write(LogLevel::ERROR_LEVEL, "failed to build json doc");
     return false;
@@ -273,7 +273,7 @@ std::string McpClient::send_request(const std::string &params_str) {
   std::string body;
   body.reserve(4096);
 
-  curl_easy_setopt(curl_, CURLOPT_URL, base_url_);
+  curl_easy_setopt(curl_, CURLOPT_URL, base_url_.c_str());
   curl_easy_setopt(curl_, CURLOPT_POSTFIELDS, params_str.c_str());
   curl_easy_setopt(curl_, CURLOPT_POSTFIELDSIZE, params_str.length());
   curl_easy_setopt(curl_, CURLOPT_WRITEDATA, &body);
@@ -291,11 +291,12 @@ std::string McpClient::send_request(const std::string &params_str) {
   }
 
   if (res != CURLE_OK) {
-    log_write(LogLevel::ERROR_LEVEL, "ERROR: curl: %s", curl_easy_strerror(res));
+    log_write(LogLevel::ERROR_LEVEL, "ERROR: curl: %s [%s]", curl_easy_strerror(res), base_url_.c_str());
     return "";
   }
   if (http_code >= 400) {
-    log_write(LogLevel::ERROR_LEVEL, "ERROR: HTTP %s", std::to_string(http_code));
+    log_write(LogLevel::ERROR_LEVEL, "ERROR: HTTP %s", std::to_string(http_code).c_str());
+    log_write(LogLevel::ERROR_LEVEL, "send [%s]", params_str.c_str());
     return "";
   }
 

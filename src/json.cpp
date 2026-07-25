@@ -131,19 +131,19 @@ bool JsonDoc::write_file(const std::string &path, WriteFlag flags) const {
 //
 bool JsonMutValue::set_str(const std::string &key, const std::string &value) {
   if (!is_valid()) return false;
-  yyjson_mut_obj_add(value_, yyjson_mut_str(doc_, key.c_str()), yyjson_mut_str(doc_, value.c_str()));
+  yyjson_mut_obj_add(value_, yyjson_mut_strcpy(doc_, key.c_str()), yyjson_mut_strcpy(doc_, value.c_str()));
   return true;
 }
 
 bool JsonMutValue::set_int(const std::string &key, int value) {
   if (!is_valid()) return false;
-  yyjson_mut_obj_add(value_, yyjson_mut_str(doc_, key.c_str()), yyjson_mut_int(doc_, value));
+  yyjson_mut_obj_add(value_, yyjson_mut_strcpy(doc_, key.c_str()), yyjson_mut_int(doc_, value));
   return true;
 }
 
 bool JsonMutValue::set_obj(const std::string &key, const JsonMutValue &value) {
   if (!is_valid() || !value.is_valid()) return false;
-  yyjson_mut_obj_add(value_, yyjson_mut_str(doc_, key.c_str()), value.value_);
+  yyjson_mut_obj_add(value_, yyjson_mut_strcpy(doc_, key.c_str()), value.value_);
   return true;
 }
 
@@ -158,12 +158,22 @@ JsonMutDoc JsonMutDoc::parse(const std::string &json_str) {
   yyjson_mut_doc *doc = yyjson_mut_doc_new(nullptr);
   if (!doc) return JsonMutDoc(nullptr);
 
-  yyjson_mut_val *root = yyjson_mut_doc_get_root(doc);
-  yyjson_doc *parsed = yyjson_read_opts((char*)json_str.data(), json_str.size(), 0, nullptr, nullptr);
-  if (parsed) {
-    yyjson_mut_val *root_copy = yyjson_val_mut_copy(nullptr, yyjson_doc_get_root(parsed));
-    yyjson_mut_doc_set_root(doc, root_copy);
-    yyjson_doc_free(parsed);
+  if (json_str.empty()) {
+    // no input - create an empty object as root so callers can add to it
+    yyjson_mut_val *root = yyjson_mut_obj(doc);
+    yyjson_mut_doc_set_root(doc, root);
+  } else {
+    yyjson_doc *parsed = yyjson_read_opts((char*)json_str.data(), json_str.size(), 0, nullptr, nullptr);
+    if (parsed) {
+      yyjson_val *parsed_root = yyjson_doc_get_root(parsed);
+      yyjson_mut_val *root_copy = yyjson_val_mut_copy(doc, parsed_root);
+      yyjson_mut_doc_set_root(doc, root_copy);
+      yyjson_doc_free(parsed);
+    } else {
+      // parse failed - fall back to an empty object so the doc is still usable
+      yyjson_mut_val *root = yyjson_mut_obj(doc);
+      yyjson_mut_doc_set_root(doc, root);
+    }
   }
 
   return JsonMutDoc(doc);

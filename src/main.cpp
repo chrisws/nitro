@@ -30,6 +30,7 @@
 #include "agent_state.h"
 #include "logging.h"
 #include "curl.h"
+#include "mcp-client.h"
 
 // Returns the history file path: ~/.config/nitro/history.txt
 static std::string history_path() {
@@ -258,6 +259,45 @@ static void welcome(Tui &tui, const std::string &sandbox) {
 }
 
 //
+// print command line usage
+//
+static void usage() {
+  std::puts("Usage: nitro [options] [project_dir]\n"
+            "\n"
+            "Options:\n"
+            "  -m, --model  <path>      GGUF model to load on startup\n"
+            "  -e, --embed  <path>      embedding model for RAG\n"
+            "  -g, --gpu-layers <n>     GPU layers to offload (default: 32)\n"
+            "  -l, --log <n>            enabled logging at verbosity level [1-4]\n"
+            "  -h, --help               show this help\n"
+            "\n"
+            "project_dir defaults to the current working directory.\n"
+            "Settings are persisted to ~/.config/nitro/settings.json.\n"
+            "\n"
+            "Slash commands inside nitro:\n"
+            "  /model  [path]           load / hot-reload a GGUF (picker if no path)\n"
+            "  /embed  [path]           load an embedding model  (picker if no path)\n"
+            "  /rag    [path]           index file or directory  (picker if no path)\n"
+            "  /memory                  KV / VRAM / layer stats\n"
+            "  /settings                show current settings\n"
+            "  /clear                   reset conversation\n"
+            "  /help                    list commands\n"
+            );
+}
+
+//
+// confirm mcp settings and connectivity
+//
+static void mcp_test() {
+  McpClient client;
+  if (!client.connect("", 0)) {
+    fprintf(stdout, "failed to connect\n");
+  } else {
+    fprintf(stdout, "connected\n");
+  }
+}
+
+//
 // main()
 //
 int main(int argc, char **argv) {
@@ -277,8 +317,14 @@ int main(int argc, char **argv) {
     return arg;
   };
 
+  bool do_mcp_test = false;
+
   for (int i = 1; i < argc; ++i) {
     std::string a = argv[i];
+    if (a == "-m" || a == "--mcp") {
+      do_mcp_test = true;
+      break;
+    }
     auto take_next = [&](const char *flag) -> std::string {
       if (i + 1 >= argc) {
         std::fprintf(stderr, "nitro: %s requires an argument\n", flag);
@@ -299,27 +345,7 @@ int main(int argc, char **argv) {
     } else if (a == "-p" || a == "--prompt-permission") {
       cfg.permission_prompt = true;
     } else if (a == "-h" || a == "--help") {
-      std::puts("Usage: nitro [options] [project_dir]\n"
-                "\n"
-                "Options:\n"
-                "  -m, --model  <path>      GGUF model to load on startup\n"
-                "  -e, --embed  <path>      embedding model for RAG\n"
-                "  -g, --gpu-layers <n>     GPU layers to offload (default: 32)\n"
-                "  -l, --log <n>            enabled logging at verbosity level [1-4]\n"
-                "  -h, --help               show this help\n"
-                "\n"
-                "project_dir defaults to the current working directory.\n"
-                "Settings are persisted to ~/.config/nitro/settings.json.\n"
-                "\n"
-                "Slash commands inside nitro:\n"
-                "  /model  [path]           load / hot-reload a GGUF (picker if no path)\n"
-                "  /embed  [path]           load an embedding model  (picker if no path)\n"
-                "  /rag    [path]           index file or directory  (picker if no path)\n"
-                "  /memory                  KV / VRAM / layer stats\n"
-                "  /settings                show current settings\n"
-                "  /clear                   reset conversation\n"
-                "  /help                    list commands\n"
-                );
+      usage();
       return 0;
     } else if (!a.empty() && a[0] == '-') {
       std::fprintf(stderr, "nitro: unknown option '%s'  (try --help)\n", a.c_str());
@@ -348,6 +374,14 @@ int main(int argc, char **argv) {
 
   // ── Init curl globally ────────────────────────────────────────────
   curl_init();
+
+  if (do_mcp_test) {
+    log_open("5");
+    mcp_test();
+    log_close();
+    curl_close();
+    return 0;
+  }
 
   // ── Init TUI ──────────────────────────────────────────────────────
   Tui tui;

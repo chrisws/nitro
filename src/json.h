@@ -69,15 +69,14 @@ struct JsonMutValue {
 
 class JsonDoc {
 public:
-  // Constructors
   JsonDoc() = default;
   explicit JsonDoc(yyjson_doc *doc) : doc_(doc) {}
-
-  // Constructor that parses from string
   static JsonDoc parse(const std::string &json_str);
 
-  // Destructor - frees the yyjson_doc
-  ~JsonDoc() = default;
+  ~JsonDoc() {
+    yyjson_doc_free(doc_);
+    doc_ = nullptr;
+  }
 
   // Non-copyable but movable
   JsonDoc(const JsonDoc&) = delete;
@@ -104,15 +103,14 @@ private:
 // Mutable veneer class around yyjson_mut_doc for building/modifying JSON
 class JsonMutDoc {
 public:
-  // Constructors
   JsonMutDoc() = default;
   explicit JsonMutDoc(yyjson_mut_doc *doc) : doc_(doc) {}
-
-  // Constructor that parses from string
   static JsonMutDoc parse(const std::string &json_str);
 
-  // Destructor - frees the yyjson_mut_doc
-  ~JsonMutDoc() = default;
+  ~JsonMutDoc() {
+    yyjson_mut_doc_free(doc_);
+    doc_ = nullptr;
+  }
 
   // Non-copyable but movable
   JsonMutDoc(const JsonMutDoc&) = delete;
