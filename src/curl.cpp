@@ -6,7 +6,6 @@
 // Download the GNU Public License (GPL) from www.gnu.org
 //
 
-#include <curl/curl.h>
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -173,15 +172,9 @@ std::string tool_curl(const std::string &url) {
   if (!curl) return "ERROR: curl_easy_init failed";
   std::string body;
   body.reserve(4096);
-  curl_easy_setopt(curl, CURLOPT_URL,            url.c_str());
-  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,  curl_write_cb);
-  curl_easy_setopt(curl, CURLOPT_WRITEDATA,      &body);
-  curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-  curl_easy_setopt(curl, CURLOPT_MAXREDIRS,      5L);
-  curl_easy_setopt(curl, CURLOPT_TIMEOUT,        15L);
-  curl_easy_setopt(curl, CURLOPT_USERAGENT,      "nitro/1.0");
-  // Accept compressed responses; curl will decompress automatically.
-  curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "");
+  curl_set_opts(curl);
+  curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, &body);
 
   CURLcode res = curl_easy_perform(curl);
   long http_code = 0;
@@ -220,4 +213,14 @@ void curl_init() {
 
 void curl_close() {
   curl_global_cleanup();
+}
+
+void curl_set_opts(CURL *curl) {
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,  curl_write_cb);
+  curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+  curl_easy_setopt(curl, CURLOPT_MAXREDIRS,      5L);
+  curl_easy_setopt(curl, CURLOPT_TIMEOUT,        15L);
+  curl_easy_setopt(curl, CURLOPT_USERAGENT,      "nitro/1.0");
+  // Accept compressed responses; curl will decompress automatically.
+  curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "");
 }

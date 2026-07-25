@@ -8,8 +8,10 @@
 
 #pragma once
 
+#include <curl/curl.h>
 #include <string>
 
 void curl_init();
 void curl_close();
+void curl_set_opts(CURL *curl);
 std::string tool_curl(const std::string &url);

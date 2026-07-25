@@ -30,20 +30,20 @@ class McpClient {
   McpClient();
   ~McpClient();
 
-  bool connect(const std::string& host, int port);
+  bool connect(const std::string &host, int port);
   std::vector<McpTool> list_tools();
-  McpResult call_tool(const std::string& name, const std::string& args);
+  McpResult call_tool(const std::string &name, const std::string &args);
   std::string get_session_id() const;
   void disconnect();
 
   private:
-  std::string _session_id;
-  std::string _base_url;
-  std::string _tools_json;
-  bool _connected;
-  CURL *_curl;
+  std::string session_id_;
+  std::string base_url_;
+  std::string tools_json_;
+  bool connected_;
+  CURL *curl_;
 
-  std::string make_request(const std::string& method, const std::string& params);
-  std::string parse_response(const std::string& response);
-  std::string parse_url_host(const std::string& url);
+  std::string send_request(const std::string &mcp_method, const std::string &params);
+  std::string parse_response(const std::string &response);
+  std::string parse_url_host(const std::string &url);
 };

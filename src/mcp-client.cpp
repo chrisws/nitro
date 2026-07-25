@@ -12,6 +12,7 @@
 #include <filesystem>
 
 #include "mcp-client.h"
+#include "curl.h"
 #include "json.h"
 #include "logging.h"
 
@@ -87,16 +88,16 @@ static std::string load_mcp_settings() {
 }
 
 McpClient::McpClient()
-  : _base_url("http://127.0.0.1:64342/stream")
-  , _connected(false)
-  , _curl(nullptr) {
+  : base_url_("http://127.0.0.1:64342/stream")
+  , connected_(false)
+  , curl_(nullptr) {
 
   // Try to load settings from sandbox
   std::string settings = load_mcp_settings();
   if (!settings.empty()) {
     size_t colon_pos = settings.find(':');
     if (colon_pos != std::string::npos) {
-      _base_url = "http://" + settings.substr(0, colon_pos) + ":" +  settings.substr(colon_pos + 1) + "/stream";
+      base_url_ = "http://" + settings.substr(0, colon_pos) + ":" +  settings.substr(colon_pos + 1) + "/stream";
     }
   }
 }
@@ -108,25 +109,32 @@ McpClient::~McpClient() {
 bool McpClient::connect(const std::string &host, int port) {
   // If explicit host/port provided, use them
   if (!host.empty() && port > 0) {
-    _base_url = "http://" + host + ":" + std::to_string(port) + "/stream";
+    base_url_ = "http://" + host + ":" + std::to_string(port) + "/stream";
   }
   // Otherwise, use the loaded settings or default
 
   // Initialize curl
-  _curl = curl_easy_init();
-  if (!_curl) {
+  if (curl_ == nullptr) {
+    curl_ = curl_easy_init();
+  }
+  if (!curl_) {
+    log_write(LogLevel::ERROR_LEVEL, "failed to init curl");
     return false;
   }
+
+  curl_set_opts(curl_);
 
   // Initialize handshake using mutable API
   auto doc = json::parse_mutable("{}");
   if (!doc.is_valid()) {
+    log_write(LogLevel::ERROR_LEVEL, "failed to build json doc");
     return false;
   }
 
   auto root = doc.get_root();
   if (!root.is_valid()) {
-    return "";
+    log_write(LogLevel::ERROR_LEVEL, "failed to build json root");
+    return false;
   }
 
   // Set protocol version
@@ -141,32 +149,37 @@ bool McpClient::connect(const std::string &host, int port) {
   params.set_str("version", "0.1");
   root.set_obj("clientInfo", params);
 
+  // Add jsonrpc and id fields
+  root.set_str("jsonrpc", "2.0");
+  root.set_int("id", 1);
+
   // Convert to string
   std::string params_str = doc.write();
   if (params_str.empty()) {
+    log_write(LogLevel::ERROR_LEVEL, "failed to build json string");
     return false;
   }
 
   // Send request and get session ID
-  _session_id = make_request("initialize", params_str);
+  session_id_ = send_request("initialize", params_str);
 
-  if (_session_id.empty()) {
+  if (session_id_.empty()) {
+    log_write(LogLevel::ERROR_LEVEL, "mcp request failed");
     return false;
   }
 
-  _connected = true;
-  return true;
+  return connected_;
 }
 
 std::vector<McpTool> McpClient::list_tools() {
   std::vector<McpTool> tools;
 
-  if (!_connected) {
+  if (!connected_) {
     return tools;
   }
 
-  // Get session ID from headers if available
-  std::string session_id = _session_id;
+  // Get session ID from stored value
+  std::string session_id = session_id_;
   if (session_id.empty()) {
     session_id = "default-session";
   }
@@ -185,10 +198,15 @@ std::vector<McpTool> McpClient::list_tools() {
   // Set method
   root.set_str("method", "tools/list");
 
-  // Set params
+  // Set params with sessionId and arguments
   auto params = doc.get_child();
-  params.set_str("session", session_id);
+  params.set_str("sessionId", session_id);
+  params.set_str("arguments", "{}");
   root.set_obj("params", params);
+
+  // Add jsonrpc and id fields
+  root.set_str("jsonrpc", "2.0");
+  root.set_int("id", 2);
 
   std::string params_str = doc.write();
   if (params_str.empty()) {
@@ -196,7 +214,7 @@ std::vector<McpTool> McpClient::list_tools() {
   }
 
   // Send request
-  std::string request = make_request("tools/list", params_str);
+  std::string request = send_request("tools/list", params_str);
 
   if (request.empty()) {
     return tools;
@@ -238,32 +256,50 @@ std::vector<McpTool> McpClient::list_tools() {
     }
   }
 
-  _tools_json = request;
+  tools_json_ = request;
   return tools;
 }
 
-std::string McpClient::make_request(const std::string &method, const std::string &params_str) {
+std::string McpClient::send_request(const std::string &mcp_method, const std::string &params_str) {
   std::string request_body = params_str;
-  std::string url = _base_url;
+  std::string url = base_url_;
   std::string session_header = "";
 
   // Add session ID to header
-  if (!_session_id.empty()) {
-    session_header = "Mcp-Session-Id: " + _session_id + "\r\n";
+  if (!session_id_.empty()) {
+    session_header = "Mcp-Session-Id: " + session_id_ + "\r\n";
   }
 
-  // Build request
-  std::ostringstream oss;
-  oss << "POST " << url << " HTTP/1.1\r\n";
-  oss << "Host: " << parse_url_host(url) << "\r\n";
-  oss << "Content-Type: application/json\r\n";
-  oss << "Accept: application/json, text/event-stream\r\n";
-  oss << session_header;
-  oss << "Content-Length: " << request_body.length() << "\r\n";
-  oss << "\r\n";
-  oss << request_body;
+  std::string body;
+  body.reserve(4096);
 
-  return oss.str();
+  curl_easy_setopt(curl_, CURLOPT_URL, base_url_);
+  curl_easy_setopt(curl_, CURLOPT_POSTFIELDS, params_str.c_str());
+  curl_easy_setopt(curl_, CURLOPT_POSTFIELDSIZE, params_str.length());
+  curl_easy_setopt(curl_, CURLOPT_WRITEDATA, &body);
+
+  curl_slist* curl_headers = nullptr;
+  curl_headers = curl_slist_append(curl_headers, session_header.c_str());
+  curl_easy_setopt(curl_, CURLOPT_HTTPHEADER, curl_headers);
+
+  CURLcode res = curl_easy_perform(curl_);
+  long http_code = 0;
+  curl_easy_getinfo(curl_, CURLINFO_RESPONSE_CODE, &http_code);
+
+  if (curl_headers) {
+    curl_slist_free_all(curl_headers);
+  }
+
+  if (res != CURLE_OK) {
+    log_write(LogLevel::ERROR_LEVEL, "ERROR: curl: %s", curl_easy_strerror(res));
+    return "";
+  }
+  if (http_code >= 400) {
+    log_write(LogLevel::ERROR_LEVEL, "ERROR: HTTP %s", std::to_string(http_code));
+    return "";
+  }
+
+  return body;
 }
 
 std::string McpClient::parse_response(const std::string &response) {
@@ -294,17 +330,17 @@ std::string McpClient::parse_response(const std::string &response) {
 }
 
 std::string McpClient::get_session_id() const {
-  return _session_id;
+  return session_id_;
 }
 
 void McpClient::disconnect() {
-  if (_curl) {
-    curl_easy_cleanup(_curl);
-    _curl = nullptr;
+  if (curl_) {
+    curl_easy_cleanup(curl_);
+    curl_ = nullptr;
   }
-  _connected = false;
-  _session_id.clear();
-  _tools_json.clear();
+  connected_ = false;
+  session_id_.clear();
+  tools_json_.clear();
 }
 
 static std::string extract_text_content(const json::JsonValue &root) {
@@ -339,14 +375,14 @@ McpResult McpClient::call_tool(const std::string &name, const std::string &args_
   result.success = true;
   result.isError = "";
 
-  if (!_connected) {
+  if (!connected_) {
     result.success = false;
     result.isError = "Not connected to MCP server";
     return result;
   }
 
-  // Get session ID from headers
-  std::string session_id = _session_id;
+  // Get session ID from stored value
+  std::string session_id = session_id_;
   if (session_id.empty()) {
     session_id = "default-session";
   }
@@ -363,16 +399,27 @@ McpResult McpClient::call_tool(const std::string &name, const std::string &args_
   if (!root.is_valid()) {
     result.success = false;
     result.isError = "Failed to create request";
+    return result;
   }
 
   // Set method
   root.set_str("method", "tools/call");
 
-  // Create params object with nested values
+  // Create params object with sessionId and arguments nested properly
   auto params = doc.get_child();
-  params.set_str("name", name);
-  params.set_str("arguments", args_str);
+  params.set_str("sessionId", session_id);
+
+  // Create arguments object
+  auto args = doc.get_child();
+  args.set_str("name", name);
+  args.set_str("arguments", args_str);
+  params.set_obj("arguments", args);
+
   root.set_obj("params", params);
+
+  // Add jsonrpc and id fields
+  root.set_str("jsonrpc", "2.0");
+  root.set_int("id", 3);
 
   // Convert to string
   std::string request_str = doc.write();
@@ -382,7 +429,7 @@ McpResult McpClient::call_tool(const std::string &name, const std::string &args_
     return result;
   }
 
-  std::string response = make_request("tools/call", request_str);
+  std::string response = send_request("tools/call", request_str);
 
   if (response.empty()) {
     result.success = false;
@@ -429,3 +476,4 @@ std::string McpClient::parse_url_host(const std::string &url) {
   }
   return url;
 }
+
