@@ -17,6 +17,33 @@
 #include "logging.h"
 
 //
+// Reads Mcp-Session-Id from the headers
+//
+static size_t header_callback(char *buffer, size_t size, size_t nitems, void *userdata) {
+  size_t total = size * nitems;
+  std::string *session_id_out = static_cast<std::string*>(userdata);
+
+  std::string line(buffer, total);
+  const std::string prefix = "Mcp-Session-Id:";
+
+  // case-sensitive check is risky — HTTP headers are case-insensitive.
+  // Do a case-insensitive compare instead:
+  if (line.size() >= prefix.size() &&
+      strncasecmp(line.c_str(), prefix.c_str(), prefix.size()) == 0) {
+    std::string value = line.substr(prefix.size());
+    // trim leading/trailing whitespace and \r\n
+    size_t start = value.find_first_not_of(" \t");
+    size_t end = value.find_last_not_of(" \t\r\n");
+    if (start != std::string::npos) {
+      *session_id_out = value.substr(start, end - start + 1);
+    }
+  }
+
+  // must return the number of bytes "handled" - libcurl aborts if you return anything else
+  return total;
+}
+
+//
 // Try to load MCP settings from mcp.json or mcp-settings.json in the sandbox
 // Returns empty string if file not found (MCP functionality not available)
 //
@@ -89,7 +116,6 @@ static std::string load_mcp_settings() {
 
 McpClient::McpClient()
   : base_url_("http://127.0.0.1:64342/stream")
-  , connected_(false)
   , curl_(nullptr) {
 
   // Try to load settings from sandbox
@@ -164,20 +190,36 @@ bool McpClient::connect(const std::string &host, int port) {
   log_write(LogLevel::INFO_LEVEL, "sending [%s]", params_str.c_str());
 
   // Send request and get session ID
-  session_id_ = send_request(params_str);
+  auto response = send_request(params_str);
 
-  if (session_id_.empty()) {
+  if (response.empty()) {
     log_write(LogLevel::ERROR_LEVEL, "mcp request failed");
     return false;
   }
 
-  return connected_;
+  log_write(LogLevel::INFO_LEVEL, "received [%s]", response.c_str());
+  log_write(LogLevel::INFO_LEVEL, "sessionId [%s]", session_id_.c_str());
+
+  auto resp_doc = json::parse(response);
+  if (resp_doc.is_valid()) {
+    auto root = resp_doc.get_root();
+    int id;
+    if (!root.get_int("id", id)) {
+      log_write(LogLevel::INFO_LEVEL, "failed to read id field");
+    } else {
+      log_write(LogLevel::INFO_LEVEL, "id=[%d]", id);
+    }
+  } else {
+    log_write(LogLevel::INFO_LEVEL, "failed to parse response");
+  }
+
+  return true;
 }
 
 std::vector<McpTool> McpClient::list_tools() {
   std::vector<McpTool> tools;
 
-  if (!connected_) {
+  if (!curl_) {
     return tools;
   }
 
@@ -262,27 +304,25 @@ std::vector<McpTool> McpClient::list_tools() {
   return tools;
 }
 
-std::string McpClient::send_request(const std::string &params_str) {
-  std::string request_body = params_str;
-  std::string url = base_url_;
-  std::string session_header = "";
-
-  // Add session ID to header
-  if (!session_id_.empty()) {
-    session_header = "Mcp-Session-Id: " + session_id_ + "\r\n";
-  }
-
+std::string McpClient::send_request(const std::string &request_body) {
   std::string body;
   body.reserve(4096);
 
-  curl_easy_setopt(curl_, CURLOPT_URL, base_url_.c_str());
-  curl_easy_setopt(curl_, CURLOPT_POSTFIELDS, params_str.c_str());
-  curl_easy_setopt(curl_, CURLOPT_POSTFIELDSIZE, params_str.length());
-  curl_easy_setopt(curl_, CURLOPT_WRITEDATA, &body);
+  curl_slist *curl_headers = nullptr;
+  curl_headers = curl_slist_append(curl_headers, "Content-Type: application/json");
+  curl_headers = curl_slist_append(curl_headers, "Accept: application/json, text/event-stream");
+  if (!session_id_.empty()) {
+    std::string session_header = "Mcp-Session-Id: " + session_id_;
+    curl_headers = curl_slist_append(curl_headers, session_header.c_str());
+  }
 
-  curl_slist* curl_headers = nullptr;
-  curl_headers = curl_slist_append(curl_headers, session_header.c_str());
   curl_easy_setopt(curl_, CURLOPT_HTTPHEADER, curl_headers);
+  curl_easy_setopt(curl_, CURLOPT_URL, base_url_.c_str());
+  curl_easy_setopt(curl_, CURLOPT_POSTFIELDS, request_body.c_str());
+  curl_easy_setopt(curl_, CURLOPT_POSTFIELDSIZE, request_body.length());
+  curl_easy_setopt(curl_, CURLOPT_WRITEDATA, &body);
+  curl_easy_setopt(curl_, CURLOPT_HEADERFUNCTION, header_callback);
+  curl_easy_setopt(curl_, CURLOPT_HEADERDATA, &session_id_);
 
   CURLcode res = curl_easy_perform(curl_);
   long http_code = 0;
@@ -294,12 +334,12 @@ std::string McpClient::send_request(const std::string &params_str) {
 
   if (res != CURLE_OK) {
     log_write(LogLevel::ERROR_LEVEL, "ERROR: curl: %s [%s]", curl_easy_strerror(res), base_url_.c_str());
-    log_write(LogLevel::ERROR_LEVEL, "sent [%s]", params_str.c_str());
+    log_write(LogLevel::ERROR_LEVEL, "sent [%s]", request_body.c_str());
     return "";
   }
   if (http_code >= 400) {
     log_write(LogLevel::ERROR_LEVEL, "ERROR: HTTP %s", std::to_string(http_code).c_str());
-    log_write(LogLevel::ERROR_LEVEL, "sent [%s]", params_str.c_str());
+    log_write(LogLevel::ERROR_LEVEL, "sent [%s]", request_body.c_str());
     return "";
   }
 
@@ -315,7 +355,6 @@ void McpClient::disconnect() {
     curl_easy_cleanup(curl_);
     curl_ = nullptr;
   }
-  connected_ = false;
   session_id_.clear();
   tools_json_.clear();
 }
@@ -352,7 +391,7 @@ McpResult McpClient::call_tool(const std::string &name, const std::string &args_
   result.success = true;
   result.isError = "";
 
-  if (!connected_) {
+  if (!curl_) {
     result.success = false;
     result.isError = "Not connected to MCP server";
     return result;

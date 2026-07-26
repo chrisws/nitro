@@ -40,7 +40,6 @@ class McpClient {
   std::string session_id_;
   std::string base_url_;
   std::string tools_json_;
-  bool connected_;
   CURL *curl_;
 
   std::string send_request(const std::string &params);
