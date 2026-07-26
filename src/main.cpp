@@ -290,11 +290,13 @@ static void usage() {
 //
 static void mcp_test() {
   McpClient client;
+  log_open_console();
   if (!client.connect("", 0)) {
-    fprintf(stdout, "failed to connect\n");
+    log_write(LogLevel::INFO_LEVEL, "failed to connect");
   } else {
-    fprintf(stdout, "connected\n");
+    log_write(LogLevel::INFO_LEVEL, "connected");
   }
+  log_close();
 }
 
 //
@@ -355,6 +357,15 @@ int main(int argc, char **argv) {
     }
   }
 
+  // ── Init curl globally ────────────────────────────────────────────
+  curl_init();
+
+  if (do_mcp_test) {
+    mcp_test();
+    curl_close();
+    return 0;
+  }
+
   // ── Resolve sandbox ───────────────────────────────────────────────
   if (cfg.sandbox.empty()) {
     std::error_code ec;
@@ -370,17 +381,6 @@ int main(int argc, char **argv) {
     if (fs::exists(kf)) {
       cfg.knowledge_files.emplace_back(kf);
     }
-  }
-
-  // ── Init curl globally ────────────────────────────────────────────
-  curl_init();
-
-  if (do_mcp_test) {
-    log_open("5");
-    mcp_test();
-    log_close();
-    curl_close();
-    return 0;
   }
 
   // ── Init TUI ──────────────────────────────────────────────────────

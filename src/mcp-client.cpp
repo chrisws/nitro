@@ -137,21 +137,22 @@ bool McpClient::connect(const std::string &host, int port) {
     return false;
   }
 
-  // Set protocol version
-  root.set_str("protocolVersion", "2025-06-18");
-
-  // Set capabilities - create empty object
-  root.set_str("capabilities", "{}");
-
-  // Set client info
-  auto params = doc.get_child();
-  params.set_str("name", "nitro");
-  params.set_str("version", "0.1");
-  root.set_obj("clientInfo", params);
+  // '{"jsonrpc":"2.0","id":1,"method":"initialize",
+  //      "params":{"protocolVersion":"2025-06-18","capabilities":{},
+  //                "clientInfo":{"name":"nitro","version":"0.1"}}}'
 
   // Add jsonrpc and id fields
   root.set_str("jsonrpc", "2.0");
   root.set_int("id", 1);
+  root.set_str("method", "initialize");
+
+  auto params = doc.get_child("params");
+  params.set_str("protocolVersion", "2025-06-18");
+  params.set_empty_obj("capabilities");
+
+  auto clientInfo = params.get_child("clientInfo");
+  clientInfo.set_str("name", "nitro");
+  clientInfo.set_str("version", "0.1");
 
   // Convert to string
   std::string params_str = doc.write();
@@ -159,6 +160,8 @@ bool McpClient::connect(const std::string &host, int port) {
     log_write(LogLevel::ERROR_LEVEL, "failed to build json string");
     return false;
   }
+
+  log_write(LogLevel::INFO_LEVEL, "sending [%s]", params_str.c_str());
 
   // Send request and get session ID
   session_id_ = send_request(params_str);
@@ -199,10 +202,9 @@ std::vector<McpTool> McpClient::list_tools() {
   root.set_str("method", "tools/list");
 
   // Set params with sessionId and arguments
-  auto params = doc.get_child();
+  auto params = doc.get_child("params");
   params.set_str("sessionId", session_id);
   params.set_str("arguments", "{}");
-  root.set_obj("params", params);
 
   // Add jsonrpc and id fields
   root.set_str("jsonrpc", "2.0");
@@ -292,11 +294,12 @@ std::string McpClient::send_request(const std::string &params_str) {
 
   if (res != CURLE_OK) {
     log_write(LogLevel::ERROR_LEVEL, "ERROR: curl: %s [%s]", curl_easy_strerror(res), base_url_.c_str());
+    log_write(LogLevel::ERROR_LEVEL, "sent [%s]", params_str.c_str());
     return "";
   }
   if (http_code >= 400) {
     log_write(LogLevel::ERROR_LEVEL, "ERROR: HTTP %s", std::to_string(http_code).c_str());
-    log_write(LogLevel::ERROR_LEVEL, "send [%s]", params_str.c_str());
+    log_write(LogLevel::ERROR_LEVEL, "sent [%s]", params_str.c_str());
     return "";
   }
 
@@ -380,16 +383,13 @@ McpResult McpClient::call_tool(const std::string &name, const std::string &args_
   root.set_str("method", "tools/call");
 
   // Create params object with sessionId and arguments nested properly
-  auto params = doc.get_child();
+  auto params = doc.get_child("params");
   params.set_str("sessionId", session_id);
 
   // Create arguments object
-  auto args = doc.get_child();
+  auto args = doc.get_child("arguments");
   args.set_str("name", name);
   args.set_str("arguments", args_str);
-  params.set_obj("arguments", args);
-
-  root.set_obj("params", params);
 
   // Add jsonrpc and id fields
   root.set_str("jsonrpc", "2.0");

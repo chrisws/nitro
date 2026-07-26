@@ -135,16 +135,27 @@ bool JsonMutValue::set_str(const std::string &key, const std::string &value) {
   return true;
 }
 
+bool JsonMutValue::set_empty_obj(const std::string &key) {
+  if (!is_valid()) return false;
+  yyjson_mut_obj_add(value_, yyjson_mut_strcpy(doc_, key.c_str()), yyjson_mut_obj(doc_));
+  return true;
+}
+
 bool JsonMutValue::set_int(const std::string &key, int value) {
   if (!is_valid()) return false;
   yyjson_mut_obj_add(value_, yyjson_mut_strcpy(doc_, key.c_str()), yyjson_mut_int(doc_, value));
   return true;
 }
 
-bool JsonMutValue::set_obj(const std::string &key, const JsonMutValue &value) {
-  if (!is_valid() || !value.is_valid()) return false;
-  yyjson_mut_obj_add(value_, yyjson_mut_strcpy(doc_, key.c_str()), value.value_);
-  return true;
+JsonMutValue JsonMutValue::get_child(const std::string &key) {
+  if (!is_valid()) return JsonMutValue(nullptr, nullptr);
+  // creates a new empty object value allocated in doc_'s memory pool
+  // it's not attached to anything until you add it somewhere.
+  yyjson_mut_val *child = yyjson_mut_obj(doc_);
+
+  // attach it by passing it directly as the value argument to yyjson_mut_obj_add on the parent
+  yyjson_mut_obj_add(value_, yyjson_mut_strcpy(doc_, key.c_str()), child);
+  return JsonMutValue(doc_, child);
 }
 
 //
@@ -187,6 +198,18 @@ JsonMutValue JsonMutDoc::get_root() const {
     }
   }
   return JsonMutValue();
+}
+
+JsonMutValue JsonMutDoc::get_child(const std::string &key) {
+  if (!is_valid()) return JsonMutValue(nullptr, nullptr);
+
+  yyjson_mut_val *child = yyjson_mut_obj(doc_);
+
+  // attach the child to the root object
+  auto *root = yyjson_mut_doc_get_root(doc_);
+  yyjson_mut_obj_add(root, yyjson_mut_strcpy(doc_, key.c_str()), child);
+
+  return JsonMutValue(doc_, child);
 }
 
 std::string JsonMutDoc::write(WriteFlag flags) const {

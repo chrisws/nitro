@@ -16,6 +16,7 @@
 
 static FILE *g_logfile = nullptr;
 LogLevel g_level = DEBUG_LEVEL;
+bool g_log_console = false;
 
 LogLevel get_level(const std::string& level) {
   static std::unordered_map<std::string, LogLevel> loggingMap = {
@@ -44,6 +45,12 @@ void log_open(std::string level) {
   }
 }
 
+void log_open_console() {
+  g_logfile = nullptr;
+  g_level = ERROR_LEVEL;
+  g_log_console = true;
+}
+
 void log_close() {
   if (g_logfile != nullptr) {
     fclose(g_logfile);
@@ -52,6 +59,16 @@ void log_close() {
 }
 
 void log_write(LogLevel level, const char* format, ...) {
+  if (g_log_console) {
+    fprintf(stderr, "LOG: ");
+    va_list args;
+    va_start(args, format);
+    vfprintf(stderr, format, args);
+    va_end(args);
+    fprintf(stderr, "\n");
+    return;
+  }
+
   if (!g_logfile || level < g_level) {
     return;
   }
