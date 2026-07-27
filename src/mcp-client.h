@@ -33,7 +33,6 @@ class McpClient {
   bool connect(const std::string &host, int port);
   std::vector<McpTool> list_tools();
   McpResult call_tool(const std::string &name, const std::string &args);
-  std::string get_session_id() const;
   void disconnect();
 
   private:

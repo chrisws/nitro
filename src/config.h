@@ -25,27 +25,27 @@ struct NitroConfig {
   bool save_settings() const;
   void load_settings();
   std::string settings_path() const;
-  
-  std::string model_path;
-  std::string embed_path;
-  std::string sandbox;
 
-  int   n_ctx          = 65536;
-  int   n_batch        = 512;
-  int   n_gpu_layers   = 32;
-  int   log_level      = GGML_LOG_LEVEL_CONT;
-  float temperature    = 0.6f;
-  float top_p          = 0.95f;
-  float min_p          = 0.0f;
-  int   top_k          = 20;
-  float penalty_repeat = 1.0f;
-  int   penalty_last_n = 256;
-  int   rag_top_k      = 5;
-  bool  thinking       = true;
-  bool  permission_prompt = false;
+  std::string model_path_;
+  std::string embed_path_;
+  std::string sandbox_;
 
-  // TOOL:RUN allowlist - if non-empty, only these program basenames may run.
+  int   n_ctx_          = 65536;
+  int   n_batch_        = 512;
+  int   n_gpu_layers_   = 32;
+  int   log_level_      = GGML_LOG_LEVEL_CONT;
+  float temperature_    = 0.6f;
+  float top_p_          = 0.95f;
+  float min_p_          = 0.0f;
+  int   top_k_          = 20;
+  float penalty_repeat_ = 1.0f;
+  int   penalty_last_n_ = 256;
+  int   rag_top_k_      = 5;
+  bool  thinking_       = true;
+  bool  permission_prompt_ = false;
+
+  // TOOL:RUN allowlist - if non-empty, only these program base names may run.
   // Empty means "allow anything inside the sandbox" (original behaviour).
-  std::vector<std::string> run_allowed;
-  std::vector<std::string> knowledge_files;    
+  std::vector<std::string> run_allowed_;
+  std::vector<std::string> knowledge_files_;
 };

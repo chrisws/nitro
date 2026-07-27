@@ -343,7 +343,7 @@ void Tui::set_thinking(bool on) {
   notcurses_render(nc_);
 }
 
-void Tui::update_usage(int tokens_sec, const LlamaMemoryInfo &mem) {
+void Tui::update_usage(float tokens_sec, const LlamaMemoryInfo &mem) {
   tokens_per_sec_ = tokens_sec;
   kv_used_    = mem.kv_used;
   kv_total_   = mem.kv_total;

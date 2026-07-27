@@ -236,7 +236,7 @@ class Tui final: TuiContext {
   void setup_model(std::string &model_name, const LlamaMemoryInfo &mem);
   void tick_spinner();
   void set_thinking(bool on);
-  void update_usage(int tokens_sec, const LlamaMemoryInfo &mem);
+  void update_usage(float tokens_sec, const LlamaMemoryInfo &mem);
   int get_term_rows() const { return term_rows_; }
 
   // ── draw ──────────────────────────────────────────────────────────
@@ -304,7 +304,7 @@ class Tui final: TuiContext {
   float tokens_per_sec_;
   int kv_used_;
   int kv_total_;
-  int kv_percent_;
+  float kv_percent_;
   size_t vram_used_;
   size_t vram_total_;
 

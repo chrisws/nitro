@@ -65,14 +65,14 @@ static void handle_slash(const std::string &input,
     if (rest.empty()) {
       tui.append_line(ICON_SYS + "Opening model picker…");
       tui.redraw_all();
-      rest = tui.file_picker(cfg.sandbox, "Model File");
+      rest = tui.file_picker(cfg.sandbox_, "Model File");
       if (rest.empty()) {
         tui.append_line(ICON_SYS + "/model cancelled.");
         tui.redraw_all();
         return;
       }
     }
-    cfg.model_path = rest;
+    cfg.model_path_ = rest;
     if (agent.setup_model(cfg, tui)) {
       std::string sysp = cfg.build_system_prompt();
       agent.reset_conversation(sysp, tui);
@@ -89,14 +89,14 @@ static void handle_slash(const std::string &input,
     if (rest.empty()) {
       tui.append_line(ICON_SYS + "Opening embedding model picker…");
       tui.redraw_all();
-      rest = tui.file_picker(cfg.sandbox, "Embedding Model");
+      rest = tui.file_picker(cfg.sandbox_, "Embedding Model");
       if (rest.empty()) {
         tui.append_line(ICON_SYS + "/embed cancelled.");
         tui.redraw_all();
         return;
       }
     }
-    cfg.embed_path = rest;
+    cfg.embed_path_ = rest;
     if (agent.setup_embed(rest, tui)) {
       cfg.save_settings();
     }
@@ -108,7 +108,7 @@ static void handle_slash(const std::string &input,
     std::string path = rest;
     if (path.empty()) {
       // Launch the interactive folder picker starting from the sandbox.
-      path = tui.rag_folder_picker(cfg.sandbox);
+      path = tui.rag_folder_picker(cfg.sandbox_);
       if (path.empty()) {
         tui.append_line(ICON_SYS + "RAG indexing cancelled.");
         tui.redraw_all();
@@ -133,7 +133,7 @@ static void handle_slash(const std::string &input,
     std::istringstream iss(agent.memory_info_text());
     std::string line;
     while (std::getline(iss, line)) {
-      tui.append_line(ICON_SYS + "" + line);
+      tui.append_line(ICON_SYS + line);
     }
     tui.redraw_all();
     return;
@@ -154,16 +154,16 @@ static void handle_slash(const std::string &input,
 
   if (verb == "/settings") {
     tui.append_line(ICON_SYS + "Current settings:");
-    tui.append_line(ICON_SYS + "  model_path    : " + cfg.model_path);
-    tui.append_line(ICON_SYS + "  embed_path    : " + cfg.embed_path);
-    tui.append_line(ICON_SYS + "  sandbox       : " + cfg.sandbox);
-    tui.append_line(ICON_SYS + "  n_ctx         : " + std::to_string(cfg.n_ctx));
-    tui.append_line(ICON_SYS + "  n_gpu_layers  : " + std::to_string(cfg.n_gpu_layers));
-    tui.append_line(ICON_SYS + "  temperature   : " + std::to_string(cfg.temperature));
-    tui.append_line(ICON_SYS + "  top_p         : " + std::to_string(cfg.top_p));
-    tui.append_line(ICON_SYS + "  top_k         : " + std::to_string(cfg.top_k));
-    tui.append_line(ICON_SYS + "  penalty_repeat: " + std::to_string(cfg.penalty_repeat));
-    tui.append_line(ICON_SYS + "  rag_top_k     : " + std::to_string(cfg.rag_top_k));
+    tui.append_line(ICON_SYS + "  model_path    : " + cfg.model_path_);
+    tui.append_line(ICON_SYS + "  embed_path    : " + cfg.embed_path_);
+    tui.append_line(ICON_SYS + "  sandbox       : " + cfg.sandbox_);
+    tui.append_line(ICON_SYS + "  n_ctx         : " + std::to_string(cfg.n_ctx_));
+    tui.append_line(ICON_SYS + "  n_gpu_layers  : " + std::to_string(cfg.n_gpu_layers_));
+    tui.append_line(ICON_SYS + "  temperature   : " + std::to_string(cfg.temperature_));
+    tui.append_line(ICON_SYS + "  top_p         : " + std::to_string(cfg.top_p_));
+    tui.append_line(ICON_SYS + "  top_k         : " + std::to_string(cfg.top_k_));
+    tui.append_line(ICON_SYS + "  penalty_repeat: " + std::to_string(cfg.penalty_repeat_));
+    tui.append_line(ICON_SYS + "  rag_top_k     : " + std::to_string(cfg.rag_top_k_));
     tui.append_line(ICON_SYS + "  saved to      : " + cfg.settings_path());
     tui.redraw_all();
     return;
@@ -186,33 +186,33 @@ static void handle_slash(const std::string &input,
     bool ok = true;
     bool needs_reparam = false;
     try {
-      if (key == "temperature")    { cfg.temperature    = std::stof(val); needs_reparam = true; }
-      else if (key == "top_p")     { cfg.top_p          = std::stof(val); needs_reparam = true; }
-      else if (key == "min_p")     { cfg.min_p          = std::stof(val); needs_reparam = true; }
-      else if (key == "top_k")     { cfg.top_k          = std::stoi(val); needs_reparam = true; }
-      else if (key == "penalty_repeat") { cfg.penalty_repeat = std::stof(val); needs_reparam = true; }
-      else if (key == "penalty_last_n") { cfg.penalty_last_n = std::stoi(val); needs_reparam = true; }
-      else if (key == "rag_top_k")      { cfg.rag_top_k      = std::stoi(val); }
+      if (key == "temperature")    { cfg.temperature_    = std::stof(val); needs_reparam = true; }
+      else if (key == "top_p")     { cfg.top_p_          = std::stof(val); needs_reparam = true; }
+      else if (key == "min_p")     { cfg.min_p_          = std::stof(val); needs_reparam = true; }
+      else if (key == "top_k")     { cfg.top_k_          = std::stoi(val); needs_reparam = true; }
+      else if (key == "penalty_repeat") { cfg.penalty_repeat_ = std::stof(val); needs_reparam = true; }
+      else if (key == "penalty_last_n") { cfg.penalty_last_n_ = std::stoi(val); needs_reparam = true; }
+      else if (key == "rag_top_k")      { cfg.rag_top_k_      = std::stoi(val); }
       else if (key == "n_gpu_layers")   {
-        cfg.n_gpu_layers = std::stoi(val);
+        cfg.n_gpu_layers_ = std::stoi(val);
         tui.append_line(ICON_SYS + "n_gpu_layers will take effect on next /model load.");
       } else if (key == "run_allowed") {
         // Accept a comma-separated list of basenames, or "none" to clear.
-        cfg.run_allowed.clear();
+        cfg.run_allowed_.clear();
         if (val != "none") {
           std::istringstream iss(val);
           std::string tok;
           while (std::getline(iss, tok, ',')) {
             tok.erase(0, tok.find_first_not_of(" \t"));
             tok.erase(tok.find_last_not_of(" \t") + 1);
-            if (!tok.empty()) cfg.run_allowed.push_back(tok);
+            if (!tok.empty()) cfg.run_allowed_.push_back(tok);
           }
         }
-        if (cfg.run_allowed.empty()) {
+        if (cfg.run_allowed_.empty()) {
           tui.append_line(ICON_SYS + "run_allowed cleared — all sandbox programs permitted.");
         } else {
           std::string list;
-          for (const auto &e : cfg.run_allowed) list += e + " ";
+          for (const auto &e : cfg.run_allowed_) list += e + " ";
           tui.append_line(ICON_SYS + "run_allowed: " + list);
         }
       } else {
@@ -295,6 +295,11 @@ static void mcp_test() {
     log_write(LogLevel::INFO_LEVEL, "failed to connect");
   } else {
     log_write(LogLevel::INFO_LEVEL, "connected");
+    std::vector<McpTool> tools = client.list_tools();
+    for (const auto &tool : tools) {
+      log_write(LogLevel::INFO_LEVEL, "tool [%s]", tool.name.c_str());
+    }
+    client.disconnect();
   }
   log_close();
 }
@@ -335,17 +340,17 @@ int main(int argc, char **argv) {
       return argv[++i];
     };
     if (a == "-m" || a == "--model") {
-      cfg.model_path = resolve_path(take_next(a.c_str()));
+      cfg.model_path_ = resolve_path(take_next(a.c_str()));
     } else if (a == "-e" || a == "--embed") {
-      cfg.embed_path = resolve_path(take_next(a.c_str()));
+      cfg.embed_path_ = resolve_path(take_next(a.c_str()));
     } else if (a == "-g" || a == "--gpu-layers") {
-      cfg.n_gpu_layers = std::stoi(take_next(a.c_str()));
+      cfg.n_gpu_layers_ = std::stoi(take_next(a.c_str()));
     } else if (a == "-l" || a == "--log") {
       log_open(take_next(a.c_str()));
     } else if (a == "-t" || a == "--think") {
-      cfg.thinking = false;
+      cfg.thinking_ = false;
     } else if (a == "-p" || a == "--prompt-permission") {
-      cfg.permission_prompt = true;
+      cfg.permission_prompt_ = true;
     } else if (a == "-h" || a == "--help") {
       usage();
       return 0;
@@ -353,7 +358,7 @@ int main(int argc, char **argv) {
       std::fprintf(stderr, "nitro: unknown option '%s'  (try --help)\n", a.c_str());
       std::exit(1);
     } else {
-      cfg.sandbox = resolve_path(a);
+      cfg.sandbox_ = resolve_path(a);
     }
   }
 
@@ -367,19 +372,19 @@ int main(int argc, char **argv) {
   }
 
   // ── Resolve sandbox ───────────────────────────────────────────────
-  if (cfg.sandbox.empty()) {
+  if (cfg.sandbox_.empty()) {
     std::error_code ec;
-    cfg.sandbox = fs::current_path(ec).string();
+    cfg.sandbox_ = fs::current_path(ec).string();
   }
   {
     std::error_code ec;
-    fs::create_directories(cfg.sandbox, ec);
+    fs::create_directories(cfg.sandbox_, ec);
   }
 
   // ── Auto-discover knowledge files ─────────────────────────────────
   for (const char *kf : {"nitro.md", "AGENTS.md", "README.md"}) {
     if (fs::exists(kf)) {
-      cfg.knowledge_files.emplace_back(kf);
+      cfg.knowledge_files_.emplace_back(kf);
     }
   }
 
@@ -388,13 +393,13 @@ int main(int argc, char **argv) {
   tui.init();
   // Load persisted input history so up-arrow works across sessions.
   tui.history_load(history_path());
-  welcome(tui, cfg.sandbox);
+  welcome(tui, cfg.sandbox_);
 
   log_write(INFO_LEVEL, "nitro starting");
 
   // ── Init agent ────────────────────────────────────────────────────
   AgentState agent;
-  if (!cfg.model_path.empty()) {
+  if (!cfg.model_path_.empty()) {
     if (agent.setup_model(cfg, tui)) {
       tui.append_line(ICON_SYS + "Loading context...");
       tui.redraw_all();
@@ -403,8 +408,8 @@ int main(int argc, char **argv) {
       tui.append_line(ICON_SYS + "Ready");
       tui.redraw_all();
     }
-    if (!cfg.embed_path.empty()) {
-      agent.setup_embed(cfg.embed_path, tui);
+    if (!cfg.embed_path_.empty()) {
+      agent.setup_embed(cfg.embed_path_, tui);
     }
   } else {
     tui.append_line(ICON_SYS + "No model specified.  Use /model to open the file picker,");

@@ -20,14 +20,10 @@
 //
 // TOOL:CURL
 //
-static size_t curl_write_cb(void *contents, size_t size, size_t nmemb, void *userp) {
-  auto *buf = static_cast<std::string *>(userp);
-  auto total = size * nmemb;
-  static constexpr size_t MAX_BODY = 32 * 1024;
-  if (buf->size() < MAX_BODY) {
-    size_t room = MAX_BODY - buf->size();
-    buf->append(static_cast<char *>(contents), std::min(total, room));
-  }
+static size_t curl_write_cb(char *ptr, size_t size, size_t nmemb, void *userdata) {
+  size_t total = size * nmemb;
+  std::string *body = static_cast<std::string*>(userdata);
+  body->append(ptr, total);
   return total;
 }
 

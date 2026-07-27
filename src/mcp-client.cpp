@@ -210,7 +210,7 @@ bool McpClient::connect(const std::string &host, int port) {
       log_write(LogLevel::INFO_LEVEL, "id=[%d]", id);
     }
   } else {
-    log_write(LogLevel::INFO_LEVEL, "failed to parse response");
+    log_write(LogLevel::ERROR_LEVEL, "failed to parse response");
   }
 
   return true;
@@ -220,6 +220,7 @@ std::vector<McpTool> McpClient::list_tools() {
   std::vector<McpTool> tools;
 
   if (!curl_) {
+    log_write(LogLevel::ERROR_LEVEL, "list_tools failed - curl not initialised");
     return tools;
   }
 
@@ -230,15 +231,21 @@ std::vector<McpTool> McpClient::list_tools() {
   }
 
   // Request tools/list using mutable API
-  auto doc = json::parse_mutable("{}");
+  auto doc = json::parse_mutable("");
   if (!doc.is_valid()) {
+    log_write(LogLevel::ERROR_LEVEL, "failed to build json doc");
     return tools;
   }
 
   auto root = doc.get_root();
   if (!root.is_valid()) {
+    log_write(LogLevel::ERROR_LEVEL, "failed to build json root");
     return tools;
   }
+
+  // Add jsonrpc and id fields
+  root.set_str("jsonrpc", "2.0");
+  root.set_int("id", 2);
 
   // Set method
   root.set_str("method", "tools/list");
@@ -246,61 +253,71 @@ std::vector<McpTool> McpClient::list_tools() {
   // Set params with sessionId and arguments
   auto params = doc.get_child("params");
   params.set_str("sessionId", session_id);
-  params.set_str("arguments", "{}");
-
-  // Add jsonrpc and id fields
-  root.set_str("jsonrpc", "2.0");
-  root.set_int("id", 2);
+  params.set_empty_obj("arguments");
 
   std::string params_str = doc.write();
   if (params_str.empty()) {
+    log_write(LogLevel::ERROR_LEVEL, "failed to build json string");
     return tools;
   }
 
   // Send request
-  std::string request = send_request(params_str);
+  std::string response = send_request(params_str);
 
-  if (request.empty()) {
+  if (response.empty()) {
+    log_write(LogLevel::ERROR_LEVEL, "list tools failed");
     return tools;
   }
 
   // Parse response using immutable API
-  auto resp_doc = json::parse(request);
+  auto resp_doc = json::parse(response);
   if (!resp_doc.is_valid()) {
+    log_write(LogLevel::ERROR_LEVEL, "failed to parse [%s]", response.c_str());
     return tools;
   }
 
   auto resp_root = resp_doc.get_root();
 
-  if (resp_root.is_object() && resp_root.has_string_key("result")) {
-    std::vector<json::JsonValue> vec;
-    if (resp_root.get_array("result", vec)) {
-      for (const auto &tool: vec) {
-        if (tool.is_object()) {
-          McpTool mcp_tool;
-
-          // Extract name
-          std::string name;
-          if (tool.get_str("name", name)) {
-            mcp_tool.name = name;
-          }
-
-          // Extract description
-          std::string description;
-          if (tool.get_str("description", description)) {
-            mcp_tool.description = description;
-          }
-
-          // Extract param names by iterating over object keys
-          tool.get_keys(mcp_tool.params);
-
-          tools.push_back(mcp_tool);
-        }
-      }
-    }
+  if (!resp_root.is_object() || resp_root.has_string_key("result")) {
+    log_write(LogLevel::ERROR_LEVEL, "result is not an object");
+    return tools;
   }
 
-  tools_json_ = request;
+  std::vector<json::JsonValue> vec;
+  auto result_node = resp_root.get("result");
+  if (!result_node.is_object()) {
+    log_write(LogLevel::ERROR_LEVEL, "result is not an object");
+    return tools;
+  }
+
+  if (!result_node.get_array("tools", vec)) {
+    log_write(LogLevel::ERROR_LEVEL, "tools is not an object os result");
+    return tools;
+  }
+
+  for (const auto &tool: vec) {
+    if (!tool.is_object()) {
+      log_write(LogLevel::ERROR_LEVEL, "tools is not an object os result");
+      return tools;
+    }
+    McpTool mcp_tool;
+    // Extract name
+    std::string name;
+    if (tool.get_str("name", name)) {
+      mcp_tool.name = name;
+    }
+    // Extract description
+    std::string description;
+    if (tool.get_str("description", description)) {
+      mcp_tool.description = description;
+    }
+    // Extract param names by iterating over object keys
+    tool.get_keys(mcp_tool.params);
+    tools.push_back(mcp_tool);
+  }
+
+  log_write(LogLevel::INFO_LEVEL, "list tools success - found [%d] tools", tools.size());
+  tools_json_ = response;
   return tools;
 }
 
@@ -344,10 +361,6 @@ std::string McpClient::send_request(const std::string &request_body) {
   }
 
   return body;
-}
-
-std::string McpClient::get_session_id() const {
-  return session_id_;
 }
 
 void McpClient::disconnect() {
@@ -418,6 +431,10 @@ McpResult McpClient::call_tool(const std::string &name, const std::string &args_
     return result;
   }
 
+  // Add jsonrpc and id fields
+  root.set_str("jsonrpc", "2.0");
+  root.set_int("id", 3);
+
   // Set method
   root.set_str("method", "tools/call");
 
@@ -429,10 +446,6 @@ McpResult McpClient::call_tool(const std::string &name, const std::string &args_
   auto args = doc.get_child("arguments");
   args.set_str("name", name);
   args.set_str("arguments", args_str);
-
-  // Add jsonrpc and id fields
-  root.set_str("jsonrpc", "2.0");
-  root.set_int("id", 3);
 
   // Convert to string
   std::string request_str = doc.write();

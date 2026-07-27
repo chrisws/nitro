@@ -46,23 +46,23 @@ void NitroConfig::load_settings() {
   auto root = doc.get_root();
 
   // String fields - pass member refs directly, no temp vars
-  root.get_str("model_path", model_path);
-  root.get_str("embed_path", embed_path);
-  root.get_str("sandbox", sandbox);
+  root.get_str("model_path", model_path_);
+  root.get_str("embed_path", embed_path_);
+  root.get_str("sandbox", sandbox_);
 
   // Integer fields
-  root.get_int("n_ctx", n_ctx);
-  root.get_int("n_batch", n_batch);
-  root.get_int("n_gpu_layers", n_gpu_layers);
-  root.get_int("top_k", top_k);
-  root.get_int("penalty_last_n", penalty_last_n);
-  root.get_int("rag_top_k", rag_top_k);
+  root.get_int("n_ctx", n_ctx_);
+  root.get_int("n_batch", n_batch_);
+  root.get_int("n_gpu_layers", n_gpu_layers_);
+  root.get_int("top_k", top_k_);
+  root.get_int("penalty_last_n", penalty_last_n_);
+  root.get_int("rag_top_k", rag_top_k_);
 
   // Float fields
-  root.get_float("temperature", temperature);
-  root.get_float("top_p", top_p);
-  root.get_float("min_p", min_p);
-  root.get_float("penalty_repeat", penalty_repeat);
+  root.get_float("temperature", temperature_);
+  root.get_float("top_p", top_p_);
+  root.get_float("min_p", min_p_);
+  root.get_float("penalty_repeat", penalty_repeat_);
 }
 
 // Persist the current cfg to ~/.config/nitro/settings.json.
@@ -91,7 +91,7 @@ std::string NitroConfig::build_system_prompt() const {
     "You are Nitro, an agentic AI assistant for software development. "
     "Proceed with caution, guided by logic and the pursuit of knowledge.\n\n"
 
-    "Your sandbox (project directory) is: " + sandbox + "\n\n"
+    "Your sandbox (project directory) is: " + sandbox_ + "\n\n"
 
     "## Core Principle\n"
     "Always follow this loop: THINK → DECIDE → ACT → RESPOND\n\n"
@@ -193,7 +193,7 @@ std::string NitroConfig::build_system_prompt() const {
     "```\n"
     "2. **Trigger Restart:** Call `TOOL:RESTART` to start over.\n\n";
 
-  for (const auto &kf : knowledge_files) {
+  for (const auto &kf : knowledge_files_) {
     std::ifstream f(kf);
     if (f) {
       std::ostringstream oss; oss << f.rdbuf();
@@ -221,18 +221,18 @@ std::string NitroConfig::introspect() const {
     "  \"rag_top_k\":      {}\n"
     "}}\n";
   return std::format(tmpl,
-                     model_path,
-                     embed_path,
-                     sandbox,
-                     n_ctx,
-                     n_batch,
-                     n_gpu_layers,
-                     temperature,
-                     top_p,
-                     min_p,
-                     top_k,
-                     penalty_repeat,
-                     penalty_last_n,
-                     rag_top_k);
+                     model_path_,
+                     embed_path_,
+                     sandbox_,
+                     n_ctx_,
+                     n_batch_,
+                     n_gpu_layers_,
+                     temperature_,
+                     top_p_,
+                     min_p_,
+                     top_k_,
+                     penalty_repeat_,
+                     penalty_last_n_,
+                     rag_top_k_);
 }
 

@@ -229,27 +229,27 @@ void AgentState::apply_generation_params(const NitroConfig &cfg) const {
   llama->add_stop("<|turn|>");
   llama->add_stop("<|im_end|>");
   llama->set_max_tokens(512000);
-  llama->set_temperature(cfg.temperature);
-  llama->set_top_k(cfg.top_k);
-  llama->set_top_p(cfg.top_p);
-  llama->set_min_p(cfg.min_p);
-  llama->set_penalty_repeat(cfg.penalty_repeat);
-  llama->set_penalty_last_n(cfg.penalty_last_n);
-  llama->set_log_level(cfg.log_level);
+  llama->set_temperature(cfg.temperature_);
+  llama->set_top_k(cfg.top_k_);
+  llama->set_top_p(cfg.top_p_);
+  llama->set_min_p(cfg.min_p_);
+  llama->set_penalty_repeat(cfg.penalty_repeat_);
+  llama->set_penalty_last_n(cfg.penalty_last_n_);
+  llama->set_log_level(cfg.log_level_);
 }
 
 //
 // Shows a modal loading popup while the model loads.
 //
 bool AgentState::setup_model(const NitroConfig &cfg, Tui &tui) {
-  if (cfg.model_path.empty()) {
+  if (cfg.model_path_.empty()) {
     tui.append_line(ICON_SYS + "No model loaded.  Use /model <path> to load a GGUF.");
     tui.redraw_all();
     return false;
   }
 
   // Show a modal popup so the user knows loading is in progress.
-  std::string model_name = fs::path(cfg.model_path).filename().string();
+  std::string model_name = fs::path(cfg.model_path_).filename().string();
   tui.show_modal_popup("Loading " + model_name);
   // Destroy the iterator first — it holds references into the llama context.
   // Freeing llama while iter is still alive causes use-after-free / load failure.
@@ -258,8 +258,8 @@ bool AgentState::setup_model(const NitroConfig &cfg, Tui &tui) {
   llama = std::make_unique<Llama>();
 
   apply_generation_params(cfg);
-  if (!llama->load_model(cfg.model_path, cfg.n_ctx, cfg.n_batch,
-                         cfg.n_gpu_layers, cfg.log_level)) {
+  if (!llama->load_model(cfg.model_path_, cfg.n_ctx_, cfg.n_batch_,
+                         cfg.n_gpu_layers_, cfg.log_level_)) {
     tui.dismiss_modal_popup();
     tui.append_line(ICON_ERR + llama->last_error());
     tui.redraw_all();
@@ -339,7 +339,7 @@ std::string AgentState::memory_info_text() const {
 std::string AgentState::rag_tool(const NitroConfig &cfg, const std::string &agent_query) const {
   std::string result;
   if (embed_llama && rag_db && rag_session) {
-    result = embed_llama->rag_retrieve(*rag_db, agent_query, cfg.rag_top_k, *rag_session);
+    result = embed_llama->rag_retrieve(*rag_db, agent_query, cfg.rag_top_k_, *rag_session);
     if (result.empty()) {
       result = std::string("RAG: no context found: ") + embed_llama->last_error();
     }
@@ -395,7 +395,7 @@ bool AgentState::rag_index(const std::string &path, const NitroConfig &cfg, Tui 
     index_one(path);
   }
 
-  std::string save_path = join_path(cfg.sandbox, "rag-index.bin");
+  std::string save_path = join_path(cfg.sandbox_, "rag-index.bin");
   tui.append_line(ICON_SYS + "saving index: " + save_path);
   tui.redraw_all();
   rag_db->save(save_path);
@@ -418,8 +418,8 @@ std::string AgentState::restart(const NitroConfig &cfg, Tui &tui) {
 // Tool dispatch
 //
 std::string AgentState::process_tool(const std::string &cmd, const NitroConfig &cfg, Tui &tui) {
-  const std::string &sandbox = cfg.sandbox;
-  const std::vector<std::string> &run_allowed = cfg.run_allowed;
+  const std::string &sandbox = cfg.sandbox_;
+  const std::vector<std::string> &run_allowed = cfg.run_allowed_;
 
   std::string op, arg1, arg2;
   auto WS = cmd.find_first_of(" \n");
@@ -509,7 +509,7 @@ std::string AgentState::process_tool(const std::string &cmd, const NitroConfig &
     if (!path_in_sandbox(sandbox, p)) {
       return "ERROR: path outside sandbox";
     }
-    if (cfg.permission_prompt && !tui.confirm_dialog(std::format("Allow model to write {}?", p))) {
+    if (cfg.permission_prompt_ && !tui.confirm_dialog(std::format("Allow model to write {}?", p))) {
       return "ERROR: action prevented by user";
     }
     std::string content = strip_code_fences(arg1, arg2);
@@ -552,7 +552,7 @@ std::string AgentState::process_tool(const std::string &cmd, const NitroConfig &
         return "ERROR: '" + arg1 + "' is not in the TOOL:RUN allowlist. "
           "Use /set run_allowed <name> to permit it.";
       }
-    } else if (cfg.permission_prompt && !tui.confirm_dialog(std::format("Allow {} {} to run?", arg1, arg2))) {
+    } else if (cfg.permission_prompt_ && !tui.confirm_dialog(std::format("Allow {} {} to run?", arg1, arg2))) {
       return "ERROR: prevented by user";
     }
     std::string command = arg1 + " " + arg2 + " 2>&1";
@@ -586,7 +586,7 @@ bool AgentState::run_turn(const std::string &user_message, const NitroConfig &cf
   }
   std::string effective_message = user_message;
   if (embed_llama && rag_db && rag_session) {
-    std::string context = embed_llama->rag_retrieve(*rag_db, user_message, cfg.rag_top_k, *rag_session);
+    std::string context = embed_llama->rag_retrieve(*rag_db, user_message, cfg.rag_top_k_, *rag_session);
     if (!context.empty()) {
       log_write(DEBUG_LEVEL, "RAG: %s", context.c_str());
       effective_message = "Context:\n" + context + "\n\nUser: " + user_message;
@@ -608,7 +608,7 @@ bool AgentState::run_turn(const std::string &user_message, const NitroConfig &cf
 
   // in_think starts false — models that don't use <think> blocks emit
   // visible text immediately.  The spinner activates only while thinking.
-  enum {t_init, t_think, t_thunk} think_mode = (cfg.thinking ? t_init : t_thunk);
+  enum {t_init, t_think, t_thunk} think_mode = (cfg.thinking_ ? t_init : t_thunk);
 
   tui.set_thinking(true);
   std::string buffer;
