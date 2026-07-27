@@ -9,8 +9,6 @@
 #include <string>
 #include <fstream>
 #include <format>
-#include <sstream>
-#include <filesystem>
 #include <yyjson.h>
 #include "json.h"
 
@@ -35,7 +33,7 @@ bool JsonValue::get_int(const std::string &key, int &out) const {
   yyjson_val *val = yyjson_obj_get(value_, key.c_str());
   if (!val || !yyjson_is_num(val)) return false;
 
-  out = yyjson_get_num(val);
+  out = yyjson_get_int(val);
   return true;
 }
 
@@ -63,7 +61,7 @@ bool JsonValue::get_array(const std::string &key, std::vector<JsonValue> &out) c
   for (size_t i = 0; i < yyjson_arr_size(val); i++) {
     yyjson_val *item = yyjson_arr_get(val, i);
     if (item) {
-      out.push_back(JsonValue(item));
+      out.emplace_back(item);
     }
   }
   return true;
@@ -72,11 +70,10 @@ bool JsonValue::get_array(const std::string &key, std::vector<JsonValue> &out) c
 bool JsonValue::get_keys(std::vector<std::string> &out) const {
   if (!is_valid()) return false;
 
-  yyjson_val *key_ptr;
   yyjson_obj_iter iter;
   yyjson_obj_iter_init(value_, &iter);
-  for (key_ptr = yyjson_obj_iter_next(&iter); key_ptr != nullptr; key_ptr = yyjson_obj_iter_next(&iter)) {
-    out.push_back(yyjson_get_str(key_ptr));
+  for (yyjson_val* key_ptr = yyjson_obj_iter_next(&iter); key_ptr != nullptr; key_ptr = yyjson_obj_iter_next(&iter)) {
+    out.emplace_back(yyjson_get_str(key_ptr));
   }
   return true;
 }
@@ -88,6 +85,15 @@ bool JsonValue::has_string_key(const std::string &key) const {
   return (val != nullptr && yyjson_is_str(val));
 }
 
+std::string JsonValue::to_string(WriteFlag flags) const {
+  if (!is_valid()) return "";
+  char *buffer = yyjson_val_write(value_, static_cast<yyjson_write_flag>(flags), nullptr);
+  if (!buffer) return "";
+  std::string result(buffer);
+  free(buffer);
+  return result;
+}
+  
 //
 // JsonDoc implementation
 //
@@ -110,7 +116,7 @@ JsonValue JsonDoc::get_root() const {
   return JsonValue();
 }
 
-std::string JsonDoc::write(WriteFlag flags) const {
+std::string JsonDoc::to_string(WriteFlag flags) const {
   if (!is_valid()) return "";
   char *buffer = yyjson_write(doc_, static_cast<yyjson_write_flag>(flags), nullptr);
   if (!buffer) return "";
@@ -122,7 +128,7 @@ std::string JsonDoc::write(WriteFlag flags) const {
 bool JsonDoc::write_file(const std::string &path, WriteFlag flags) const {
   std::ofstream file(path);
   if (!file.is_open()) return false;
-  file << write(flags);
+  file << to_string(flags);
   return true;
 }
 
@@ -147,7 +153,7 @@ bool JsonMutValue::set_int(const std::string &key, int value) {
   return true;
 }
 
-JsonMutValue JsonMutValue::get_child(const std::string &key) {
+JsonMutValue JsonMutValue::get_child(const std::string &key) const {
   if (!is_valid()) return JsonMutValue(nullptr, nullptr);
   // creates a new empty object value allocated in doc_'s memory pool
   // it's not attached to anything until you add it somewhere.
@@ -200,7 +206,7 @@ JsonMutValue JsonMutDoc::get_root() const {
   return JsonMutValue();
 }
 
-JsonMutValue JsonMutDoc::get_child(const std::string &key) {
+JsonMutValue JsonMutDoc::get_child(const std::string &key) const {
   if (!is_valid()) return JsonMutValue(nullptr, nullptr);
 
   yyjson_mut_val *child = yyjson_mut_obj(doc_);
@@ -212,7 +218,7 @@ JsonMutValue JsonMutDoc::get_child(const std::string &key) {
   return JsonMutValue(doc_, child);
 }
 
-std::string JsonMutDoc::write(WriteFlag flags) const {
+std::string JsonMutDoc::to_string(WriteFlag flags) const {
   if (!is_valid()) return "";
   char *buffer = yyjson_mut_write(doc_, static_cast<yyjson_write_flag>(flags), nullptr);
   if (!buffer) return "";

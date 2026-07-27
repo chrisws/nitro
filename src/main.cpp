@@ -297,7 +297,14 @@ static void mcp_test() {
     log_write(LogLevel::INFO_LEVEL, "connected");
     std::vector<McpTool> tools = client.list_tools();
     for (const auto &tool : tools) {
-      log_write(LogLevel::INFO_LEVEL, "tool [%s]", tool.name.c_str());
+      if (tool.name_.starts_with("search_") ||
+          tool.name_.starts_with("xdebug_") ||
+          tool.name_.starts_with("get_")) {
+        log_write(LogLevel::INFO_LEVEL, "name:[%s] inputSchema:[%s] outputSchema:[%s]",
+                  tool.name_.c_str(),
+                  tool.inputSchema_.c_str(),
+                  tool.outputSchema_.c_str());
+      }
     }
     client.disconnect();
   }

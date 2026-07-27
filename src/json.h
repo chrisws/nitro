@@ -10,8 +10,6 @@
 
 #include <string>
 #include <vector>
-#include <map>
-#include <functional>
 #include "yyjson.h"
 
 //
@@ -39,9 +37,11 @@ struct JsonValue {
   bool get_str(const std::string &key, std::string &out) const;
   bool has_string_key(const std::string &key) const;
   bool is_arr() const { return value_ && yyjson_is_arr(value_); }
+  bool is_str() const { return value_ && yyjson_is_str(value_); }
   bool is_object() const { return value_ && yyjson_is_obj(value_); }
   bool is_valid() const { return value_ != nullptr; }
   JsonValue get(const std::string &key) const;
+  std::string to_string(WriteFlag flags = WriteFlag::Compact) const;
 
   private:
   yyjson_val *value_;
@@ -61,7 +61,7 @@ struct JsonMutValue {
   bool set_str(const std::string &key, const std::string &value);
   bool set_int(const std::string &key, int value);
   bool set_empty_obj(const std::string &key);
-  JsonMutValue get_child(const std::string &key);
+  JsonMutValue get_child(const std::string &key) const;
 
   private:
   yyjson_mut_doc *doc_;
@@ -93,7 +93,7 @@ public:
   }
 
   JsonValue get_root() const;
-  std::string write(WriteFlag flags) const;
+  std::string to_string(WriteFlag flags) const;
   bool write_file(const std::string &path, WriteFlag flags) const;
   bool is_valid() const { return doc_ != nullptr; }
 
@@ -127,8 +127,8 @@ public:
   }
 
   JsonMutValue get_root() const;
-  JsonMutValue get_child(const std::string &key);
-  std::string write(WriteFlag flags = WriteFlag::Compact) const;
+  JsonMutValue get_child(const std::string &key) const;
+  std::string to_string(WriteFlag flags = WriteFlag::Compact) const;
   bool is_valid() const { return doc_ != nullptr; }
 
 private:

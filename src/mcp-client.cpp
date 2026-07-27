@@ -181,7 +181,7 @@ bool McpClient::connect(const std::string &host, int port) {
   clientInfo.set_str("version", "0.1");
 
   // Convert to string
-  std::string params_str = doc.write();
+  std::string params_str = doc.to_string();
   if (params_str.empty()) {
     log_write(LogLevel::ERROR_LEVEL, "failed to build json string");
     return false;
@@ -255,7 +255,7 @@ std::vector<McpTool> McpClient::list_tools() {
   params.set_str("sessionId", session_id);
   params.set_empty_obj("arguments");
 
-  std::string params_str = doc.write();
+  std::string params_str = doc.to_string();
   if (params_str.empty()) {
     log_write(LogLevel::ERROR_LEVEL, "failed to build json string");
     return tools;
@@ -301,18 +301,10 @@ std::vector<McpTool> McpClient::list_tools() {
       return tools;
     }
     McpTool mcp_tool;
-    // Extract name
-    std::string name;
-    if (tool.get_str("name", name)) {
-      mcp_tool.name = name;
-    }
-    // Extract description
-    std::string description;
-    if (tool.get_str("description", description)) {
-      mcp_tool.description = description;
-    }
-    // Extract param names by iterating over object keys
-    tool.get_keys(mcp_tool.params);
+    tool.get_str("name", mcp_tool.name_);
+    tool.get_str("description", mcp_tool.description_);
+    mcp_tool.inputSchema_ = tool.get("inputSchema").to_string();
+    mcp_tool.outputSchema_ = tool.get("outputSchema").to_string();
     tools.push_back(mcp_tool);
   }
 
@@ -401,12 +393,12 @@ static std::string extract_text_content(const json::JsonValue &root) {
 
 McpResult McpClient::call_tool(const std::string &name, const std::string &args_str) {
   McpResult result;
-  result.success = true;
-  result.isError = "";
+  result.success_ = true;
+  result.isError_ = "";
 
   if (!curl_) {
-    result.success = false;
-    result.isError = "Not connected to MCP server";
+    result.success_ = false;
+    result.isError_ = "Not connected to MCP server";
     return result;
   }
 
@@ -419,15 +411,15 @@ McpResult McpClient::call_tool(const std::string &name, const std::string &args_
   // Build request using mutable API
   auto doc = json::parse_mutable("{}");
   if (!doc.is_valid()) {
-    result.success = false;
-    result.isError = "Failed to create request";
+    result.success_ = false;
+    result.isError_ = "Failed to create request";
     return result;
   }
 
   auto root = doc.get_root();
   if (!root.is_valid()) {
-    result.success = false;
-    result.isError = "Failed to create request";
+    result.success_ = false;
+    result.isError_ = "Failed to create request";
     return result;
   }
 
@@ -448,27 +440,27 @@ McpResult McpClient::call_tool(const std::string &name, const std::string &args_
   args.set_str("arguments", args_str);
 
   // Convert to string
-  std::string request_str = doc.write();
+  std::string request_str = doc.to_string();
   if (request_str.empty()) {
-    result.success = false;
-    result.isError = "Failed to serialize request";
+    result.success_ = false;
+    result.isError_ = "Failed to serialize request";
     return result;
   }
 
   std::string response = send_request(request_str);
 
   if (response.empty()) {
-    result.success = false;
-    result.isError = "Failed to communicate with MCP server";
+    result.success_ = false;
+    result.isError_ = "Failed to communicate with MCP server";
     return result;
   }
 
   // Parse response using immutable API
   auto resp_doc = json::parse(response);
   if (!resp_doc.is_valid()) {
-    result.success = false;
-    result.isError = "Failed to parse response";
-    result.content = response;
+    result.success_ = false;
+    result.isError_ = "Failed to parse response";
+    result.content_ = response;
     return result;
   }
 
@@ -477,18 +469,18 @@ McpResult McpClient::call_tool(const std::string &name, const std::string &args_
   if (resp_root.is_object()) {
     auto result_val = resp_root.get("result");
     if (result_val.is_object()) {
-      result.content = extract_text_content(result_val);
+      result.content_ = extract_text_content(result_val);
     } else {
-      result.isError = "MCP server returned error";
+      result.isError_ = "MCP server returned error";
       if (resp_root.has_string_key("error")) {
-        result.content = response;
+        result.content_ = response;
       }
-      result.success = false;
+      result.success_ = false;
     }
   } else {
-    result.isError = "Unexpected response format";
-    result.content = response;
-    result.success = false;
+    result.isError_ = "Unexpected response format";
+    result.content_ = response;
+    result.success_ = false;
   }
 
   return result;

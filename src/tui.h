@@ -283,18 +283,18 @@ class Tui final: TuiContext {
 
   private:
   // ── notcurses handles ──────────────────────────────────────────────
-  struct notcurses *nc_;
-  struct ncplane *stdpl_;
-  struct ncplane *header_;
-  struct ncplane *chatpl_;
-  struct ncplane *inputpl_;
-  struct ncplane *modal_plane_;
+  notcurses *nc_;
+  ncplane *stdpl_;
+  ncplane *header_;
+  ncplane *chatpl_;
+  ncplane *inputpl_;
+  ncplane *modal_plane_;
 
   // ── theme management ───────────────────────────────────────────────
   void set_theme(ThemeMode mode);
-  void set_plane_base(struct ncplane *pl, Color::ColorElement elem) const;
-  void set_plane_fg(struct ncplane *pl, Color::ColorElement elem) const;
-  void set_plane_bg(struct ncplane *pl, Color::ColorElement elem) const;
+  void set_plane_base(ncplane *pl, Color::ColorElement elem) const;
+  void set_plane_fg(ncplane *pl, Color::ColorElement elem) const;
+  void set_plane_bg(ncplane *pl, Color::ColorElement elem) const;
   uint64_t chat_ch(uint32_t r, uint32_t g, uint32_t b) const;
   uint64_t inp_ch(uint32_t r, uint32_t g, uint32_t b) const;
   void setup_backgrounds() const;
@@ -330,7 +330,3 @@ class Tui final: TuiContext {
   ThemeMode current_theme_;
   std::unique_ptr<ColorTheme> theme_;
 };
-
-
-
-

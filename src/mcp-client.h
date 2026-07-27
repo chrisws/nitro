@@ -14,15 +14,16 @@
 #include "yyjson.h"
 
 struct McpTool {
-  std::string name;
-  std::string description;
-  std::vector<std::string> params;
+  std::string name_;
+  std::string description_;
+  std::string inputSchema_;
+  std::string outputSchema_;  
 };
 
 struct McpResult {
-  std::string content;
-  std::string isError;
-  bool success;
+  std::string content_;
+  std::string isError_;
+  bool success_;
 };
 
 class McpClient {
