@@ -40,8 +40,10 @@ struct JsonValue {
   bool is_str() const { return value_ && yyjson_is_str(value_); }
   bool is_object() const { return value_ && yyjson_is_obj(value_); }
   bool is_valid() const { return value_ != nullptr; }
-  JsonValue get(const std::string &key) const;
+  JsonValue get_child(const std::string &key) const;
+  void get_array(std::vector<JsonValue> &out) const;
   std::string to_string(WriteFlag flags = WriteFlag::Compact) const;
+  std::string get_str() const;
 
   private:
   yyjson_val *value_;

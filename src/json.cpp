@@ -47,7 +47,7 @@ bool JsonValue::get_float(const std::string &key, float &out) const {
   return true;
 }
 
-JsonValue JsonValue::get(const std::string &key) const {
+JsonValue JsonValue::get_child(const std::string &key) const {
   return JsonValue(yyjson_obj_get(value_, key.c_str()));
 }
 
@@ -93,6 +93,26 @@ std::string JsonValue::to_string(WriteFlag flags) const {
   free(buffer);
   return result;
 }
+
+std::string JsonValue::get_str() const {
+  std::string result;
+  if (is_valid() && is_str()) {
+    result = yyjson_get_str(value_);
+  }
+  return result;
+}
+
+void JsonValue::get_array(std::vector<JsonValue> &out) const {
+  if (is_valid() && is_arr()) {
+    out.reserve(yyjson_arr_size(value_));
+    for (size_t i = 0; i < yyjson_arr_size(value_); i++) {
+      yyjson_val *item = yyjson_arr_get(value_, i);
+      if (item) {
+        out.emplace_back(item);
+      }
+    }
+  }
+}
   
 //
 // JsonDoc implementation
@@ -102,7 +122,7 @@ JsonDoc parse(const std::string &json_str) {
 }
 
 JsonDoc JsonDoc::parse(const std::string &json_str) {
-  yyjson_doc *doc = yyjson_read_opts((char*)json_str.data(), json_str.size(), 0, nullptr, nullptr);
+  yyjson_doc *doc = yyjson_read_opts(const_cast<char*>(json_str.data()), json_str.size(), 0, nullptr, nullptr);
   return JsonDoc(doc);
 }
 
@@ -113,7 +133,7 @@ JsonValue JsonDoc::get_root() const {
       return JsonValue(root);
     }
   }
-  return JsonValue();
+  return JsonValue{};
 }
 
 std::string JsonDoc::to_string(WriteFlag flags) const {
@@ -180,7 +200,7 @@ JsonMutDoc JsonMutDoc::parse(const std::string &json_str) {
     yyjson_mut_val *root = yyjson_mut_obj(doc);
     yyjson_mut_doc_set_root(doc, root);
   } else {
-    yyjson_doc *parsed = yyjson_read_opts((char*)json_str.data(), json_str.size(), 0, nullptr, nullptr);
+    yyjson_doc *parsed = yyjson_read_opts(const_cast<char*>(json_str.data()), json_str.size(), 0, nullptr, nullptr);
     if (parsed) {
       yyjson_val *parsed_root = yyjson_doc_get_root(parsed);
       yyjson_mut_val *root_copy = yyjson_val_mut_copy(doc, parsed_root);
@@ -203,7 +223,7 @@ JsonMutValue JsonMutDoc::get_root() const {
       return JsonMutValue(doc_, root);
     }
   }
-  return JsonMutValue();
+  return JsonMutValue{};
 }
 
 JsonMutValue JsonMutDoc::get_child(const std::string &key) const {

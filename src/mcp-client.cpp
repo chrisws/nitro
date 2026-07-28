@@ -12,6 +12,7 @@
 #include <filesystem>
 
 #include "mcp-client.h"
+#include "mcp-format.h"
 #include "curl.h"
 #include "json.h"
 #include "logging.h"
@@ -84,7 +85,7 @@ static std::string load_mcp_settings() {
       return "";
     }
 
-    auto server = root.get("server");
+    auto server = root.get_child("server");
     if (server.is_object()) {
       std::string host;
       int port;
@@ -284,7 +285,7 @@ std::vector<McpTool> McpClient::list_tools() {
   }
 
   std::vector<json::JsonValue> vec;
-  auto result_node = resp_root.get("result");
+  auto result_node = resp_root.get_child("result");
   if (!result_node.is_object()) {
     log_write(LogLevel::ERROR_LEVEL, "result is not an object");
     return tools;
@@ -303,8 +304,10 @@ std::vector<McpTool> McpClient::list_tools() {
     McpTool mcp_tool;
     tool.get_str("name", mcp_tool.name_);
     tool.get_str("description", mcp_tool.description_);
-    mcp_tool.inputSchema_ = tool.get("inputSchema").to_string();
-    mcp_tool.outputSchema_ = tool.get("outputSchema").to_string();
+    auto inputSchema = tool.get_child("inputSchema");
+    auto outputSchema = tool.get_child("outputSchema");
+    mcp_tool.inputSchema_ = formatInputExample(inputSchema);
+    mcp_tool.outputSchema_ = formatOutputExample(outputSchema);
     tools.push_back(mcp_tool);
   }
 
@@ -467,7 +470,7 @@ McpResult McpClient::call_tool(const std::string &name, const std::string &args_
   auto resp_root = resp_doc.get_root();
 
   if (resp_root.is_object()) {
-    auto result_val = resp_root.get("result");
+    auto result_val = resp_root.get_child("result");
     if (result_val.is_object()) {
       result.content_ = extract_text_content(result_val);
     } else {
