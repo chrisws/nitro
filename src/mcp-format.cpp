@@ -8,7 +8,7 @@
 
 #include "mcp-format.h"
 
-static std::string quote(const std::string value) {
+static std::string quote(const std::string& value) {
   return "\"" + value + "\"";
 }
 
@@ -42,16 +42,15 @@ static std::string createExample(const json::JsonValue &propObj) {
   std::vector<std::string> keys;
   propObj.get_keys(keys);
 
-  std::string delim = "";
-  for (size_t i = 0; i < keys.size(); ++i) {
-    const std::string &key = keys[i];
+  std::string delim;
+  for (const auto & key : keys) {
     auto field = propObj.get_child(key);
     std::string type;
     std::string description;
-    std::string element;
 
     if (field.get_str("type", type) &&
         field.get_str("description", description)) {
+      std::string element;
       if (type == "string") {
         element = quote(shorten(description));
       } else if (type == "array") {
@@ -74,10 +73,10 @@ static std::string createExample(const json::JsonValue &propObj) {
 
 static std::string required(const json::JsonValue &inputSchema) {
   std::string result;
-  auto value = inputSchema.get_child("required");
+  const auto value = inputSchema.get_child("required");
   std::vector<json::JsonValue> fields;
   value.get_array(fields);
-  if (fields.size() > 0) {
+  if (!fields.empty()) {
     result = "Field " + fields[0].get_str() + " is required\n\n";
   } else {
     result = "\n\n";
@@ -86,7 +85,7 @@ static std::string required(const json::JsonValue &inputSchema) {
 }
 
 std::string formatSpec(const json::JsonValue &root) {
-  std::string result = "";
+  std::string result;
 
   json::JsonValue inputSchema = root.get_child("inputSchema");
   json::JsonValue outputSchema = root.get_child("outputSchema");
