@@ -304,10 +304,7 @@ std::vector<McpTool> McpClient::list_tools() {
     McpTool mcp_tool;
     tool.get_str("name", mcp_tool.name_);
     tool.get_str("description", mcp_tool.description_);
-    auto inputSchema = tool.get_child("inputSchema");
-    auto outputSchema = tool.get_child("outputSchema");
-    mcp_tool.inputSchema_ = formatInputExample(inputSchema);
-    mcp_tool.outputSchema_ = formatOutputExample(outputSchema);
+    mcp_tool.spec_ = formatSpec(tool);
     tools.push_back(mcp_tool);
   }
 

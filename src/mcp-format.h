@@ -11,5 +11,4 @@
 #include <string>
 #include "json.h"
 
-std::string formatInputExample(const json::JsonValue &inputSchema);
-std::string formatOutputExample(const json::JsonValue &outputSchema);
+std::string formatSpec(const json::JsonValue &root);

@@ -16,8 +16,7 @@
 struct McpTool {
   std::string name_;
   std::string description_;
-  std::string inputSchema_;
-  std::string outputSchema_;  
+  std::string spec_;
 };
 
 struct McpResult {
