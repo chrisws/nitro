@@ -38,4 +38,9 @@ struct AgentState {
   std::string rag_tool(const NitroConfig &cfg, const std::string &agent_query) const;
   std::string restart(const NitroConfig &cfg, Tui &tui);
   float tokens_per_sec() const;
+
+  private:
+  void show_tool(Tui &tui, const std::string &tool);
+  std::string run_tool(const NitroConfig &cfg, Tui &tui, const std::string arg1, const std::string arg2);
+  std::string run_mcp(const NitroConfig &cfg, Tui &tui, const std::string arg1, const std::string arg2);  
 };

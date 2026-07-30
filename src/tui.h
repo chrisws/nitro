@@ -238,6 +238,7 @@ class Tui final: TuiContext {
   void set_thinking(bool on);
   void update_usage(float tokens_sec, const LlamaMemoryInfo &mem);
   int get_term_rows() const { return term_rows_; }
+  void show_tool(const std::string &tool);
 
   // ── draw ──────────────────────────────────────────────────────────
   void redraw_header() const;

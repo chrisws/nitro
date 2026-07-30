@@ -10,8 +10,11 @@
 #include <fstream>
 #include <format>
 #include <sstream>
+
 #include "config.h"
 #include "json.h"
+#include "string_utils.h"
+#include "logging.h"
 
 //
 // Settings persistence  (~/.config/nitro/nitro.settings.json)
@@ -45,10 +48,11 @@ void NitroConfig::load_settings() {
 
   auto root = doc.get_root();
 
-  // String fields - pass member refs directly, no temp vars
+  // String fields
   root.get_str("model_path", model_path_);
   root.get_str("embed_path", embed_path_);
   root.get_str("sandbox", sandbox_);
+  root.get_str("mcp_filter", mcp_filter_);
 
   // Integer fields
   root.get_int("n_ctx", n_ctx_);
@@ -193,6 +197,21 @@ std::string NitroConfig::build_system_prompt() const {
     "```\n"
     "2. **Trigger Restart:** Call `TOOL:RESTART` to start over.\n\n";
 
+  if (mcp_client_.connect()) {
+    log_write(INFO_LEVEL, "Appending MCP tools");
+    p += "## MCP tool\n";
+    p += "TOOL::MCP <tool-name> <json-request> Invoke the named MCP tool along with with JSON request\n";
+    p += "## Available tools\n";
+    std::vector<mcp::Tool> tools = mcp_client_.list_tools();
+    for (const auto &tool : tools) {
+      if (mcp_filter_.empty() || utils::starts_with(tool.name_, mcp_filter_)) {
+        p += tool.spec_.c_str();
+      }
+    }
+  } else {
+    log_write(INFO_LEVEL, "Failed to connect");
+  }
+
   for (const auto &kf : knowledge_files_) {
     std::ifstream f(kf);
     if (f) {
@@ -209,6 +228,7 @@ std::string NitroConfig::introspect() const {
     "  \"model_path\":     \"{}\",\n"
     "  \"embed_path\":     \"{}\",\n"
     "  \"sandbox\":        \"{}\",\n"
+    "  \"mcp_filter\":     \"{}\",\n"
     "  \"n_ctx\":          {},\n"
     "  \"n_batch\":        {},\n"
     "  \"n_gpu_layers\":   {},\n"
@@ -224,6 +244,7 @@ std::string NitroConfig::introspect() const {
                      model_path_,
                      embed_path_,
                      sandbox_,
+                     mcp_filter_,
                      n_ctx_,
                      n_batch_,
                      n_gpu_layers_,

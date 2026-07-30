@@ -10,12 +10,15 @@
 #include <regex>
 #include <fstream>
 #include <filesystem>
+#include <format>
 
 #include "mcp_client.h"
 #include "mcp_format.h"
 #include "curl.h"
 #include "json.h"
 #include "logging.h"
+
+using namespace mcp;
 
 //
 // Reads Mcp-Session-Id from the headers
@@ -48,7 +51,8 @@ static size_t header_callback(const char *buffer, size_t size, const size_t nIte
 // Try to load MCP settings from mcp.json or mcp-settings.json in the sandbox
 // Returns empty string if file not found (MCP functionality not available)
 //
-static std::string load_mcp_settings() {
+static Settings load_settings() {
+  Settings result;
   std::string settings_path;
 
   // Try mcp.json first
@@ -62,12 +66,12 @@ static std::string load_mcp_settings() {
   }
 
   if (settings_path.empty()) {
-    return "";
+    return result;
   }
 
   std::ifstream file(settings_path);
   if (!file.is_open()) {
-    return "";
+    return result;
   }
 
   std::ostringstream oss;
@@ -77,67 +81,49 @@ static std::string load_mcp_settings() {
   try {
     auto doc = json::parse(content);
     if (!doc.is_valid()) {
-      return "";
+      return result;
     }
 
     auto root = doc.get_root();
     if (!root.is_valid()) {
-      return "";
+      return result;
     }
 
     if (auto server = root.get_child("server"); server.is_object()) {
-      std::string host;
-      if (int port; server.get_str("host", host) &&
-          server.get_int("port", port)) {
-        return host + ":" + std::to_string(port);
+      if (server.get_str("host", result.host_) &&
+          server.get_int("port", result.port_)) {
+        return result;
       }
     }
 
     // alternative: top-level host/port
-    std::string host;
-    if (int port; root.get_str("host", host) &&
-        root.get_int("port", port)) {
-      return host + ":" + std::to_string(port);
-    }
-
-    // alternative: base_url as string
-    if (std::string base_url; root.get_str("base_url", base_url)) {
-      return base_url;
+    if (root.get_str("host", result.host_) &&
+        root.get_int("port", result.port_)) {
+      return result;
     }
   } catch (...) {
     log_write(ERROR_LEVEL, "JSON parsing failed");
   }
 
-  return "";
+  return result;
 }
 
-McpClient::McpClient()
-  : base_url_("http://127.0.0.1:64342/stream")
-  , curl_(nullptr) {
-
-  // Try to load settings from sandbox
-  if (std::string settings = load_mcp_settings(); !settings.empty()) {
-    if (const size_t colon_pos = settings.find(':'); colon_pos != std::string::npos) {
-      base_url_ = "http://" + settings.substr(0, colon_pos) + ":" +  settings.substr(colon_pos + 1) + "/stream";
-    }
-  }
+Client::Client()
+  : enabled_(false)
+  , settings_(load_settings())
+  , curl_(curl_easy_init()) {
 }
 
-McpClient::~McpClient() {
+Client::~Client() {
   disconnect();
 }
 
-bool McpClient::connect(const std::string &host, const int port) {
-  // If explicit host/port provided, use them
-  if (!host.empty() && port > 0) {
-    base_url_ = "http://" + host + ":" + std::to_string(port) + "/stream";
+bool Client::connect() const {
+  if (settings_.host_.empty()) {
+    return false;
   }
-  // Otherwise, use the loaded settings or default
 
   // Initialize curl
-  if (curl_ == nullptr) {
-    curl_ = curl_easy_init();
-  }
   if (!curl_) {
     log_write(ERROR_LEVEL, "failed to init curl");
     return false;
@@ -209,8 +195,8 @@ bool McpClient::connect(const std::string &host, const int port) {
   return true;
 }
 
-std::vector<McpTool> McpClient::list_tools() {
-  std::vector<McpTool> tools;
+std::vector<Tool> Client::list_tools() const {
+  std::vector<Tool> tools;
 
   if (!curl_) {
     log_write(ERROR_LEVEL, "list_tools failed - curl not initialised");
@@ -293,7 +279,7 @@ std::vector<McpTool> McpClient::list_tools() {
       log_write(ERROR_LEVEL, "tools is not an object os result");
       return tools;
     }
-    McpTool mcp_tool;
+    Tool mcp_tool;
     tool.get_str("name", mcp_tool.name_);
     tool.get_str("description", mcp_tool.description_);
     mcp_tool.spec_ = formatSpec(tool);
@@ -301,11 +287,10 @@ std::vector<McpTool> McpClient::list_tools() {
   }
 
   log_write(INFO_LEVEL, "list tools success - found [%d] tools", tools.size());
-  tools_json_ = response;
   return tools;
 }
 
-std::string McpClient::send_request(const std::string &request_body) {
+std::string Client::send_request(const std::string &request_body) const {
   std::string body;
   body.reserve(4096);
 
@@ -317,8 +302,9 @@ std::string McpClient::send_request(const std::string &request_body) {
     curl_headers = curl_slist_append(curl_headers, session_header.c_str());
   }
 
+  const std::string base_url = std::format("http://{}:{}/stream", settings_.host_, settings_.port_);
   curl_easy_setopt(curl_, CURLOPT_HTTPHEADER, curl_headers);
-  curl_easy_setopt(curl_, CURLOPT_URL, base_url_.c_str());
+  curl_easy_setopt(curl_, CURLOPT_URL, base_url.c_str());
   curl_easy_setopt(curl_, CURLOPT_POSTFIELDS, request_body.c_str());
   curl_easy_setopt(curl_, CURLOPT_POSTFIELDSIZE, request_body.length());
   curl_easy_setopt(curl_, CURLOPT_WRITEDATA, &body);
@@ -334,7 +320,7 @@ std::string McpClient::send_request(const std::string &request_body) {
   }
 
   if (res != CURLE_OK) {
-    log_write(ERROR_LEVEL, "ERROR: curl: %s [%s]", curl_easy_strerror(res), base_url_.c_str());
+    log_write(ERROR_LEVEL, "ERROR: curl: %s [%s]", curl_easy_strerror(res), base_url.c_str());
     log_write(ERROR_LEVEL, "sent [%s]", request_body.c_str());
     return "";
   }
@@ -347,13 +333,12 @@ std::string McpClient::send_request(const std::string &request_body) {
   return body;
 }
 
-void McpClient::disconnect() {
+void Client::disconnect() {
   if (curl_) {
     curl_easy_cleanup(curl_);
     curl_ = nullptr;
   }
   session_id_.clear();
-  tools_json_.clear();
 }
 
 static std::string extract_text_content(const json::JsonValue &root) {
@@ -379,8 +364,8 @@ static std::string extract_text_content(const json::JsonValue &root) {
   return "";
 }
 
-McpResult McpClient::call_tool(const std::string &name, const std::string &args_str) {
-  McpResult result;
+Result Client::call_tool(const std::string &name, const std::string &args_str) const {
+  Result result;
   result.success_ = true;
   result.isError_ = "";
 

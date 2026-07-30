@@ -13,33 +13,45 @@
 #include <curl/curl.h>
 #include "yyjson.h"
 
-struct McpTool {
+namespace mcp {
+
+struct Tool {
   std::string name_;
   std::string description_;
   std::string spec_;
 };
 
-struct McpResult {
+struct Settings {
+  std::string host_;
+  int port_;
+};
+
+struct Result {
   std::string content_;
   std::string isError_;
   bool success_;
 };
 
-class McpClient {
+class Client {
   public:
-  McpClient();
-  ~McpClient();
+  Client();
+  ~Client();
 
-  bool connect(const std::string &host, int port);
-  std::vector<McpTool> list_tools();
-  McpResult call_tool(const std::string &name, const std::string &args);
+  bool connect() const;
+  bool enabled() const { return enabled_; }
+  void enable() { enabled_ = true; }
+  
+  std::vector<Tool> list_tools() const;
+  Result call_tool(const std::string &name, const std::string &args) const;
   void disconnect();
 
   private:
   std::string session_id_;
-  std::string base_url_;
-  std::string tools_json_;
+  bool enabled_;
+  Settings settings_;
   CURL *curl_;
 
-  std::string send_request(const std::string &params);
+  std::string send_request(const std::string &params) const;
 };
+
+}

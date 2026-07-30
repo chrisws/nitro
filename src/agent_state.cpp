@@ -249,10 +249,10 @@ bool AgentState::setup_model(const NitroConfig &cfg, Tui &tui) {
   }
 
   LlamaMemoryInfo mem = llama->memory_info();
-  tui.dismiss_modal_popup();  
+  tui.dismiss_modal_popup();
   tui.setup_model(model_name, mem);
 
-  model_loaded = true;  
+  model_loaded = true;
   return true;
 }
 
@@ -394,12 +394,50 @@ std::string AgentState::restart(const NitroConfig &cfg, Tui &tui) {
   return "save work context to SESSION.md then try again";
 }
 
+std::string AgentState::run_mcp(const NitroConfig &cfg, Tui &tui, const std::string arg1, const std::string arg2) {
+  const std::string command = arg1 + " " + arg2;
+  log_write(DEBUG_LEVEL, "MCP: %s", command.c_str());
+  tui.show_tool("mcp: " + command);
+  return "NOT IMPLEMENTED";
+}
+
+std::string AgentState::run_tool(const NitroConfig &cfg, Tui &tui, const std::string arg1, const std::string arg2) {
+  const std::vector<std::string> &run_allowed = cfg.run_allowed_;
+  if (!run_allowed.empty()) {
+    bool permitted = ranges::any_of(run_allowed, [&](const std::string &a) {return a == arg1;});
+    if (!permitted) {
+      return "ERROR: '" + arg1 + "' is not in the TOOL:RUN allowlist. "
+        "Use /set run_allowed <name> to permit it.";
+    }
+  } else if (cfg.permission_prompt_ && !tui.confirm_dialog(std::format("Allow {} {} to run?", arg1, arg2))) {
+    return "ERROR: prevented by user";
+  }
+  const std::string command = arg1 + " " + arg2 + " 2>&1";
+  if (auto pos = command.find("rm "); pos != std::string::npos) {
+    return "ERROR: prevented by user";
+  }
+  tui.show_tool("running: " + command);
+  FILE *fp = popen(command.c_str(), "r");
+  if (!fp) {
+    return "ERROR: popen failed";
+  }
+  std::string out;
+  char buf[256];
+  while (fgets(buf, sizeof(buf), fp)) {
+    out += buf;
+  }
+  pclose(fp);
+  if (out.size() > 4096) {
+    out = out.substr(0, 4096) + "\n…(truncated)";
+  }
+  return out;
+}
+
 //
 // Tool dispatch
 //
 std::string AgentState::process_tool(const std::string &cmd, const NitroConfig &cfg, Tui &tui) {
   const std::string &sandbox = cfg.sandbox_;
-  const std::vector<std::string> &run_allowed = cfg.run_allowed_;
 
   std::string op, arg1, arg2;
   auto WS = cmd.find_first_of(" \n");
@@ -443,48 +481,43 @@ std::string AgentState::process_tool(const std::string &cmd, const NitroConfig &
     return join_path(sandbox, unwrap(p));
   };
 
-  auto show_tool = [&](const std::string &tool) -> void {
-    tui.append_line(ICON_TOOL + "→ " + tool);
-    tui.redraw_all();
-  };
-
   if (op == "TOOL:DATE") {
-    show_tool(op);
+    tui.show_tool(op);
     char buf[32]; time_t t = time(nullptr);
     strftime(buf, sizeof(buf), "%Y-%m-%d", localtime(&t));
     return buf;
   }
   if (op == "TOOL:TIME") {
-    show_tool(op);
+    tui.show_tool(op);
     char buf[32]; time_t t = time(nullptr);
     strftime(buf, sizeof(buf), "%H:%M:%S", localtime(&t));
     return buf;
   }
   if (op == "TOOL:RND") {
-    show_tool(op);
+    tui.show_tool(op);
     return std::to_string(static_cast<double>(rand()) / RAND_MAX);
   }
   if (op == "TOOL:RAG") {
-    show_tool(op);
+    tui.show_tool(op);
     return rag_tool(cfg, arg1);
   }
   if (op == "TOOL:LIST") {
     std::string dir = resolve(arg1);
-    show_tool("listing: " + dir);
+    tui.show_tool("listing: " + dir);
     return list_dir(dir);
   }
   if (op == "TOOL:EXISTS") {
     std::string p = resolve(arg1);
-    show_tool("checking: " + p);
+    tui.show_tool("checking: " + p);
     return fs::exists(p) ? "YES" : "NO";
   }
   if (op == "TOOL:READ") {
-    show_tool("reading: " + arg1);
+    tui.show_tool("reading: " + arg1);
     std::string p = resolve(arg1);
     return read_file(p);
   }
   if (op == "TOOL:WRITE") {
-    show_tool("writing: " + arg1);
+    tui.show_tool("writing: " + arg1);
     std::string p = resolve(arg1);
     if (!path_in_sandbox(sandbox, p)) {
       return "ERROR: path outside sandbox";
@@ -497,60 +530,39 @@ std::string AgentState::process_tool(const std::string &cmd, const NitroConfig &
   }
   if (op == "TOOL:MKDIR") {
     std::string p = resolve(arg1);
-    show_tool("mkdir: " + arg1);
+    tui.show_tool("mkdir: " + arg1);
     if (!path_in_sandbox(sandbox, p)) {
       return "ERROR: path outside sandbox";
     }
     return make_dir(p) ? "OK: created " + arg1 : "ERROR: mkdir failed for " + arg1;
   }
   if (op == "TOOL:CURL") {
-    show_tool("curl: " + arg1);
+    tui.show_tool("curl: " + arg1);
     return tool_curl(arg1);
   }
   if (op == "TOOL:INTROSPECT") {
-    show_tool("introspecting: " + arg1);
+    tui.show_tool("introspecting: " + arg1);
     return cfg.introspect();
   }
   if (op == "TOOL:ASK") {
     tui.set_thinking(false);
-    show_tool("asking: " + arg1 + " " + arg2);
+    tui.show_tool("asking: " + arg1 + " " + arg2);
     return tui.readline();
   }
   if (op == "TOOL:RESTART") {
-    show_tool("restart ...");
+    tui.show_tool("restart ...");
     return restart(cfg, tui);
   }
   if (op == "TOOL:PERMISSION") {
     tui.set_thinking(false);
-    show_tool("asking permission: " + arg1 + " " + arg2);
+    tui.show_tool("asking permission: " + arg1 + " " + arg2);
     return tui.confirm_dialog(arg1 + " " + arg2) ? "YES" : "NO";
   }
   if (op == "TOOL:RUN") {
-    if (!run_allowed.empty()) {
-      bool permitted = ranges::any_of(run_allowed, [&](const std::string &a) {return a == arg1;});
-      if (!permitted) {
-        return "ERROR: '" + arg1 + "' is not in the TOOL:RUN allowlist. "
-          "Use /set run_allowed <name> to permit it.";
-      }
-    } else if (cfg.permission_prompt_ && !tui.confirm_dialog(std::format("Allow {} {} to run?", arg1, arg2))) {
-      return "ERROR: prevented by user";
-    }
-    std::string command = arg1 + " " + arg2 + " 2>&1";
-    show_tool("running: " + command);
-    FILE *fp = popen(command.c_str(), "r");
-    if (!fp) {
-      return "ERROR: popen failed";
-    }
-    std::string out;
-    char buf[256];
-    while (fgets(buf, sizeof(buf), fp)) {
-      out += buf;
-    }
-    pclose(fp);
-    if (out.size() > 4096) {
-      out = out.substr(0, 4096) + "\n…(truncated)";
-    }
-    return out;
+    return run_tool(cfg, tui, arg1, arg2);
+  }
+  if (op == "TOOL:MCP") {
+    return run_mcp(cfg, tui, arg1, arg2);
   }
   return "ERROR: unknown tool: [" + op + "]";
 }

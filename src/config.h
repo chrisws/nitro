@@ -10,9 +10,10 @@
 
 #include <string>
 #include <vector>
-#include <filesystem>  
+#include <filesystem>
 #include "llama.h"
 #include "config.h"
+#include "mcp_client.h"
 
 namespace fs = std::filesystem;
 
@@ -29,7 +30,6 @@ struct NitroConfig {
   std::string model_path_;
   std::string embed_path_;
   std::string sandbox_;
-  std::string mcp_filter_;
 
   int   n_ctx_          = 65536;
   int   n_batch_        = 512;
@@ -49,4 +49,7 @@ struct NitroConfig {
   // Empty means "allow anything inside the sandbox" (original behaviour).
   std::vector<std::string> run_allowed_;
   std::vector<std::string> knowledge_files_;
+
+  std::string mcp_filter_ = "search";
+  mcp::Client mcp_client_;
 };

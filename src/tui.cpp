@@ -743,4 +743,8 @@ void Tui::enable_mouse(bool enable) {
   }
 }
 
+void Tui::show_tool(const std::string &tool) {
+  append_line(ICON_TOOL + "→ " + tool);
+  redraw_all();
+};
 
