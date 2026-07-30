@@ -17,13 +17,13 @@
 // AgentState
 //
 struct AgentState {
-  std::unique_ptr<Llama> llama;
-  std::unique_ptr<LlamaIter> iter;
-  std::unique_ptr<Llama> embed_llama;
-  std::unique_ptr<RagDB> rag_db;
-  std::unique_ptr<RagSession> rag_session;
-  bool model_loaded = false;
-  std::string system_prompt;
+  std::unique_ptr<Llama> llama_;
+  std::unique_ptr<LlamaIter> iter_;
+  std::unique_ptr<Llama> embed_llama_;
+  std::unique_ptr<RagDB> rag_db_;
+  std::unique_ptr<RagSession> rag_session_;
+  bool model_loaded_ = false;
+  std::string system_prompt_;
 
   bool rag_index(const std::string &path, const NitroConfig &cfg, Tui &tui) const;
   bool rag_load_index(const std::string &path, Tui &tui) const;
@@ -38,9 +38,4 @@ struct AgentState {
   std::string rag_tool(const NitroConfig &cfg, const std::string &agent_query) const;
   std::string restart(const NitroConfig &cfg, Tui &tui);
   float tokens_per_sec() const;
-
-  private:
-  void show_tool(Tui &tui, const std::string &tool);
-  std::string run_tool(const NitroConfig &cfg, Tui &tui, const std::string arg1, const std::string arg2);
-  std::string run_mcp(const NitroConfig &cfg, Tui &tui, const std::string arg1, const std::string arg2);  
 };

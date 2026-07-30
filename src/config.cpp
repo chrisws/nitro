@@ -16,11 +16,18 @@
 #include "string_utils.h"
 #include "logging.h"
 
+NitroConfig::NitroConfig() {
+  run_allowed_.emplace_back("make");
+  run_allowed_.emplace_back("cmake");
+  run_allowed_.emplace_back("ls");
+  run_allowed_.emplace_back("find");
+}
+
 //
 // Settings persistence  (~/.config/nitro/nitro.settings.json)
 // Returns the canonical settings path: ~/.config/nitro/settings.json
 //
-std::string NitroConfig::settings_path() const {
+std::string NitroConfig::settings_path() {
   // Attempt to read settings from the current working directory first
   if (fs::exists("nitro.config.json")) {
     return "nitro.config.json";
@@ -200,7 +207,7 @@ std::string NitroConfig::build_system_prompt() const {
   if (mcp_client_.connect()) {
     log_write(INFO_LEVEL, "Appending MCP tools");
     p += "## MCP tool\n";
-    p += "TOOL::MCP <tool-name> <json-request> Invoke the named MCP tool along with with JSON request\n";
+    p += "TOOL:MCP <tool-name> <json-request> Invoke the named MCP tool along with with JSON request\n";
     p += "## Available tools\n";
     std::vector<mcp::Tool> tools = mcp_client_.list_tools();
     for (const auto &tool : tools) {

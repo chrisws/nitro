@@ -26,12 +26,6 @@ struct Settings {
   int port_;
 };
 
-struct Result {
-  std::string content_;
-  std::string isError_;
-  bool success_;
-};
-
 class Client {
   public:
   Client();
@@ -42,7 +36,7 @@ class Client {
   void enable() { enabled_ = true; }
   
   std::vector<Tool> list_tools() const;
-  Result call_tool(const std::string &name, const std::string &args) const;
+  std::string call_tool(const std::string &name, const std::string &args) const;
   void disconnect();
 
   private:

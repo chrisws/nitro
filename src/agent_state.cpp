@@ -207,201 +207,7 @@ static std::string strip_code_fences(const std::string &filename,
   return inner;
 }
 
-void AgentState::apply_generation_params(const NitroConfig &cfg) const {
-  llama->add_stop("<|turn|>");
-  llama->add_stop("<|im_end|>");
-  llama->set_max_tokens(512000);
-  llama->set_temperature(cfg.temperature_);
-  llama->set_top_k(cfg.top_k_);
-  llama->set_top_p(cfg.top_p_);
-  llama->set_min_p(cfg.min_p_);
-  llama->set_penalty_repeat(cfg.penalty_repeat_);
-  llama->set_penalty_last_n(cfg.penalty_last_n_);
-  llama->set_log_level(cfg.log_level_);
-}
-
-//
-// Shows a modal loading popup while the model loads.
-//
-bool AgentState::setup_model(const NitroConfig &cfg, Tui &tui) {
-  if (cfg.model_path_.empty()) {
-    tui.append_line(ICON_SYS + "No model loaded.  Use /model <path> to load a GGUF.");
-    tui.redraw_all();
-    return false;
-  }
-
-  // Show a modal popup so the user knows loading is in progress.
-  std::string model_name = fs::path(cfg.model_path_).filename().string();
-  tui.show_modal_popup("Loading " + model_name);
-  // Destroy the iterator first — it holds references into the llama context.
-  // Freeing llama while iter is still alive causes use-after-free / load failure.
-  iter.reset();
-  model_loaded = false;
-  llama = std::make_unique<Llama>();
-
-  apply_generation_params(cfg);
-  if (!llama->load_model(cfg.model_path_, cfg.n_ctx_, cfg.n_batch_,
-                         cfg.n_gpu_layers_, cfg.log_level_)) {
-    tui.dismiss_modal_popup();
-    tui.append_line(ICON_ERR + llama->last_error());
-    tui.redraw_all();
-    return false;
-  }
-
-  LlamaMemoryInfo mem = llama->memory_info();
-  tui.dismiss_modal_popup();
-  tui.setup_model(model_name, mem);
-
-  model_loaded = true;
-  return true;
-}
-
-bool AgentState::setup_embed(const std::string &path, Tui &tui) {
-  tui.show_modal_popup("Loading embedding model: " + fs::path(path).filename().string());
-  tui.redraw_all();
-  embed_llama = std::make_unique<Llama>();
-  if (!embed_llama->load_embedding_model(path)) {
-    tui.dismiss_modal_popup();
-    tui.append_line(ICON_ERR + embed_llama->last_error());
-    tui.redraw_all();
-    embed_llama.reset();
-    return false;
-  }
-  tui.dismiss_modal_popup();
-  rag_db      = std::make_unique<RagDB>();
-  rag_session = std::make_unique<RagSession>();
-  tui.append_line(ICON_SYS + "Embedding model ready.");
-  tui.redraw_all();
-  return true;
-}
-
-void AgentState::reset_conversation(const std::string &sysprompt, Tui &tui) {
-  system_prompt = sysprompt;
-  llama->reset();
-  apply_generation_params(NitroConfig{});
-  iter = std::make_unique<LlamaIter>();
-  if (!llama->add_message(*iter, "system", system_prompt)) {
-    tui.append_line(ICON_ERR + "System prompt injection: " + llama->last_error());
-    tui.redraw_all();
-  } else {
-    tui.update_usage(tokens_per_sec(), llama->memory_info());
-  }
-}
-
-float AgentState::tokens_per_sec() const {
-  if (!iter) return 0.0f;
-  auto now = std::chrono::high_resolution_clock::now();
-  double elapsed = std::chrono::duration<double>(now - iter->_t_start).count();
-  if (elapsed <= 0.0 || iter->_tokens_generated <= 0) return 0.0f;
-  return static_cast<float>(iter->_tokens_generated / elapsed);
-}
-
-std::string AgentState::memory_info_status() const {
-  float kv_percent = llama->memory_kv_percent();
-  auto message = kv_percent > 75 ? "(Warning: Approaching limit)" : "";
-  return std::format("\n[KV-INFO] KV Cache: {}%{} [/KV-INFO]", kv_percent, message);
-}
-
-std::string AgentState::memory_info_text() const {
-  if (!model_loaded) return "No model loaded.";
-  LlamaMemoryInfo m = llama->memory_info();
-  std::ostringstream oss;
-  oss << "KV cache  : " << m.kv_used << " / " << m.kv_total
-      << "  (" << m.kv_percent << "%)\n";
-  if (m.vram_total > 0) {
-    oss << "VRAM      : " << (m.vram_used >> 20) << " MB / "
-        << (m.vram_total >> 20) << " MB  (" << m.vram_percent << "%)\n";
-  }
-  oss << "GPU layers: " << m.n_layers_gpu << " / " << m.n_layers_total << "\n";
-  oss << "CPU layers: " << m.n_layers_cpu << "\n";
-  oss << "Advice    : " << m.advice << "\n";
-  return oss.str();
-}
-
-std::string AgentState::rag_tool(const NitroConfig &cfg, const std::string &agent_query) const {
-  std::string result;
-  if (embed_llama && rag_db && rag_session) {
-    result = embed_llama->rag_retrieve(*rag_db, agent_query, cfg.rag_top_k_, *rag_session);
-    if (result.empty()) {
-      result = std::string("RAG: no context found: ") + embed_llama->last_error();
-    }
-  } else {
-    result = "RAG: not enabled";
-  }
-  return result;
-}
-
-bool AgentState::rag_load_index(const std::string &path, Tui &tui) const {
-  if (!embed_llama || !rag_db) {
-    tui.append_line(ICON_ERR + "Load an embedding model first: /embed <path>");
-    tui.redraw_all();
-    return false;
-  }
-
-  if (!rag_db->load(path)) {
-    tui.append_line(ICON_SYS + "failed to load");
-    tui.redraw_all();
-  }
-
-  return true;
-}
-
-bool AgentState::rag_index(const std::string &path, const NitroConfig &cfg, Tui &tui) const {
-  if (!embed_llama || !rag_db) {
-    tui.append_line(ICON_ERR + "Load an embedding model first: /embed <path>");
-    tui.redraw_all();
-    return false;
-  }
-
-  auto index_one = [&](const std::string &filepath) {
-    tui.append_line(ICON_SYS + "  indexing: " + filepath);
-    tui.redraw_all();
-    if (!embed_llama->rag_index(*rag_db, filepath)) {
-      tui.append_line(ICON_ERR + "rag_load: " + embed_llama->last_error());
-      tui.redraw_all();
-    }
-  };
-
-  // must be set before indexing
-  rag_db->embed_dim = embed_llama->get_embed_dim();
-
-  fs::path rp(path);
-  std::error_code ec;
-  if (fs::is_directory(rp, ec)) {
-    for (const auto &entry : fs::recursive_directory_iterator(rp, ec)) {
-      if (entry.is_regular_file()) {
-        index_one(entry.path().string());
-      }
-    }
-  } else {
-    index_one(path);
-  }
-
-  std::string save_path = join_path(cfg.sandbox_, "rag-index.bin");
-  tui.append_line(ICON_SYS + "saving index: " + save_path);
-  tui.redraw_all();
-  return rag_db->save(save_path);
-}
-
-std::string AgentState::restart(const NitroConfig &cfg, Tui &tui) {
-  if (fs::exists("SESSION.md")) {
-    std::vector<std::string> knowledge_files;
-    reset_conversation(cfg.build_system_prompt(), tui);
-    tui.append_line(ICON_ERR + "Session restarted");
-    tui.redraw_all();
-    return "continue the pending actions found SESSION.md";
-  }
-  return "save work context to SESSION.md then try again";
-}
-
-std::string AgentState::run_mcp(const NitroConfig &cfg, Tui &tui, const std::string arg1, const std::string arg2) {
-  const std::string command = arg1 + " " + arg2;
-  log_write(DEBUG_LEVEL, "MCP: %s", command.c_str());
-  tui.show_tool("mcp: " + command);
-  return "NOT IMPLEMENTED";
-}
-
-std::string AgentState::run_tool(const NitroConfig &cfg, Tui &tui, const std::string arg1, const std::string arg2) {
+static std::string tool_run(const NitroConfig &cfg, Tui &tui, const std::string &arg1, const std::string &arg2) {
   const std::vector<std::string> &run_allowed = cfg.run_allowed_;
   if (!run_allowed.empty()) {
     bool permitted = ranges::any_of(run_allowed, [&](const std::string &a) {return a == arg1;});
@@ -413,7 +219,7 @@ std::string AgentState::run_tool(const NitroConfig &cfg, Tui &tui, const std::st
     return "ERROR: prevented by user";
   }
   const std::string command = arg1 + " " + arg2 + " 2>&1";
-  if (auto pos = command.find("rm "); pos != std::string::npos) {
+  if (const auto pos = command.find("rm "); pos != std::string::npos) {
     return "ERROR: prevented by user";
   }
   tui.show_tool("running: " + command);
@@ -431,6 +237,193 @@ std::string AgentState::run_tool(const NitroConfig &cfg, Tui &tui, const std::st
     out = out.substr(0, 4096) + "\n…(truncated)";
   }
   return out;
+}
+
+void AgentState::apply_generation_params(const NitroConfig &cfg) const {
+  llama_->add_stop("<|turn|>");
+  llama_->add_stop("<|im_end|>");
+  llama_->set_max_tokens(512000);
+  llama_->set_temperature(cfg.temperature_);
+  llama_->set_top_k(cfg.top_k_);
+  llama_->set_top_p(cfg.top_p_);
+  llama_->set_min_p(cfg.min_p_);
+  llama_->set_penalty_repeat(cfg.penalty_repeat_);
+  llama_->set_penalty_last_n(cfg.penalty_last_n_);
+  llama_->set_log_level(cfg.log_level_);
+}
+
+//
+// Shows a modal loading popup while the model loads.
+//
+bool AgentState::setup_model(const NitroConfig &cfg, Tui &tui) {
+  if (cfg.model_path_.empty()) {
+    tui.append_line(ICON_SYS + "No model loaded.  Use /model <path> to load a GGUF.");
+    tui.redraw_all();
+    return false;
+  }
+
+  // Show a modal popup so the user knows loading is in progress.
+  std::string model_name = fs::path(cfg.model_path_).filename().string();
+  tui.show_modal_popup("Loading " + model_name);
+  // Destroy the iterator first — it holds references into the llama context.
+  // Freeing llama while iter is still alive causes use-after-free / load failure.
+  iter_.reset();
+  model_loaded_ = false;
+  llama_ = std::make_unique<Llama>();
+
+  apply_generation_params(cfg);
+  if (!llama_->load_model(cfg.model_path_, cfg.n_ctx_, cfg.n_batch_,
+                         cfg.n_gpu_layers_, cfg.log_level_)) {
+    tui.dismiss_modal_popup();
+    tui.append_line(ICON_ERR + llama_->last_error());
+    tui.redraw_all();
+    return false;
+  }
+
+  LlamaMemoryInfo mem = llama_->memory_info();
+  tui.dismiss_modal_popup();
+  tui.setup_model(model_name, mem);
+
+  model_loaded_ = true;
+  return true;
+}
+
+bool AgentState::setup_embed(const std::string &path, Tui &tui) {
+  tui.show_modal_popup("Loading embedding model: " + fs::path(path).filename().string());
+  tui.redraw_all();
+  embed_llama_ = std::make_unique<Llama>();
+  if (!embed_llama_->load_embedding_model(path)) {
+    tui.dismiss_modal_popup();
+    tui.append_line(ICON_ERR + embed_llama_->last_error());
+    tui.redraw_all();
+    embed_llama_.reset();
+    return false;
+  }
+  tui.dismiss_modal_popup();
+  rag_db_      = std::make_unique<RagDB>();
+  rag_session_ = std::make_unique<RagSession>();
+  tui.append_line(ICON_SYS + "Embedding model ready.");
+  tui.redraw_all();
+  return true;
+}
+
+void AgentState::reset_conversation(const std::string &sysprompt, Tui &tui) {
+  system_prompt_ = sysprompt;
+  llama_->reset();
+  apply_generation_params(NitroConfig{});
+  iter_ = std::make_unique<LlamaIter>();
+  if (!llama_->add_message(*iter_, "system", system_prompt_)) {
+    tui.append_line(ICON_ERR + "System prompt injection: " + llama_->last_error());
+    tui.redraw_all();
+  } else {
+    tui.update_usage(tokens_per_sec(), llama_->memory_info());
+  }
+}
+
+float AgentState::tokens_per_sec() const {
+  if (!iter_) return 0.0f;
+  auto now = std::chrono::high_resolution_clock::now();
+  double elapsed = std::chrono::duration<double>(now - iter_->_t_start).count();
+  if (elapsed <= 0.0 || iter_->_tokens_generated <= 0) return 0.0f;
+  return static_cast<float>(iter_->_tokens_generated / elapsed);
+}
+
+std::string AgentState::memory_info_status() const {
+  float kv_percent = llama_->memory_kv_percent();
+  auto message = kv_percent > 75 ? "(Warning: Approaching limit)" : "";
+  return std::format("\n[KV-INFO] KV Cache: {}%{} [/KV-INFO]", kv_percent, message);
+}
+
+std::string AgentState::memory_info_text() const {
+  if (!model_loaded_) return "No model loaded.";
+  LlamaMemoryInfo m = llama_->memory_info();
+  std::ostringstream oss;
+  oss << "KV cache  : " << m.kv_used << " / " << m.kv_total
+      << "  (" << m.kv_percent << "%)\n";
+  if (m.vram_total > 0) {
+    oss << "VRAM      : " << (m.vram_used >> 20) << " MB / "
+        << (m.vram_total >> 20) << " MB  (" << m.vram_percent << "%)\n";
+  }
+  oss << "GPU layers: " << m.n_layers_gpu << " / " << m.n_layers_total << "\n";
+  oss << "CPU layers: " << m.n_layers_cpu << "\n";
+  oss << "Advice    : " << m.advice << "\n";
+  return oss.str();
+}
+
+std::string AgentState::rag_tool(const NitroConfig &cfg, const std::string &agent_query) const {
+  std::string result;
+  if (embed_llama_ && rag_db_ && rag_session_) {
+    result = embed_llama_->rag_retrieve(*rag_db_, agent_query, cfg.rag_top_k_, *rag_session_);
+    if (result.empty()) {
+      result = std::string("RAG: no context found: ") + embed_llama_->last_error();
+    }
+  } else {
+    result = "RAG: not enabled";
+  }
+  return result;
+}
+
+bool AgentState::rag_load_index(const std::string &path, Tui &tui) const {
+  if (!embed_llama_ || !rag_db_) {
+    tui.append_line(ICON_ERR + "Load an embedding model first: /embed <path>");
+    tui.redraw_all();
+    return false;
+  }
+
+  if (!rag_db_->load(path)) {
+    tui.append_line(ICON_SYS + "failed to load");
+    tui.redraw_all();
+  }
+
+  return true;
+}
+
+bool AgentState::rag_index(const std::string &path, const NitroConfig &cfg, Tui &tui) const {
+  if (!embed_llama_ || !rag_db_) {
+    tui.append_line(ICON_ERR + "Load an embedding model first: /embed <path>");
+    tui.redraw_all();
+    return false;
+  }
+
+  auto index_one = [&](const std::string &filepath) {
+    tui.append_line(ICON_SYS + "  indexing: " + filepath);
+    tui.redraw_all();
+    if (!embed_llama_->rag_index(*rag_db_, filepath)) {
+      tui.append_line(ICON_ERR + "rag_load: " + embed_llama_->last_error());
+      tui.redraw_all();
+    }
+  };
+
+  // must be set before indexing
+  rag_db_->embed_dim = embed_llama_->get_embed_dim();
+
+  fs::path rp(path);
+  std::error_code ec;
+  if (fs::is_directory(rp, ec)) {
+    for (const auto &entry : fs::recursive_directory_iterator(rp, ec)) {
+      if (entry.is_regular_file()) {
+        index_one(entry.path().string());
+      }
+    }
+  } else {
+    index_one(path);
+  }
+
+  std::string save_path = join_path(cfg.sandbox_, "rag-index.bin");
+  tui.append_line(ICON_SYS + "saving index: " + save_path);
+  tui.redraw_all();
+  return rag_db_->save(save_path);
+}
+
+std::string AgentState::restart(const NitroConfig &cfg, Tui &tui) {
+  if (fs::exists("SESSION.md")) {
+    std::vector<std::string> knowledge_files;
+    reset_conversation(cfg.build_system_prompt(), tui);
+    tui.append_line(ICON_ERR + "Session restarted");
+    tui.redraw_all();
+    return "continue the pending actions found SESSION.md";
+  }
+  return "save work context to SESSION.md then try again";
 }
 
 //
@@ -559,10 +552,11 @@ std::string AgentState::process_tool(const std::string &cmd, const NitroConfig &
     return tui.confirm_dialog(arg1 + " " + arg2) ? "YES" : "NO";
   }
   if (op == "TOOL:RUN") {
-    return run_tool(cfg, tui, arg1, arg2);
+    return tool_run(cfg, tui, arg1, arg2);
   }
   if (op == "TOOL:MCP") {
-    return run_mcp(cfg, tui, arg1, arg2);
+    tui.show_tool("mcp: " + arg1);
+    return cfg.mcp_client_.call_tool(arg1.c_str(), arg2.c_str());
   }
   return "ERROR: unknown tool: [" + op + "]";
 }
@@ -571,28 +565,28 @@ std::string AgentState::process_tool(const std::string &cmd, const NitroConfig &
 // Agent turn
 //
 bool AgentState::run_turn(const std::string &user_message, const NitroConfig &cfg, Tui &tui) {
-  if (!model_loaded) {
+  if (!model_loaded_) {
     tui.append_line(ICON_ERR + "No model loaded. Use /model <path>");
     tui.redraw_all();
     return false;
   }
   std::string effective_message = user_message;
-  if (embed_llama && rag_db && rag_session) {
-    std::string context = embed_llama->rag_retrieve(*rag_db, user_message, cfg.rag_top_k_, *rag_session);
+  if (embed_llama_ && rag_db_ && rag_session_) {
+    std::string context = embed_llama_->rag_retrieve(*rag_db_, user_message, cfg.rag_top_k_, *rag_session_);
     if (!context.empty()) {
       log_write(DEBUG_LEVEL, "RAG: %s", context.c_str());
       effective_message = "Context:\n" + context + "\n\nUser: " + user_message;
     } else {
-      log_write(DEBUG_LEVEL, "RAG: no context found [%s]", embed_llama->last_error());
+      log_write(DEBUG_LEVEL, "RAG: no context found [%s]", embed_llama_->last_error());
     }
   }
-  if (!iter) {
+  if (!iter_) {
     tui.append_line(ICON_ERR + "Conversation not initialised (call /clear to reset)");
     tui.redraw_all();
     return false;
   }
-  if (!llama->add_message(*iter, "user", effective_message)) {
-    tui.append_line(ICON_ERR + "add_message: " + llama->last_error());
+  if (!llama_->add_message(*iter_, "user", effective_message)) {
+    tui.append_line(ICON_ERR + "add_message: " + llama_->last_error());
     tui.redraw_all();
     return false;
   }
@@ -637,14 +631,14 @@ bool AgentState::run_turn(const std::string &user_message, const NitroConfig &cf
     }
     const std::string content = TOOL_RESULT + std::vformat(template_str, std::make_format_args(result)) + memory_info_status();
     log_write(DEBUG_LEVEL, "tool: [%s] result: [%s]", tool.c_str(), result.c_str());
-    tui.update_usage(tokens_per_sec(), llama->memory_info());
-    if (!llama->add_message(*iter, "tool_result", content)) {
-      tui.append_line(ICON_ERR + "tool result inject: " + llama->last_error());
+    tui.update_usage(tokens_per_sec(), llama_->memory_info());
+    if (!llama_->add_message(*iter_, "tool_result", content)) {
+      tui.append_line(ICON_ERR + "tool result inject: " + llama_->last_error());
     }
-    if (!iter->_has_next) {
-      tui.append_line(ICON_ERR + "failed to evoke tool response: " + llama->last_error());
+    if (!iter_->_has_next) {
+      tui.append_line(ICON_ERR + "failed to evoke tool response: " + llama_->last_error());
     }
-    if (llama->is_memory_flush()) {
+    if (llama_->is_memory_flush()) {
       tui.append_line(ICON_ERR + "Warning! - memory has been flushed!");
     }
     tui.redraw_all();
@@ -671,8 +665,8 @@ bool AgentState::run_turn(const std::string &user_message, const NitroConfig &cf
   };
 
   auto fetch_tool = [&]() -> void {
-    while (iter->_has_next && !tui.is_escape()) {
-      const std::string tok = llama->next(*iter);
+    while (iter_->_has_next && !tui.is_escape()) {
+      const std::string tok = llama_->next(*iter_);
       buffer += tok;
       tui.tick_spinner();
       if (auto pos = buffer.find("</think>"); pos != std::string::npos) {
@@ -681,12 +675,12 @@ bool AgentState::run_turn(const std::string &user_message, const NitroConfig &cf
     }
   };
 
-  while (iter->_has_next && !tui.is_escape()) {
-    if (std::string tok = llama->next(*iter); tok == "<") {
+  while (iter_->_has_next && !tui.is_escape()) {
+    if (std::string tok = llama_->next(*iter_); tok == "<") {
       // fetch the complete tag
       std::string tag = tok;
-      while (iter->_has_next && tag.find('>') == std::string::npos) {
-        tag += llama->next(*iter);
+      while (iter_->_has_next && tag.find('>') == std::string::npos) {
+        tag += llama_->next(*iter_);
       }
       if (tag == "<|think|>") {
         think_mode = t_think;
@@ -756,13 +750,13 @@ bool AgentState::run_turn(const std::string &user_message, const NitroConfig &cf
 
   tui.flush_token_acc();
   tui.set_thinking(false);
-  tui.update_usage(tokens_per_sec(), llama->memory_info());
+  tui.update_usage(tokens_per_sec(), llama_->memory_info());
 
   char stat[128];
   const auto pattern = ICON_SYS + "%.1f tok/s  (%d tokens)  KV %.1f%%";
   std::snprintf(stat, sizeof(stat), pattern.c_str(),
                 static_cast<double>(tui.get_tokens_per_sec()),
-                iter->_tokens_generated,
+                iter_->_tokens_generated,
                 static_cast<double>(tui.get_kv_percent()));
   tui.append_line(stat);
   tui.redraw_all();

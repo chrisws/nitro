@@ -226,7 +226,7 @@ static void handle_slash(const std::string &input,
     }
 
     if (ok) {
-      if (needs_reparam && agent.model_loaded) {
+      if (needs_reparam && agent.model_loaded_) {
         agent.apply_generation_params(cfg);
       }
       cfg.save_settings();

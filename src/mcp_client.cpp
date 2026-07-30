@@ -341,38 +341,9 @@ void Client::disconnect() {
   session_id_.clear();
 }
 
-static std::string extract_text_content(const json::JsonValue &root) {
-  // Check if root has "content" key
-  if (std::string text; root.get_str("content", text)) {
-    return text;
-  }
-
-  // Check if content is an array
-  if (std::vector<json::JsonValue> vec; root.get_array("content", vec)) {
-    for (const auto &item: vec) {
-      if (item.is_object()) {
-        // Check type
-        if (std::string type; item.get_str("type", type) && type == "text") {
-          // Extract text
-          if (std::string text_val; item.get_str("text", text_val)) {
-            return text_val;
-          }
-        }
-      }
-    }
-  }
-  return "";
-}
-
-Result Client::call_tool(const std::string &name, const std::string &args_str) const {
-  Result result;
-  result.success_ = true;
-  result.isError_ = "";
-
+std::string Client::call_tool(const std::string &name, const std::string &args_str) const {
   if (!curl_) {
-    result.success_ = false;
-    result.isError_ = "Not connected to MCP server";
-    return result;
+    return "Not connected to MCP server";
   }
 
   // Get session ID from stored value
@@ -384,16 +355,12 @@ Result Client::call_tool(const std::string &name, const std::string &args_str) c
   // Build request using mutable API
   auto doc = json::parse_mutable("{}");
   if (!doc.is_valid()) {
-    result.success_ = false;
-    result.isError_ = "Failed to create request";
-    return result;
+    return "Failed to create request";
   }
 
   auto root = doc.get_root();
   if (!root.is_valid()) {
-    result.success_ = false;
-    result.isError_ = "Failed to create request";
-    return result;
+    return "Failed to create request";
   }
 
   // Add jsonrpc and id fields
@@ -415,44 +382,15 @@ Result Client::call_tool(const std::string &name, const std::string &args_str) c
   // Convert to string
   std::string request_str = doc.to_string();
   if (request_str.empty()) {
-    result.success_ = false;
-    result.isError_ = "Failed to serialize request";
-    return result;
+    return "Failed to serialize request";
   }
 
   std::string response = send_request(request_str);
-
   if (response.empty()) {
-    result.success_ = false;
-    result.isError_ = "Failed to communicate with MCP server";
-    return result;
+    return "Failed to communicate with MCP server";
   }
 
-  // Parse response using immutable API
-  auto resp_doc = json::parse(response);
-  if (!resp_doc.is_valid()) {
-    result.success_ = false;
-    result.isError_ = "Failed to parse response";
-    result.content_ = response;
-    return result;
-  }
-
-  if (auto resp_root = resp_doc.get_root(); resp_root.is_object()) {
-    if (auto result_val = resp_root.get_child("result"); result_val.is_object()) {
-      result.content_ = extract_text_content(result_val);
-    } else {
-      result.isError_ = "MCP server returned error";
-      if (resp_root.has_string_key("error")) {
-        result.content_ = response;
-      }
-      result.success_ = false;
-    }
-  } else {
-    result.isError_ = "Unexpected response format";
-    result.content_ = response;
-    result.success_ = false;
-  }
-
-  return result;
+  log_write(DEBUG_LEVEL, "result: [%s]", response.c_str());
+  return response;
 }
 
