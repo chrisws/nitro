@@ -11,7 +11,7 @@
 #include <filesystem>
 #include <string>
 
-#include "llama-sb-rag.h"
+#include "llama_sb_rag.h"
 
 //
 // AgentState

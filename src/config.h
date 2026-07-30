@@ -29,6 +29,7 @@ struct NitroConfig {
   std::string model_path_;
   std::string embed_path_;
   std::string sandbox_;
+  std::string mcp_filter_;
 
   int   n_ctx_          = 65536;
   int   n_batch_        = 512;

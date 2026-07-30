@@ -6,7 +6,7 @@
 // Download the GNU Public License (GPL) from www.gnu.org
 //
 
-#include "mcp-format.h"
+#include "mcp_format.h"
 
 static std::string quote(const std::string& value) {
   return "\"" + value + "\"";
@@ -96,15 +96,15 @@ std::string formatSpec(const json::JsonValue &root) {
       root.get_str("description", description) &&
       inputSchema.is_valid() &&
       outputSchema.is_valid()) {
-    result = "# Tool name: " + name + "\n\n";
+    result = "# Name: " + name + "\n\n";
     result += "## Description\n";
     result += description + "\n";
     result += required(inputSchema);
-    result += "## Input example\n";
+    result += "## Example request\n";
     result += "```\n";
     result += createExample(inputSchema.get_child("properties"));;
     result += "\n```\n\n";
-    result += "## Output schema\n";
+    result += "## Response schema\n";
     result += "```\n";
     result += outputSchema.to_string();
     result += "\n```\n";

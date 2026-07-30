@@ -13,7 +13,7 @@
 #include "ggml-cuda.h"
 #include "llama.h"
 
-#include "llama-sb.h"
+#include "llama_sb.h"
 
 constexpr int MAX_REPEAT = 50;
 

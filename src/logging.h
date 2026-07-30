@@ -19,7 +19,7 @@ enum LogLevel {
 };
 
 void log_write(LogLevel level, const char* format, ...);
-void log_open(std::string level);
+void log_open(const std::string& level);
 void log_open_console();
 void log_close();
 

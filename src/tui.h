@@ -14,7 +14,7 @@
 #include <memory>
 
 #include <notcurses/notcurses.h>
-#include "llama-sb.h"
+#include "llama_sb.h"
 #include "tui_context.h"
 #include "input.h"
 

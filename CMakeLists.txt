@@ -196,11 +196,12 @@ endif()
 add_executable(nitro
   yyjson/src/yyjson.c
   src/config.cpp
-  src/mcp-client.cpp
+  src/mcp_format.cpp
+  src/mcp_client.cpp
   src/json.cpp
   src/input.cpp
-  src/llama-sb-rag.cpp
-  src/llama-sb.cpp
+  src/llama_sb_rag.cpp
+  src/llama_sb.cpp
   src/agent_state.cpp
   src/tui.cpp
   src/curl.cpp

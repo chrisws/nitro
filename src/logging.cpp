@@ -15,28 +15,28 @@
 #include <unordered_map>
 
 static FILE *g_logfile = nullptr;
-LogLevel g_level = DEBUG_LEVEL;
-bool g_log_console = false;
+static LogLevel g_level = DEBUG_LEVEL;
+static bool g_log_console = false;
 
-LogLevel get_level(const std::string& level) {
+static LogLevel get_level(const std::string& level) {
   static std::unordered_map<std::string, LogLevel> loggingMap = {
-    {"0", LogLevel::DEBUG_LEVEL},
-    {"1", LogLevel::DEBUG_LEVEL},
-    {"2", LogLevel::INFO_LEVEL},
-    {"3", LogLevel::WARNING_LEVEL},
-    {"4", LogLevel::ERROR_LEVEL},
-    {"5", LogLevel::ERROR_LEVEL},
+    {"0", DEBUG_LEVEL},
+    {"1", DEBUG_LEVEL},
+    {"2", INFO_LEVEL},
+    {"3", WARNING_LEVEL},
+    {"4", ERROR_LEVEL},
+    {"5", ERROR_LEVEL},
   };
-  auto result = LogLevel::INFO_LEVEL;
+  auto result = INFO_LEVEL;
   if (!level.empty()) {
-    if (auto it = loggingMap.find(level); it != loggingMap.end()) {
+    if (const auto it = loggingMap.find(level); it != loggingMap.end()) {
       result = it->second;
     }
   }
   return result;
 }
 
-void log_open(std::string level) {
+void log_open(const std::string& level) {
   g_level = get_level(level);
   if (g_logfile == nullptr) {
     const char *home = getenv("HOME");

@@ -19,6 +19,7 @@
 #include "agent_state.h"
 #include "logging.h"
 #include "curl.h"
+#include "string_utils.h"
 
 //
 // handling for strip_code_fences
@@ -95,25 +96,6 @@ static bool write_file(const std::string &path, const std::string &data) {
 }
 
 //
-// Trims whitespace from both ends of a string
-//
-static std::string trim(std::string_view str) {
-  constexpr std::string_view whitespace = " \t\n\r\f\v";
-
-  // Find the first non-whitespace character
-  const auto start = str.find_first_not_of(whitespace);
-  if (start == std::string_view::npos) {
-    return ""; // The string is entirely whitespace
-  }
-
-  // Find the last non-whitespace character
-  const auto end = str.find_last_not_of(whitespace);
-
-  // Return the substring between start and end
-  return std::string(str.substr(start, end - start + 1));
-}
-
-//
 // unwrap() - Remove a matching outer "wrapper" from a string.
 //
 // Trims leading/trailing whitespace first, then checks (in order):
@@ -134,7 +116,7 @@ static std::string trim(std::string_view str) {
 //   unwrap("plain")            -> "plain"
 //   unwrap("")                 -> ""
 //
-std::string unwrap(const std::string &input) {
+static std::string unwrap(const std::string &input) {
   if (input.empty()) {
     return input;
   }
@@ -398,9 +380,7 @@ bool AgentState::rag_index(const std::string &path, const NitroConfig &cfg, Tui 
   std::string save_path = join_path(cfg.sandbox_, "rag-index.bin");
   tui.append_line(ICON_SYS + "saving index: " + save_path);
   tui.redraw_all();
-  rag_db->save(save_path);
-
-  return true;
+  return rag_db->save(save_path);
 }
 
 std::string AgentState::restart(const NitroConfig &cfg, Tui &tui) {
@@ -424,9 +404,9 @@ std::string AgentState::process_tool(const std::string &cmd, const NitroConfig &
   std::string op, arg1, arg2;
   auto WS = cmd.find_first_of(" \n");
   if (WS == std::string::npos) {
-    op = trim(cmd);
+    op = utils::trim(cmd);
   } else {
-    op = trim(cmd.substr(0, WS));
+    op = utils::trim(cmd.substr(0, WS));
     std::string rest = cmd.substr(WS + 1);
     // clear leading WS from rest
     rest.erase(0, rest.find_first_not_of(" \t"));
@@ -620,10 +600,9 @@ bool AgentState::run_turn(const std::string &user_message, const NitroConfig &cf
     static const std::string TOOL_RESULT = "NITRO_TOOL_RESULT: ";
 
     std::string tool;
-    const auto pos = buffer.rfind(END_TOOL);
-    if (pos != std::string::npos) {
+    if (const auto pos = buffer.rfind(END_TOOL); pos != std::string::npos) {
       tool = buffer.substr(0, pos);
-      auto endTool = buffer.substr(pos);
+      const auto endTool = buffer.substr(pos);
       if (endTool.length() > END_TOOL.length()) {
         log_write(DEBUG_LEVEL, "ERROR: trailing delimiter: [%s]", endTool.c_str());
       }
@@ -632,10 +611,8 @@ bool AgentState::run_turn(const std::string &user_message, const NitroConfig &cf
     }
 
     // strip any final [KV-INFO] ... [/KV-INFO] mistakenly added by the agent
-    const auto kvEnd = tool.rfind(KV_END);
-    if (kvEnd == (tool.length() - KV_END.length())) {
-      const auto kvStart = tool.rfind(KV_START);
-      if (kvStart != std::string::npos) {
+    if (const auto kvEnd = tool.rfind(KV_END); kvEnd == (tool.length() - KV_END.length())) {
+      if (const auto kvStart = tool.rfind(KV_START); kvStart != std::string::npos) {
         tool = buffer.substr(0, kvStart);
         log_write(DEBUG_LEVEL, "stripped KV_INFO details output by agent");
       }
@@ -646,7 +623,7 @@ bool AgentState::run_turn(const std::string &user_message, const NitroConfig &cf
     if (result.empty()) {
       return;
     }
-    std::string content = TOOL_RESULT + std::vformat(template_str, std::make_format_args(result)) + memory_info_status();
+    const std::string content = TOOL_RESULT + std::vformat(template_str, std::make_format_args(result)) + memory_info_status();
     log_write(DEBUG_LEVEL, "tool: [%s] result: [%s]", tool.c_str(), result.c_str());
     tui.update_usage(tokens_per_sec(), llama->memory_info());
     if (!llama->add_message(*iter, "tool_result", content)) {
@@ -663,10 +640,9 @@ bool AgentState::run_turn(const std::string &user_message, const NitroConfig &cf
 
   auto start_think = [&](const std::string &tag) -> void {
     if (think_mode != t_think) {
-      auto pos = buffer.find(tag);
-      if (pos == 0) {
+      if (const auto pos = buffer.find(tag); pos == 0) {
         think_mode = t_think;
-        // display prededing text
+        // display preceding text
         buffer = buffer.substr(0, pos);
       }
     }
@@ -674,8 +650,7 @@ bool AgentState::run_turn(const std::string &user_message, const NitroConfig &cf
 
   auto end_think = [&](const std::string &tag) -> void {
     if (think_mode == t_think) {
-      auto pos = buffer.find(tag);
-      if (pos == 0) {
+      if (const auto pos = buffer.find(tag); pos == 0) {
         think_mode = t_thunk;
         // display remaining text
         buffer = buffer.substr(pos + tag.length());
@@ -685,22 +660,20 @@ bool AgentState::run_turn(const std::string &user_message, const NitroConfig &cf
 
   auto fetch_tool = [&]() -> void {
     while (iter->_has_next && !tui.is_escape()) {
-      std::string tok = llama->next(*iter);
+      const std::string tok = llama->next(*iter);
       buffer += tok;
       tui.tick_spinner();
-      auto pos = buffer.find("</think>");
-      if (pos != std::string::npos) {
+      if (auto pos = buffer.find("</think>"); pos != std::string::npos) {
         break;
       }
     }
   };
 
   while (iter->_has_next && !tui.is_escape()) {
-    std::string tok = llama->next(*iter);
-    if (tok == "<") {
+    if (std::string tok = llama->next(*iter); tok == "<") {
       // fetch the complete tag
       std::string tag = tok;
-      while (iter->_has_next && tag.find(">") == std::string::npos) {
+      while (iter->_has_next && tag.find('>') == std::string::npos) {
         tag += llama->next(*iter);
       }
       if (tag == "<|think|>") {
@@ -730,7 +703,7 @@ bool AgentState::run_turn(const std::string &user_message, const NitroConfig &cf
     auto tool_start = buffer.find("TOOL:");
     if (tool_start == 0) {
       fetch_tool();
-      invoke_tool(trim(buffer), "TOOL_RESULT: {}");
+      invoke_tool(utils::trim(buffer), "TOOL_RESULT: {}");
       buffer.clear();
       think_mode = t_init;
       continue;
@@ -747,7 +720,7 @@ bool AgentState::run_turn(const std::string &user_message, const NitroConfig &cf
       if (pos != std::string::npos) {
         buffer = buffer.substr(0, pos) + buffer.substr(pos + 1);
       }
-      invoke_tool(trim(buffer), "<|tool_response>{}<tool_response|>");
+      invoke_tool(utils::trim(buffer), "<|tool_response>{}<tool_response|>");
       buffer.clear();
       think_mode = t_init;
       continue;
@@ -755,8 +728,7 @@ bool AgentState::run_turn(const std::string &user_message, const NitroConfig &cf
     auto pos = buffer.find('\n');
     if (pos != std::string::npos) {
       if (think_mode == t_think) {
-        auto thought = buffer.substr(0, pos + 1);
-        if (thought.length() > 1) {
+        if (auto thought = buffer.substr(0, pos + 1); thought.length() > 1) {
           tui.append_token(ICON_THINK + thought);
         }
       } else {
@@ -775,8 +747,8 @@ bool AgentState::run_turn(const std::string &user_message, const NitroConfig &cf
   tui.update_usage(tokens_per_sec(), llama->memory_info());
 
   char stat[128];
-  auto patterm = ICON_SYS + "%.1f tok/s  (%d tokens)  KV %.1f%%";
-  std::snprintf(stat, sizeof(stat), patterm.c_str(),
+  const auto pattern = ICON_SYS + "%.1f tok/s  (%d tokens)  KV %.1f%%";
+  std::snprintf(stat, sizeof(stat), pattern.c_str(),
                 static_cast<double>(tui.get_tokens_per_sec()),
                 iter->_tokens_generated,
                 static_cast<double>(tui.get_kv_percent()));

@@ -30,7 +30,7 @@
 #include "agent_state.h"
 #include "logging.h"
 #include "curl.h"
-#include "mcp-client.h"
+#include "mcp_client.h"
 
 // Returns the history file path: ~/.config/nitro/history.txt
 static std::string history_path() {
@@ -288,18 +288,15 @@ static void usage() {
 //
 // confirm mcp settings and connectivity
 //
-static void mcp_test() {
+static void mcp_test(const std::string &filter) {
   McpClient client;
   log_open_console();
   if (!client.connect("", 0)) {
-    log_write(LogLevel::INFO_LEVEL, "failed to connect");
+    log_write(LogLevel::INFO_LEVEL, "Failed to connect");
   } else {
-    log_write(LogLevel::INFO_LEVEL, "connected");
     std::vector<McpTool> tools = client.list_tools();
     for (const auto &tool : tools) {
-      if (tool.name_.starts_with("search_")) {
-        log_write(LogLevel::INFO_LEVEL, "%s", tool.spec_.c_str());
-      }
+      log_write(LogLevel::INFO_LEVEL, "%s", tool.spec_.c_str());
     }
     client.disconnect();
   }
@@ -330,7 +327,7 @@ int main(int argc, char **argv) {
 
   for (int i = 1; i < argc; ++i) {
     std::string a = argv[i];
-    if (a == "-m" || a == "--mcp") {
+    if (a == "--mcp-test") {
       do_mcp_test = true;
       break;
     }
@@ -347,6 +344,8 @@ int main(int argc, char **argv) {
       cfg.embed_path_ = resolve_path(take_next(a.c_str()));
     } else if (a == "-g" || a == "--gpu-layers") {
       cfg.n_gpu_layers_ = std::stoi(take_next(a.c_str()));
+    } else if (a == "-f" || a == "--mcp-filter") {
+      cfg.mcp_filter_ = take_next(a.c_str());
     } else if (a == "-l" || a == "--log") {
       log_open(take_next(a.c_str()));
     } else if (a == "-t" || a == "--think") {
@@ -368,7 +367,7 @@ int main(int argc, char **argv) {
   curl_init();
 
   if (do_mcp_test) {
-    mcp_test();
+    mcp_test(cfg.mcp_filter_);
     curl_close();
     return 0;
   }

@@ -735,7 +735,6 @@ void Tui::setup_model(std::string &model_name, const LlamaMemoryInfo &mem) {
   redraw_all();
 }
 
-
 void Tui::enable_mouse(bool enable) {
   if (enable) {
     notcurses_mice_enable(nc_, NCMICE_BUTTON_EVENT);

@@ -20,7 +20,7 @@ namespace json {
 bool JsonValue::get_str(const std::string &key, std::string &out) const {
   if (!is_valid()) return false;
 
-  yyjson_val *val = yyjson_obj_get(value_, key.c_str());
+  const yyjson_val *val = yyjson_obj_get(value_, key.c_str());
   if (!val || !yyjson_is_str(val)) return false;
 
   out = yyjson_get_str(val);
@@ -30,7 +30,7 @@ bool JsonValue::get_str(const std::string &key, std::string &out) const {
 bool JsonValue::get_int(const std::string &key, int &out) const {
   if (!is_valid()) return false;
 
-  yyjson_val *val = yyjson_obj_get(value_, key.c_str());
+  const yyjson_val *val = yyjson_obj_get(value_, key.c_str());
   if (!val || !yyjson_is_num(val)) return false;
 
   out = yyjson_get_int(val);
@@ -40,7 +40,7 @@ bool JsonValue::get_int(const std::string &key, int &out) const {
 bool JsonValue::get_float(const std::string &key, float &out) const {
   if (!is_valid()) return false;
 
-  yyjson_val *val = yyjson_obj_get(value_, key.c_str());
+  const yyjson_val *val = yyjson_obj_get(value_, key.c_str());
   if (!val || !yyjson_is_num(val)) return false;
 
   out = yyjson_get_num(val);
@@ -59,8 +59,7 @@ bool JsonValue::get_array(const std::string &key, std::vector<JsonValue> &out) c
 
   out.reserve(yyjson_arr_size(val));
   for (size_t i = 0; i < yyjson_arr_size(val); i++) {
-    yyjson_val *item = yyjson_arr_get(val, i);
-    if (item) {
+    if (yyjson_val *item = yyjson_arr_get(val, i)) {
       out.emplace_back(item);
     }
   }
@@ -106,8 +105,7 @@ void JsonValue::get_array(std::vector<JsonValue> &out) const {
   if (is_valid() && is_arr()) {
     out.reserve(yyjson_arr_size(value_));
     for (size_t i = 0; i < yyjson_arr_size(value_); i++) {
-      yyjson_val *item = yyjson_arr_get(value_, i);
-      if (item) {
+      if (yyjson_val *item = yyjson_arr_get(value_, i)) {
         out.emplace_back(item);
       }
     }
@@ -128,8 +126,7 @@ JsonDoc JsonDoc::parse(const std::string &json_str) {
 
 JsonValue JsonDoc::get_root() const {
   if (doc_ != nullptr) {
-    yyjson_val *root = yyjson_doc_get_root(doc_);
-    if (root && yyjson_is_obj(root)) {
+    if (yyjson_val *root = yyjson_doc_get_root(doc_); root && yyjson_is_obj(root)) {
       return JsonValue(root);
     }
   }
@@ -200,9 +197,8 @@ JsonMutDoc JsonMutDoc::parse(const std::string &json_str) {
     yyjson_mut_val *root = yyjson_mut_obj(doc);
     yyjson_mut_doc_set_root(doc, root);
   } else {
-    yyjson_doc *parsed = yyjson_read_opts(const_cast<char*>(json_str.data()), json_str.size(), 0, nullptr, nullptr);
-    if (parsed) {
-      yyjson_val *parsed_root = yyjson_doc_get_root(parsed);
+    if (yyjson_doc *parsed = yyjson_read_opts(const_cast<char*>(json_str.data()), json_str.size(), 0, nullptr, nullptr)) {
+      const yyjson_val *parsed_root = yyjson_doc_get_root(parsed);
       yyjson_mut_val *root_copy = yyjson_val_mut_copy(doc, parsed_root);
       yyjson_mut_doc_set_root(doc, root_copy);
       yyjson_doc_free(parsed);

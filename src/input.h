@@ -28,8 +28,8 @@ class Input {
   void save(const std::string &path) const { history_.save(path); }
 
   private:
-  int pos_of_word_start(int pos);
-  int pos_of_word_end(int pos);
+  int pos_of_word_start(int pos) const;
+  int pos_of_word_end(int pos) const;
   int move_to_prev_word(int pos) const;
   int move_to_next_word(int pos) const;
   int delete_word_before(int pos);
@@ -42,7 +42,7 @@ class Input {
   bool mouse_mode_;
   bool insert_mode_;
   bool ctrl_x_mode_;
-  size_t cursor_pos_;
+  int cursor_pos_;
   int scroll_offset_;
   InputHistory history_;
 };

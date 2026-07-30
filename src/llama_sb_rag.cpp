@@ -6,9 +6,6 @@
 // Download the GNU Public License (GPL) from www.gnu.org
 //
 
-#include "llama-sb.h"
-#include "llama-sb-rag.h"
-
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
@@ -17,6 +14,10 @@
 #include <sstream>
 #include <string>
 #include <vector>
+
+#include "llama_sb.h"
+#include "llama_sb_rag.h"
+#include "string_utils.h"
 
 namespace fs = std::filesystem;
 
@@ -38,18 +39,6 @@ static std::string type_name(ChunkType t) {
   case ChunkType::Defines:  return "defines";
   default:                  return "other";
   }
-}
-
-/* ── helpers ───────────────────────────────────────────────── */
-
-static bool starts_with(const std::string &s, const std::string &prefix) {
-  return s.size() >= prefix.size() &&
-    s.compare(0, prefix.size(), prefix) == 0;
-}
-
-static bool is_blank(const std::string &s) {
-  for (char c : s) if (!isspace(static_cast<unsigned char>(c))) return false;
-  return true;
 }
 
 /* ── state machine ─────────────────────────────────────────── */
@@ -95,7 +84,7 @@ static bool chunk_file(const fs::path &path, EmitChunk emit_chunk) {
     const std::string trimmed = line.substr(trim_pos);
 
     /* ── #define handling ─────────────────────────────────── */
-    if (starts_with(trimmed, "#define ")) {
+    if (utils::starts_with(trimmed, "#define ")) {
       if (state == State::BlockComment || state == State::LineComment) {
         chunk += line + "\n";
         state = State::Defines;
@@ -121,7 +110,7 @@ static bool chunk_file(const fs::path &path, EmitChunk emit_chunk) {
     }
 
     /* ── block comment start ──────────────────────────────── */
-    if ((starts_with(trimmed, "/*") || starts_with(trimmed, "/**")) &&
+    if ((utils::starts_with(trimmed, "/*") || utils::starts_with(trimmed, "/**")) &&
         state == State::Idle) {
       if (chunk.size() >= MIN_CHUNK) emit_chunk(source, chunk_type, chunk);
       chunk.clear();
@@ -142,7 +131,7 @@ static bool chunk_file(const fs::path &path, EmitChunk emit_chunk) {
     }
 
     /* ── // line comment ──────────────────────────────────── */
-    if (starts_with(trimmed, "//")) {
+    if (utils::starts_with(trimmed, "//")) {
       if (state == State::Idle) {
         if (chunk.size() >= MIN_CHUNK) emit_chunk(source, chunk_type, chunk);
         chunk.clear();
@@ -155,18 +144,20 @@ static bool chunk_file(const fs::path &path, EmitChunk emit_chunk) {
     }
 
     /* ── blank line ───────────────────────────────────────── */
-    if (is_blank(trimmed)) {
-      if (state == State::LineComment)
+    if (utils::is_blank(trimmed)) {
+      if (state == State::LineComment) {
         flush(ChunkType::Other);
-      else if (state == State::Idle && chunk.size() >= MIN_CHUNK)
+      }
+      else if (state == State::Idle && chunk.size() >= MIN_CHUNK) {
         flush(chunk_type);
+      }
       continue;
     }
 
     /* ── skip preprocessor noise ──────────────────────────── */
-    if (starts_with(trimmed, "#ifndef") || starts_with(trimmed, "#ifdef")  ||
-        starts_with(trimmed, "#endif")  || starts_with(trimmed, "#pragma") ||
-        starts_with(trimmed, "#include")) {
+    if (utils::starts_with(trimmed, "#ifndef") || utils::starts_with(trimmed, "#ifdef")  ||
+        utils::starts_with(trimmed, "#endif")  || utils::starts_with(trimmed, "#pragma") ||
+        utils::starts_with(trimmed, "#include")) {
       if (state == State::LineComment || state == State::BlockComment) {
         chunk.clear();
         state = State::Idle;
@@ -175,10 +166,10 @@ static bool chunk_file(const fs::path &path, EmitChunk emit_chunk) {
     }
 
     /* ── typedef struct / enum start ─────────────────────── */
-    if ((starts_with(trimmed, "typedef struct") ||
-         starts_with(trimmed, "typedef enum")   ||
-         starts_with(trimmed, "struct ")         ||
-         starts_with(trimmed, "enum "))          &&
+    if ((utils::starts_with(trimmed, "typedef struct") ||
+         utils::starts_with(trimmed, "typedef enum")   ||
+         utils::starts_with(trimmed, "struct ")         ||
+         utils::starts_with(trimmed, "enum "))          &&
         (state == State::Idle || state == State::LineComment)) {
 
       if (state == State::Idle && chunk.size() >= MIN_CHUNK)
@@ -188,8 +179,8 @@ static bool chunk_file(const fs::path &path, EmitChunk emit_chunk) {
       if (state == State::Idle) chunk.clear();
 
       chunk += line + "\n";
-      chunk_type = starts_with(trimmed, "typedef") ? ChunkType::Typedef
-        : starts_with(trimmed, "enum ")   ? ChunkType::Enum
+      chunk_type = utils::starts_with(trimmed, "typedef") ? ChunkType::Typedef
+        : utils::starts_with(trimmed, "enum ")   ? ChunkType::Enum
         : ChunkType::Struct;
       state = State::Struct;
       for (char c : line) {

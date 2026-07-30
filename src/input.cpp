@@ -8,6 +8,7 @@
 
 #include "input.h"
 #include "logging.h"
+#include "string_utils.h"
 
 Input::Input()
   : mouse_mode_(false)
@@ -18,17 +19,10 @@ Input::Input()
 }
 
 //
-// Helper: is the character a word character?
-//
-static inline bool is_word_char(unsigned char c) {
-  return isalnum(c) || c == '_';
-}
-
-//
 // Find the start of the word containing pos.
 // Returns the index of the first character of that word.
 //
-int Input::pos_of_word_start(int pos) {
+int Input::pos_of_word_start(const int pos) const {
   int start = pos;
   while (start > 0 && !isspace(static_cast<unsigned char>(input_buf_[start - 1]))) {
     --start;
@@ -40,7 +34,7 @@ int Input::pos_of_word_start(int pos) {
 // Find the end of the word containing pos.
 // Returns the index of the last character of that word.
 //
-int Input::pos_of_word_end(int pos) {
+int Input::pos_of_word_end(const int pos) const {
   int end = pos;
   while (end < static_cast<int>(input_buf_.size()) && !isspace(static_cast<unsigned char>(input_buf_[end]))) {
     ++end;
@@ -54,7 +48,7 @@ int Input::pos_of_word_end(int pos) {
 // If already at the start of a word, move to its beginning.
 // If at the start of the buffer, return 0.
 //
-int Input::move_to_prev_word(int pos) const {
+int Input::move_to_prev_word(const int pos) const {
   if (pos == 0) return 0;
   // Find the start of the current word.
   int start = pos;
@@ -63,7 +57,7 @@ int Input::move_to_prev_word(int pos) const {
   }
   // If we're already at the start, move to the beginning of the word.
   if (start == pos) {
-    while (start > 0 && is_word_char(static_cast<unsigned char>(input_buf_[start - 1]))) {
+    while (start > 0 && utils::is_word_char(static_cast<unsigned char>(input_buf_[start - 1]))) {
       --start;
     }
   }
@@ -76,7 +70,7 @@ int Input::move_to_prev_word(int pos) const {
 // If already at the end of a word, move to its end.
 // If at the end of the buffer, return size.
 //
-int Input::move_to_next_word(int pos) const {
+int Input::move_to_next_word(const int pos) const {
   if (pos >= static_cast<int>(input_buf_.size())) return static_cast<int>(input_buf_.size());
   // Find the end of the current word.
   int end = pos;
@@ -85,7 +79,7 @@ int Input::move_to_next_word(int pos) const {
   }
   // If we're already at the end, move to the end of the word.
   if (end == pos) {
-    while (end > 0 && is_word_char(static_cast<unsigned char>(input_buf_[end - 1]))) {
+    while (end > 0 && utils::is_word_char(static_cast<unsigned char>(input_buf_[end - 1]))) {
       --end;
     }
   }
@@ -97,10 +91,10 @@ int Input::move_to_next_word(int pos) const {
 // A "word" is a contiguous run of non-whitespace characters.
 // Returns the new cursor position.
 //
-int Input::delete_word_before(int pos) {
+int Input::delete_word_before(const int pos) {
   int start = move_to_prev_word(pos);
-  int end = pos;
-  while (start > 0 && is_word_char(static_cast<unsigned char>(input_buf_[start - 1]))) {
+  const int end = pos;
+  while (start > 0 && utils::is_word_char(static_cast<unsigned char>(input_buf_[start - 1]))) {
     --start;
   }
   input_buf_.erase(start, end - start);
@@ -112,10 +106,10 @@ int Input::delete_word_before(int pos) {
 // A "word" is a contiguous run of non-whitespace characters.
 // Returns the new cursor position.
 //
-int Input::kill_word_backward(int pos) {
+int Input::kill_word_backward(const int pos) {
   int start = move_to_prev_word(pos);
-  int end = pos;
-  while (start > 0 && is_word_char(static_cast<unsigned char>(input_buf_[start - 1]))) {
+  const int end = pos;
+  while (start > 0 && utils::is_word_char(static_cast<unsigned char>(input_buf_[start - 1]))) {
     --start;
   }
   input_buf_.erase(start, end - start);
@@ -130,8 +124,8 @@ int Input::kill_word_backward(int pos) {
 // Returns the new cursor position.
 //
 int Input::delete_word_at_cursor() {
-  int start = pos_of_word_start(cursor_pos_);
-  int end = pos_of_word_end(cursor_pos_);
+  const int start = pos_of_word_start(cursor_pos_);
+  const int end = pos_of_word_end(cursor_pos_);
   input_buf_.erase(start, end - start);
   return start;
 }
@@ -141,8 +135,8 @@ int Input::delete_word_at_cursor() {
 // Returns the new cursor position.
 //
 int Input::uppercase_word(int pos) {
-  int start = pos_of_word_start(pos);
-  int end = pos_of_word_end(pos);
+  const int start = pos_of_word_start(pos);
+  const int end = pos_of_word_end(pos);
   for (int i = start; i < end; ++i) {
     if (input_buf_[i] >= 'a' && input_buf_[i] <= 'z') {
       input_buf_[i] = static_cast<char>(input_buf_[i] - ('a' - 'A'));
@@ -156,8 +150,8 @@ int Input::uppercase_word(int pos) {
 // Returns the new cursor position.
 //
 int Input::lowercase_word(int pos) {
-  int start = pos_of_word_start(pos);
-  int end = pos_of_word_end(pos);
+  const int start = pos_of_word_start(pos);
+  const int end = pos_of_word_end(pos);
   for (int i = start; i < end; ++i) {
     if (input_buf_[i] >= 'A' && input_buf_[i] <= 'Z') {
       input_buf_[i] = static_cast<char>(input_buf_[i] - ('A' - 'a'));
