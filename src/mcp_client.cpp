@@ -435,6 +435,10 @@ std::string Client::send_request(const std::string &request_body) const {
 }
 
 void Client::disconnect() {
+  sse_stop_.store(true);
+  if (sse_curl_ != nullptr && sse_thread_.joinable()) {
+    sse_thread_.join();
+  }
   if (curl_) {
     curl_easy_cleanup(curl_);
     curl_ = nullptr;
