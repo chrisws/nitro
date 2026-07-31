@@ -23,6 +23,7 @@ namespace fs = std::filesystem;
 struct NitroConfig {
   explicit NitroConfig();
   ~NitroConfig() = default;
+
   std::string build_system_prompt() const;
   std::string introspect() const;
   bool save_settings() const;
@@ -52,6 +53,12 @@ struct NitroConfig {
   std::vector<std::string> run_allowed_;
   std::vector<std::string> knowledge_files_;
 
-  std::string mcp_filter_ = "search";
+  void enable_mcp() {
+    mcp_client_.enable();
+    mcp_context_ = mcp_client_.get_system_context(mcp_filter_);
+  }
+
   mcp::Client mcp_client_;
+  std::string mcp_context_;
+  std::string mcp_filter_ = "search";
 };

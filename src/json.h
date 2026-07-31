@@ -63,6 +63,7 @@ struct JsonMutValue {
   bool set_str(const std::string &key, const std::string &value);
   bool set_int(const std::string &key, int value);
   bool set_empty_obj(const std::string &key);
+  bool set_obj(const std::string &key, const std::string &value);
   JsonMutValue get_child(const std::string &key) const;
 
   private:

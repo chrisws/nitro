@@ -11,12 +11,17 @@
 #include <fstream>
 #include <filesystem>
 #include <format>
+#include <atomic>
+#include <chrono>
 
 #include "mcp_client.h"
 #include "mcp_format.h"
 #include "curl.h"
 #include "json.h"
 #include "logging.h"
+#include "string_utils.h"
+
+// https://modelcontextprotocol.io/specification/2025-03-26/basic/lifecycle
 
 using namespace mcp;
 
@@ -26,9 +31,10 @@ using namespace mcp;
 static size_t header_callback(const char *buffer, size_t size, const size_t nItems, void *userdata) {
   const size_t total = size * nItems;
   auto *session_id_out = static_cast<std::string*>(userdata);
-
   const std::string line(buffer, total);
   const std::string prefix = "Mcp-Session-Id:";
+
+  log_write(INFO_LEVEL, "HTTP headers [%s]", utils::trim(line).c_str());
 
   // case-sensitive check is risky — HTTP headers are case-insensitive.
   // Do a case-insensitive compare instead:
@@ -45,6 +51,24 @@ static size_t header_callback(const char *buffer, size_t size, const size_t nIte
 
   // must return the number of bytes "handled" - libcurl aborts if you return anything else
   return total;
+}
+
+//
+// SSE stream: we don't care about server-pushed content, just discard it.
+//
+static size_t sse_write_callback(char*, size_t size, size_t nmemb, void*) {
+  return size * nmemb;
+}
+
+//
+// Progress callback used purely so we can cancel the blocking SSE perform()
+// from another thread. libcurl invokes this periodically (at least ~1/sec)
+// even while idle waiting for data, so returning non-zero here breaks the
+// transfer cleanly instead of us having to kill the socket directly.
+//
+static int sse_progress_callback(void *clientp, curl_off_t, curl_off_t, curl_off_t, curl_off_t) {
+  const auto *stop = static_cast<std::atomic<bool>*>(clientp);
+  return stop->load() ? 1 : 0; // non-zero aborts the transfer
 }
 
 //
@@ -111,14 +135,93 @@ static Settings load_settings() {
 Client::Client()
   : enabled_(false)
   , settings_(load_settings())
-  , curl_(curl_easy_init()) {
+  , curl_(curl_easy_init())
+  , sse_curl_(nullptr)
+  , sse_stop_(false) {
 }
 
 Client::~Client() {
   disconnect();
 }
 
-bool Client::connect() const {
+bool Client::notify_initialized() const {
+  const auto doc = json::parse_mutable("");
+  auto root = doc.get_root();
+  root.set_str("jsonrpc", "2.0");
+  root.set_str("method", "notifications/initialized");
+  const auto response = send_request(doc.to_string());
+
+  log_write(LogLevel::INFO_LEVEL, "notifications/initialized response: [%s]", response.c_str());
+  return true;
+}
+
+//
+// Holds the Streamable HTTP "announcement channel" open for the lifetime of
+// the session. CLion's MCP server (like other 2025-11-25-era servers) tears
+// the session down ~15s after initialize if it never sees this GET land, so
+// this must be started right after a session id is obtained.
+//
+void Client::start_sse_stream() {
+  sse_stop_.store(false);
+  sse_curl_ = curl_easy_init();
+  if (!sse_curl_) {
+    log_write(ERROR_LEVEL, "failed to init curl for SSE stream");
+    return;
+  }
+
+  const std::string url = std::format("http://{}:{}/stream", settings_.host_, settings_.port_);
+  const std::string session_header = "Mcp-Session-Id: " + session_id_;
+
+  sse_thread_ = std::thread([this, url, session_header]() {
+    struct curl_slist *headers = nullptr;
+    headers = curl_slist_append(headers, "Accept: text/event-stream");
+    headers = curl_slist_append(headers, session_header.c_str());
+
+    curl_easy_setopt(sse_curl_, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(sse_curl_, CURLOPT_HTTPGET, 1L);
+    curl_easy_setopt(sse_curl_, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(sse_curl_, CURLOPT_WRITEFUNCTION, sse_write_callback);
+    curl_easy_setopt(sse_curl_, CURLOPT_TIMEOUT, 0L);
+    curl_easy_setopt(sse_curl_, CURLOPT_NOPROGRESS, 0L);
+    curl_easy_setopt(sse_curl_, CURLOPT_XFERINFOFUNCTION, sse_progress_callback);
+    curl_easy_setopt(sse_curl_, CURLOPT_XFERINFODATA, &sse_stop_);
+
+    log_write(INFO_LEVEL, "SSE stream: opening for sessionId [%s]", session_id_.c_str());
+    const CURLcode res = curl_easy_perform(sse_curl_);
+    if (res != CURLE_OK && res != CURLE_ABORTED_BY_CALLBACK) {
+      log_write(ERROR_LEVEL, "SSE stream: ended with error [%s]", curl_easy_strerror(res));
+    } else {
+      log_write(INFO_LEVEL, "SSE stream: closed for sessionId [%s]", session_id_.c_str());
+    }
+
+    curl_slist_free_all(headers);
+    curl_easy_cleanup(sse_curl_);
+    sse_curl_ = nullptr;
+  });
+}
+
+std::string Client::get_system_context(std::string filter) {
+  std::string p;
+  if (connect()) {
+    log_write(INFO_LEVEL, "Appending MCP tools");
+    p += "## MCP tool\n";
+    p += "TOOL:MCP <tool-name> <json-request> Invoke the named MCP tool along with with JSON request\n";
+    p += "## Rules\n";
+    p += "- any field named `projectPath` should be populated with the sandbox name\n";
+    p += "## Available tools\n";
+    std::vector<mcp::Tool> tools = list_tools();
+    for (const auto &tool : tools) {
+      if (filter.empty() || utils::starts_with(tool.name_, filter)) {
+        p += tool.spec_.c_str();
+      }
+    }
+  } else {
+    log_write(INFO_LEVEL, "Failed to connect");
+  }
+  return p;
+}
+
+bool Client::connect() {
   if (settings_.host_.empty()) {
     return false;
   }
@@ -168,8 +271,6 @@ bool Client::connect() const {
     return false;
   }
 
-  log_write(INFO_LEVEL, "sending [%s]", params_str.c_str());
-
   // Send request and get session ID
   const auto response = send_request(params_str);
 
@@ -187,12 +288,19 @@ bool Client::connect() const {
       log_write(INFO_LEVEL, "failed to read id field");
     } else {
       log_write(INFO_LEVEL, "id=[%d]", id);
+      if (!notify_initialized()) {
+        return false;
+      }
+      if (!session_id_.empty()) {
+        start_sse_stream();
+      }
+      return true;
     }
   } else {
     log_write(ERROR_LEVEL, "failed to parse response");
   }
 
-  return true;
+  return false;
 }
 
 std::vector<Tool> Client::list_tools() const {
@@ -201,12 +309,6 @@ std::vector<Tool> Client::list_tools() const {
   if (!curl_) {
     log_write(ERROR_LEVEL, "list_tools failed - curl not initialised");
     return tools;
-  }
-
-  // Get session ID from stored value
-  std::string session_id = session_id_;
-  if (session_id.empty()) {
-    session_id = "default-session";
   }
 
   // Request tools/list using mutable API
@@ -231,7 +333,6 @@ std::vector<Tool> Client::list_tools() const {
 
   // Set params with sessionId and arguments
   auto params = doc.get_child("params");
-  params.set_str("sessionId", session_id);
   params.set_empty_obj("arguments");
 
   const std::string params_str = doc.to_string();
@@ -311,6 +412,8 @@ std::string Client::send_request(const std::string &request_body) const {
   curl_easy_setopt(curl_, CURLOPT_HEADERFUNCTION, header_callback);
   curl_easy_setopt(curl_, CURLOPT_HEADERDATA, &session_id_);
 
+  log_write(INFO_LEVEL, "POST: sessionId:[%s] body:[%s]", session_id_.c_str(), request_body.c_str());
+
   const CURLcode res = curl_easy_perform(curl_);
   long http_code = 0;
   curl_easy_getinfo(curl_, CURLINFO_RESPONSE_CODE, &http_code);
@@ -321,13 +424,11 @@ std::string Client::send_request(const std::string &request_body) const {
 
   if (res != CURLE_OK) {
     log_write(ERROR_LEVEL, "ERROR: curl: %s [%s]", curl_easy_strerror(res), base_url.c_str());
-    log_write(ERROR_LEVEL, "sent [%s]", request_body.c_str());
-    return "";
+    return std::format("ERROR: curl: {}", curl_easy_strerror(res));
   }
   if (http_code >= 400) {
     log_write(ERROR_LEVEL, "ERROR: HTTP %s", std::to_string(http_code).c_str());
-    log_write(ERROR_LEVEL, "sent [%s]", request_body.c_str());
-    return "";
+    return std::format("ERROR: HTTP {} {}", std::to_string(http_code).c_str(), body.c_str());
   }
 
   return body;
@@ -346,14 +447,7 @@ std::string Client::call_tool(const std::string &name, const std::string &args_s
     return "Not connected to MCP server";
   }
 
-  // Get session ID from stored value
-  std::string session_id = session_id_;
-  if (session_id.empty()) {
-    session_id = "default-session";
-  }
-
-  // Build request using mutable API
-  auto doc = json::parse_mutable("{}");
+  auto doc = json::parse_mutable("");
   if (!doc.is_valid()) {
     return "Failed to create request";
   }
@@ -363,23 +457,14 @@ std::string Client::call_tool(const std::string &name, const std::string &args_s
     return "Failed to create request";
   }
 
-  // Add jsonrpc and id fields
   root.set_str("jsonrpc", "2.0");
   root.set_int("id", 3);
-
-  // Set method
   root.set_str("method", "tools/call");
 
-  // Create params object with sessionId and arguments nested properly
   auto params = doc.get_child("params");
-  params.set_str("sessionId", session_id);
+  params.set_str("name", name);
+  params.set_obj("arguments", args_str);
 
-  // Create arguments object
-  auto args = doc.get_child("arguments");
-  args.set_str("name", name);
-  args.set_str("arguments", args_str);
-
-  // Convert to string
   std::string request_str = doc.to_string();
   if (request_str.empty()) {
     return "Failed to serialize request";

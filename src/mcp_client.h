@@ -10,6 +10,7 @@
 
 #include <string>
 #include <vector>
+#include <thread>
 #include <curl/curl.h>
 #include "yyjson.h"
 
@@ -31,20 +32,26 @@ class Client {
   Client();
   ~Client();
 
-  bool connect() const;
   bool enabled() const { return enabled_; }
   void enable() { enabled_ = true; }
-  
-  std::vector<Tool> list_tools() const;
-  std::string call_tool(const std::string &name, const std::string &args) const;
+
+  bool connect();
   void disconnect();
+  std::vector<Tool> list_tools() const;
+  std::string get_system_context(std::string filter);
+  std::string call_tool(const std::string &name, const std::string &args) const;
 
   private:
+  Settings settings_;
   std::string session_id_;
   bool enabled_;
-  Settings settings_;
   CURL *curl_;
+  CURL *sse_curl_;
+  std::thread sse_thread_;
+  std::atomic<bool> sse_stop_;
 
+  bool notify_initialized() const;
+  void start_sse_stream();
   std::string send_request(const std::string &params) const;
 };
 

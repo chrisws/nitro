@@ -191,6 +191,7 @@ std::string NitroConfig::build_system_prompt() const {
     "1. **Save State:** Write current task context to `SESSION.md` using `TOOL:WRITE`.\n"
     "   - Include: Timestamp, KV usage, current task description, pending actions, and last conversation summary.\n"
     "   - Don't check if SESSION.md already exists from another session. just use TOOL:WRITE.\n"
+    "2. **Trigger Restart:** Call `TOOL:RESTART` to start over.\n\n"
     "**Example `SESSION.md` Content:**\n"
     "```markdown\n"
     "# Session State Snapshot\n"
@@ -201,23 +202,9 @@ std::string NitroConfig::build_system_prompt() const {
     "- <action 2>\n"
     "**Last Output:**\n"
     "<last few lines of conversation>\n"
-    "```\n"
-    "2. **Trigger Restart:** Call `TOOL:RESTART` to start over.\n\n";
+      "```\n\n";
 
-  if (mcp_client_.connect()) {
-    log_write(INFO_LEVEL, "Appending MCP tools");
-    p += "## MCP tool\n";
-    p += "TOOL:MCP <tool-name> <json-request> Invoke the named MCP tool along with with JSON request\n";
-    p += "## Available tools\n";
-    std::vector<mcp::Tool> tools = mcp_client_.list_tools();
-    for (const auto &tool : tools) {
-      if (mcp_filter_.empty() || utils::starts_with(tool.name_, mcp_filter_)) {
-        p += tool.spec_.c_str();
-      }
-    }
-  } else {
-    log_write(INFO_LEVEL, "Failed to connect");
-  }
+  p += mcp_context_;
 
   for (const auto &kf : knowledge_files_) {
     std::ifstream f(kf);

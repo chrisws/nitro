@@ -350,7 +350,7 @@ int main(int argc, char **argv) {
     } else if (a == "--mcp-filter") {
       cfg.mcp_filter_ = take_next(a.c_str());
     } else if (a == "--mcp") {
-      cfg.mcp_client_.enable();
+      cfg.enable_mcp();
     } else if (a == "-l" || a == "--log") {
       log_open(take_next(a.c_str()));
     } else if (a == "-t" || a == "--think") {
@@ -407,13 +407,19 @@ int main(int argc, char **argv) {
   AgentState agent;
   if (!cfg.model_path_.empty()) {
     if (agent.setup_model(cfg, tui)) {
+      if (cfg.mcp_client_.enabled()) {
+        if (cfg.mcp_context_.empty()) {
+          tui.append_line(ICON_SYS + "Failed to load MCP context");
+        } else {
+          tui.append_line(ICON_SYS + "MCP Enabled");
+        }
+      } else {
+        tui.append_line(ICON_SYS + "MCP not enabled");
+      }
       tui.append_line(ICON_SYS + "Loading context...");
       tui.redraw_all();
       std::string sysp = cfg.build_system_prompt();
       agent.reset_conversation(sysp, tui);
-      if (cfg.mcp_client_.enabled()) {
-        tui.append_line(ICON_SYS + "MCP Enabled");
-      }
       tui.append_line(ICON_SYS + "Ready");
       tui.redraw_all();
     }

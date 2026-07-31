@@ -111,7 +111,7 @@ void JsonValue::get_array(std::vector<JsonValue> &out) const {
     }
   }
 }
-  
+
 //
 // JsonDoc implementation
 //
@@ -154,20 +154,17 @@ bool JsonDoc::write_file(const std::string &path, WriteFlag flags) const {
 //
 bool JsonMutValue::set_str(const std::string &key, const std::string &value) {
   if (!is_valid()) return false;
-  yyjson_mut_obj_add(value_, yyjson_mut_strcpy(doc_, key.c_str()), yyjson_mut_strcpy(doc_, value.c_str()));
-  return true;
+  return yyjson_mut_obj_add(value_, yyjson_mut_strcpy(doc_, key.c_str()), yyjson_mut_strcpy(doc_, value.c_str()));
 }
 
 bool JsonMutValue::set_empty_obj(const std::string &key) {
   if (!is_valid()) return false;
-  yyjson_mut_obj_add(value_, yyjson_mut_strcpy(doc_, key.c_str()), yyjson_mut_obj(doc_));
-  return true;
+  return yyjson_mut_obj_add(value_, yyjson_mut_strcpy(doc_, key.c_str()), yyjson_mut_obj(doc_));
 }
 
 bool JsonMutValue::set_int(const std::string &key, int value) {
   if (!is_valid()) return false;
-  yyjson_mut_obj_add(value_, yyjson_mut_strcpy(doc_, key.c_str()), yyjson_mut_int(doc_, value));
-  return true;
+  return yyjson_mut_obj_add(value_, yyjson_mut_strcpy(doc_, key.c_str()), yyjson_mut_int(doc_, value));
 }
 
 JsonMutValue JsonMutValue::get_child(const std::string &key) const {
@@ -179,6 +176,16 @@ JsonMutValue JsonMutValue::get_child(const std::string &key) const {
   // attach it by passing it directly as the value argument to yyjson_mut_obj_add on the parent
   yyjson_mut_obj_add(value_, yyjson_mut_strcpy(doc_, key.c_str()), child);
   return JsonMutValue(doc_, child);
+}
+
+bool JsonMutValue::set_obj(const std::string &key, const std::string &value) {
+  if (!is_valid()) return false;
+  auto valueDoc = JsonMutDoc::parse(value);
+  if (!valueDoc.is_valid()) return false;
+  auto valueRoot = valueDoc.get_root();
+  if (!valueRoot.is_valid()) return false;
+
+  return yyjson_mut_obj_add(value_, yyjson_mut_strcpy(doc_, key.c_str()), valueRoot.value_);
 }
 
 //
