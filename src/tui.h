@@ -233,7 +233,7 @@ class Tui final: TuiContext {
   void init();
   void resize();
   bool is_escape();
-  void setup_model(std::string &model_name, const LlamaMemoryInfo &mem);
+  void setup_model(std::string &model_name, const LlamaMemoryInfo &mem, bool thinking);
   void tick_spinner();
   void set_thinking(bool on);
   void update_usage(float tokens_sec, const LlamaMemoryInfo &mem);

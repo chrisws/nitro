@@ -726,12 +726,12 @@ bool Tui::is_escape() {
   return ni.id == NCKEY_ESC;
 }
 
-void Tui::setup_model(std::string &model_name, const LlamaMemoryInfo &mem) {
+void Tui::setup_model(std::string &model_name, const LlamaMemoryInfo &mem, bool thinking) {
   update_usage(0.0f, mem);
   current_model_ = model_name;
   append_line(ICON_SYS + "Model ready: " + current_model_);
   append_line(ICON_SYS + "" + mem.advice);
-  append_line(ICON_SYS + "Thinking mode: " + (thinking_ ? "enabled" : "disabled"));
+  append_line(ICON_SYS + "Thinking mode: " + (thinking ? "enabled" : "disabled"));
   redraw_all();
 }
 

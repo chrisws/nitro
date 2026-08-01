@@ -100,6 +100,7 @@ struct Llama {
   void set_log_level(int level) { _log_level = level; }
   void reset();
   bool is_memory_flush();
+  bool is_gemma_4() const { return _is_gemma4; }
 
   // memory info
   LlamaMemoryInfo memory_info() const;

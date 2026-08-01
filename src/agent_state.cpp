@@ -282,7 +282,7 @@ bool AgentState::setup_model(const NitroConfig &cfg, Tui &tui) {
 
   LlamaMemoryInfo mem = llama_->memory_info();
   tui.dismiss_modal_popup();
-  tui.setup_model(model_name, mem);
+  tui.setup_model(model_name, mem, cfg.thinking_);
 
   model_loaded_ = true;
   return true;
@@ -655,11 +655,27 @@ bool AgentState::run_turn(const std::string &user_message, const NitroConfig &cf
   };
 
   auto end_think = [&](const std::string &tag) -> void {
-    if (think_mode == t_think) {
+    if (think_mode == t_thunk && llama_->is_gemma_4()) {
       if (const auto pos = buffer.find(tag); pos == 0) {
-        think_mode = t_thunk;
-        // display remaining text
-        buffer = buffer.substr(pos + tag.length());
+        // don't print end-think tags when not in think mode
+        buffer = "";
+      }
+    }
+    if (think_mode == t_think) {
+      if (const auto pos = buffer.find(tag); pos != std::string::npos) {
+        if (pos == 0 && llama_->is_gemma_4() && (tag == "<|channel>thought")) {
+          //  dont print repeated start-think tag
+          buffer = "";
+        } else {
+          think_mode = t_thunk;
+          // tag is either at the start or end of the line
+          if (pos > 0) {
+            if (auto thought = buffer.substr(0, pos); thought.length() > 1) {
+              tui.append_token(ICON_THINK + thought + "\n");
+            }
+          }
+          buffer = buffer.substr(pos + tag.length());
+        }
       }
     }
   };
@@ -710,23 +726,6 @@ bool AgentState::run_turn(const std::string &user_message, const NitroConfig &cf
     if (tool_start == 0) {
       fetch_tool();
       invoke_tool(utils::trim(buffer), "TOOL_RESULT: {}");
-      buffer.clear();
-      think_mode = t_init;
-      continue;
-    }
-    tool_start = buffer.find("<|tool_call>call:");
-    if (tool_start != std::string::npos) {
-      // see https://ai.google.dev/gemma/docs/core/prompt-formatting-gemma4
-      fetch_tool();
-      auto pos = buffer.find_last_not_of("}<tool_call|>");
-      if (pos != std::string::npos) {
-        buffer = buffer.substr(0, pos);
-      }
-      pos = buffer.find_first_not_of('{');
-      if (pos != std::string::npos) {
-        buffer = buffer.substr(0, pos) + buffer.substr(pos + 1);
-      }
-      invoke_tool(utils::trim(buffer), "<|tool_response>{}<tool_response|>");
       buffer.clear();
       think_mode = t_init;
       continue;
