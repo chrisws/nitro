@@ -167,6 +167,11 @@ bool JsonMutValue::set_int(const std::string &key, int value) {
   return yyjson_mut_obj_add(value_, yyjson_mut_strcpy(doc_, key.c_str()), yyjson_mut_int(doc_, value));
 }
 
+bool JsonMutValue::set_bool(const std::string &key, bool value) {
+  if (!is_valid()) return false;
+  return yyjson_mut_obj_add(value_, yyjson_mut_strcpy(doc_, key.c_str()), yyjson_mut_bool(doc_, value));
+}
+
 JsonMutValue JsonMutValue::get_child(const std::string &key) const {
   if (!is_valid()) return JsonMutValue(nullptr, nullptr);
   // creates a new empty object value allocated in doc_'s memory pool

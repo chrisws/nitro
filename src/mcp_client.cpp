@@ -12,7 +12,6 @@
 #include <filesystem>
 #include <format>
 #include <atomic>
-#include <chrono>
 
 #include "mcp_client.h"
 #include "mcp_format.h"
@@ -56,7 +55,9 @@ static size_t header_callback(const char *buffer, size_t size, const size_t nIte
 //
 // SSE stream: we don't care about server-pushed content, just discard it.
 //
-static size_t sse_write_callback(char*, size_t size, size_t nmemb, void*) {
+static size_t sse_write_callback(char *ptr, size_t size, size_t nmemb, void*) {
+  // const size_t total = size * nmemb;
+  // log_write(DEBUG_LEVEL, "SSE: [%.*s]", (int)total, ptr);
   return size * nmemb;
 }
 
@@ -258,11 +259,15 @@ bool Client::connect() {
 
   auto params = doc.get_child("params");
   params.set_str("protocolVersion", "2025-06-18");
-  params.set_empty_obj("capabilities");
+
+  auto capabilities = params.get_child("capabilities");
+  auto roots = capabilities.get_child("roots");
+  roots.set_bool("listChanged", true);
+  capabilities.set_empty_obj("sampling");
 
   auto clientInfo = params.get_child("clientInfo");
   clientInfo.set_str("name", "nitro");
-  clientInfo.set_str("version", "0.1");
+  clientInfo.set_str("version", "1.0.0");
 
   // Convert to string
   const std::string params_str = doc.to_string();
@@ -278,9 +283,6 @@ bool Client::connect() {
     log_write(LogLevel::ERROR_LEVEL, "mcp request failed");
     return false;
   }
-
-  log_write(INFO_LEVEL, "received [%s]", response.c_str());
-  log_write(INFO_LEVEL, "sessionId [%s]", session_id_.c_str());
 
   if (auto resp_doc = json::parse(response); resp_doc.is_valid()) {
     const auto resp_root = resp_doc.get_root();
@@ -331,9 +333,8 @@ std::vector<Tool> Client::list_tools() const {
   // Set method
   root.set_str("method", "tools/list");
 
-  // Set params with sessionId and arguments
+  // Set empty params
   auto params = doc.get_child("params");
-  params.set_empty_obj("arguments");
 
   const std::string params_str = doc.to_string();
   if (params_str.empty()) {
@@ -378,13 +379,14 @@ std::vector<Tool> Client::list_tools() const {
   for (const auto &tool: vec) {
     if (!tool.is_object()) {
       log_write(ERROR_LEVEL, "tools is not an object os result");
-      return tools;
+    } else {
+      Tool mcp_tool;
+      tool.get_str("name", mcp_tool.name_);
+      tool.get_str("description", mcp_tool.description_);
+      mcp_tool.spec_ = formatSpec(tool);
+      tools.push_back(mcp_tool);
+      log_write(INFO_LEVEL, "Found tool: [%s]", mcp_tool.name_.c_str());
     }
-    Tool mcp_tool;
-    tool.get_str("name", mcp_tool.name_);
-    tool.get_str("description", mcp_tool.description_);
-    mcp_tool.spec_ = formatSpec(tool);
-    tools.push_back(mcp_tool);
   }
 
   log_write(INFO_LEVEL, "list tools success - found [%d] tools", tools.size());
@@ -430,6 +432,9 @@ std::string Client::send_request(const std::string &request_body) const {
     log_write(ERROR_LEVEL, "ERROR: HTTP %s", std::to_string(http_code).c_str());
     return std::format("ERROR: HTTP {} {}", std::to_string(http_code).c_str(), body.c_str());
   }
+
+  log_write(DEBUG_LEVEL, "received [%s]", body.c_str());
+  log_write(DEBUG_LEVEL, "sessionId [%s]", session_id_.c_str());
 
   return body;
 }

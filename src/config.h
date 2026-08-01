@@ -60,5 +60,5 @@ struct NitroConfig {
 
   mcp::Client mcp_client_;
   std::string mcp_context_;
-  std::string mcp_filter_ = "search";
+  std::string mcp_filter_;
 };

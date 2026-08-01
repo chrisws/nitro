@@ -12,7 +12,6 @@
 #include <vector>
 #include <thread>
 #include <curl/curl.h>
-#include "yyjson.h"
 
 namespace mcp {
 

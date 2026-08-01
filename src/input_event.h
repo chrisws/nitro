@@ -8,7 +8,6 @@
 
 #pragma once
 
-#include <cstdint>
 #include <notcurses/notcurses.h>
 
 // Key Codes enum - Uses notcurses NCKEY_* constants

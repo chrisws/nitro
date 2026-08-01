@@ -13,8 +13,6 @@
 
 #include "config.h"
 #include "json.h"
-#include "string_utils.h"
-#include "logging.h"
 
 NitroConfig::NitroConfig() {
   run_allowed_.emplace_back("make");
