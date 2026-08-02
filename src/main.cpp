@@ -194,6 +194,7 @@ static void handle_slash(const std::string &input,
       else if (key == "penalty_repeat") { cfg.penalty_repeat_ = std::stof(val); needs_reparam = true; }
       else if (key == "penalty_last_n") { cfg.penalty_last_n_ = std::stoi(val); needs_reparam = true; }
       else if (key == "rag_top_k")      { cfg.rag_top_k_      = std::stoi(val); }
+      else if (key == "offload_kqv")    { cfg.offload_kqv_    = (val == "true"); }
       else if (key == "n_gpu_layers")   {
         cfg.n_gpu_layers_ = std::stoi(val);
         tui.append_line(ICON_SYS + "n_gpu_layers will take effect on next /model load.");

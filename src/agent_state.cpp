@@ -272,8 +272,16 @@ bool AgentState::setup_model() {
   llama_ = std::make_unique<Llama>();
 
   apply_generation_params();
-  if (!llama_->load_model(cfg_.model_path_, cfg_.n_ctx_, cfg_.n_batch_,
-                          cfg_.n_gpu_layers_, cfg_.log_level_)) {
+
+  LlamaLoad load;
+  load.model_path = cfg_.model_path_;
+  load.n_ctx = cfg_.n_ctx_;
+  load.n_batch = cfg_.n_batch_;
+  load.n_gpu_layers = cfg_.n_gpu_layers_;
+  load.log_level = cfg_.log_level_;
+  load.offload_kqv = cfg_.offload_kqv_;
+
+  if (!llama_->load_model(load)) {
     tui_.dismiss_modal_popup();
     tui_.append_line(ICON_ERR + llama_->last_error());
     tui_.redraw_all();
@@ -672,11 +680,12 @@ bool AgentState::run_turn(const std::string &user_message) {
           think_mode = t_thunk;
           // tag is either at the start or end of the line
           if (pos > 0) {
-            if (auto thought = buffer.substr(0, pos); thought.length() > 1) {
+            if (auto thought = buffer.substr(0, pos); !utils::is_blank(thought)) {
               tui_.append_token(ICON_THINK + thought + "\n");
             }
           }
-          buffer = buffer.substr(pos + tag.length());
+          // add a new line here to handle: <channel|>TOOL:LIST
+          buffer = '\n' + buffer.substr(pos + tag.length());
         }
       }
     }
@@ -710,6 +719,8 @@ bool AgentState::run_turn(const std::string &user_message) {
       buffer += tok;
     }
 
+    // log_write(DEBUG_LEVEL, "%s", buffer.c_str());
+
     start_think("<think>");
     start_think("<|think|>");
     start_think("<think|>");
@@ -735,7 +746,7 @@ bool AgentState::run_turn(const std::string &user_message) {
     auto pos = buffer.find('\n');
     if (pos != std::string::npos) {
       if (think_mode == t_think) {
-        if (auto thought = buffer.substr(0, pos + 1); thought.length() > 1) {
+        if (auto thought = buffer.substr(0, pos + 1); !utils::is_blank(thought)) {
           tui_.append_token(ICON_THINK + thought);
         }
       } else {

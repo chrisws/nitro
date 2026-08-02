@@ -152,25 +152,25 @@ bool Llama::is_memory_flush() {
   return result;
 }
 
-bool Llama::load_model(string model_path, int n_ctx, int n_batch, int n_gpu_layers, int log_level) {
+bool Llama::load_model(LlamaLoad &load) {
   ggml_backend_load_all();
 
   llama_model_params mparams = llama_model_default_params();
-  if (n_gpu_layers >= 0) {
-    mparams.n_gpu_layers = n_gpu_layers;
+  if (load.n_gpu_layers >= 0) {
+    mparams.n_gpu_layers = load.n_gpu_layers;
   }
 
   _last_error.clear();
-  _log_level = log_level;
-  _n_gpu_layers = n_gpu_layers;
-  _model = llama_model_load_from_file(model_path.c_str(), mparams);
+  _log_level = load.log_level;
+  _n_gpu_layers = load.n_gpu_layers;
+  _model = llama_model_load_from_file(load.model_path.c_str(), mparams);
   if (!_model) {
     set_last_error("Load model");
   } else {
     llama_context_params cparams = llama_context_default_params();
-    cparams.n_ctx   = n_ctx;
-    cparams.n_batch = n_batch;
-    cparams.n_ubatch = n_batch;
+    cparams.n_ctx   = load.n_ctx;
+    cparams.n_batch = load.n_batch;
+    cparams.n_ubatch = load.n_batch;
     cparams.no_perf = true;
     cparams.attention_type = LLAMA_ATTENTION_TYPE_UNSPECIFIED;
     cparams.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_ENABLED;
@@ -180,7 +180,7 @@ bool Llama::load_model(string model_path, int n_ctx, int n_batch, int n_gpu_laye
     cparams.type_v = GGML_TYPE_Q4_0;
 
     // keep KV cache on GPU
-    cparams.offload_kqv = true;
+    cparams.offload_kqv = load.offload_kqv;
 
     _ctx = llama_init_from_model(_model, cparams);
     if (!_ctx) {

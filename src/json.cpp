@@ -37,6 +37,16 @@ bool JsonValue::get_int(const std::string &key, int &out) const {
   return true;
 }
 
+bool JsonValue::get_bool(const std::string &key, bool &out) const {
+  if (!is_valid()) return false;
+
+  const yyjson_val *val = yyjson_obj_get(value_, key.c_str());
+  if (!val || !yyjson_is_bool(val)) return false;
+
+  out = yyjson_get_bool(val);
+  return true;
+}
+
 bool JsonValue::get_float(const std::string &key, float &out) const {
   if (!is_valid()) return false;
 

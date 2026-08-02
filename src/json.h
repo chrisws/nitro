@@ -31,6 +31,7 @@ struct JsonValue {
   explicit JsonValue(yyjson_val *value) : value_(value) {}
 
   bool get_array(const std::string &key, std::vector<JsonValue> &out) const;
+  bool get_bool(const std::string &key, bool &out) const;
   bool get_float(const std::string &key, float &out) const;
   bool get_int(const std::string &key, int &out) const;
   bool get_keys(std::vector<std::string> &out) const;

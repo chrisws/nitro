@@ -72,6 +72,9 @@ void NitroConfig::load_settings() {
   root.get_float("top_p", top_p_);
   root.get_float("min_p", min_p_);
   root.get_float("penalty_repeat", penalty_repeat_);
+
+  // bool fields
+  root.get_bool("offload_kqv", offload_kqv_);
 }
 
 // Persist the current cfg to ~/.config/nitro/settings.json.
@@ -230,6 +233,7 @@ std::string NitroConfig::introspect() const {
     "  \"top_k\":          {},\n"
     "  \"penalty_repeat\": {},\n"
     "  \"penalty_last_n\": {},\n"
+    "  \"offload_kqv_\":   {},\n"
     "  \"rag_top_k\":      {}\n"
     "}}\n";
   return std::format(tmpl,
@@ -246,6 +250,7 @@ std::string NitroConfig::introspect() const {
                      top_k_,
                      penalty_repeat_,
                      penalty_last_n_,
+                     offload_kqv_,
                      rag_top_k_);
 }
 

@@ -59,6 +59,15 @@ struct LlamaIter {
   bool _has_next;
 };
 
+struct LlamaLoad {
+  string model_path;
+  int n_ctx;
+  int n_batch;
+  int n_gpu_layers;
+  int log_level;
+  bool offload_kqv;
+};
+
 struct Llama {
   explicit Llama();
 
@@ -72,7 +81,7 @@ struct Llama {
   ~Llama();
 
   // init
-  bool load_model(string model_path, int n_ctx, int n_batch, int n_gpu_layers, int log_level);
+  bool load_model(LlamaLoad &load);
   bool load_embedding_model(string model_path);
 
   // generation
