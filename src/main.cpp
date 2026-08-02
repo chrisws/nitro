@@ -74,9 +74,9 @@ static void handle_slash(const std::string &input,
       }
     }
     cfg.model_path_ = rest;
-    if (agent.setup_model(cfg, tui)) {
+    if (agent.setup_model()) {
       std::string sysp = cfg.build_system_prompt();
-      agent.reset_conversation(sysp, tui);
+      agent.reset_conversation(sysp);
       cfg.save_settings();
     }
     tui.redraw_all();
@@ -98,7 +98,7 @@ static void handle_slash(const std::string &input,
       }
     }
     cfg.embed_path_ = rest;
-    if (agent.setup_embed(rest, tui)) {
+    if (agent.setup_embed(rest)) {
       cfg.save_settings();
     }
     return;
@@ -119,11 +119,11 @@ static void handle_slash(const std::string &input,
     if (path.ends_with(".bin")) {
       tui.append_line(ICON_SYS + "Loading index: " + path);
       tui.redraw_all();
-      agent.rag_load_index(path, tui);
+      agent.rag_load_index(path);
     } else {
       tui.append_line(ICON_SYS + "Indexing: " + path);
       tui.redraw_all();
-      agent.rag_index(path, cfg, tui);
+      agent.rag_index(path);
     }
     tui.append_line(ICON_SYS + "done");
     tui.redraw_all();
@@ -142,7 +142,7 @@ static void handle_slash(const std::string &input,
 
   if (verb == "/clear") {
     std::string sysp = cfg.build_system_prompt();
-    agent.reset_conversation(sysp, tui);
+    agent.reset_conversation(sysp);
     tui.append_line(ICON_SYS + "Conversation cleared.");
     tui.redraw_all();
     return;
@@ -226,8 +226,8 @@ static void handle_slash(const std::string &input,
     }
 
     if (ok) {
-      if (needs_reparam && agent.model_loaded_) {
-        agent.apply_generation_params(cfg);
+      if (needs_reparam && agent.model_loaded()) {
+        agent.apply_generation_params();
       }
       cfg.save_settings();
       tui.append_line(ICON_SYS + "" + key + " = " + val);
@@ -404,9 +404,9 @@ int main(int argc, char **argv) {
   log_write(INFO_LEVEL, "nitro starting");
 
   // ── Init agent ────────────────────────────────────────────────────
-  AgentState agent;
+  AgentState agent(cfg, tui);
   if (!cfg.model_path_.empty()) {
-    if (agent.setup_model(cfg, tui)) {
+    if (agent.setup_model()) {
       if (cfg.mcp_client_.enabled()) {
         if (cfg.mcp_context_.empty()) {
           tui.append_line(ICON_SYS + "Failed to load MCP context");
@@ -419,12 +419,12 @@ int main(int argc, char **argv) {
       tui.append_line(ICON_SYS + "Loading context...");
       tui.redraw_all();
       std::string sysp = cfg.build_system_prompt();
-      agent.reset_conversation(sysp, tui);
+      agent.reset_conversation(sysp);
       tui.append_line(ICON_SYS + "Ready");
       tui.redraw_all();
     }
     if (!cfg.embed_path_.empty()) {
-      agent.setup_embed(cfg.embed_path_, tui);
+      agent.setup_embed(cfg.embed_path_);
     }
   } else {
     tui.append_line(ICON_SYS + "No model specified.  Use /model to open the file picker,");
@@ -452,7 +452,7 @@ int main(int argc, char **argv) {
     if (input[0] == '/') {
       handle_slash(input, cfg, agent, tui);
     } else {
-      agent.run_turn(input, cfg, tui);
+      agent.run_turn(input);
     }
   }
 

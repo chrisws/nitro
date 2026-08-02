@@ -17,6 +17,25 @@
 // AgentState
 //
 struct AgentState {
+  AgentState(NitroConfig &cfg, Tui &tui)
+    : cfg_(cfg)
+    , tui_(tui) {
+  }
+  ~AgentState() = default;
+
+  bool run_turn(const std::string &user_message);
+  bool setup_embed(const std::string &path);
+  bool setup_model();
+  void reset_conversation(const std::string &sysprompt);
+  bool rag_index(const std::string &path) const;
+  bool rag_load_index(const std::string &path) const;
+  std::string memory_info_text() const;
+  void apply_generation_params() const;
+  bool model_loaded() const { return model_loaded_;}
+
+  private:
+  NitroConfig &cfg_;
+  Tui &tui_;
   std::unique_ptr<Llama> llama_;
   std::unique_ptr<LlamaIter> iter_;
   std::unique_ptr<Llama> embed_llama_;
@@ -25,17 +44,10 @@ struct AgentState {
   bool model_loaded_ = false;
   std::string system_prompt_;
 
-  bool rag_index(const std::string &path, const NitroConfig &cfg, Tui &tui) const;
-  bool rag_load_index(const std::string &path, Tui &tui) const;
-  bool run_turn(const std::string &user_message, const NitroConfig &cfg, Tui &tui);
-  bool setup_embed(const std::string &path, Tui &tui);
-  bool setup_model(const NitroConfig &cfg, Tui &tui);
-  void apply_generation_params(const NitroConfig &cfg) const;
-  void reset_conversation(const std::string &sysprompt, Tui &tui);
   std::string memory_info_status() const;
-  std::string memory_info_text() const;
-  std::string process_tool(const std::string &cmd, const NitroConfig &cfg, Tui &tui);
-  std::string rag_tool(const NitroConfig &cfg, const std::string &agent_query) const;
-  std::string restart(const NitroConfig &cfg, Tui &tui);
+  std::string process_tool(const std::string &cmd);
+  std::string rag_tool(const std::string &agent_query) const;
+  std::string restart();
   float tokens_per_sec() const;
+  void invoke_tool(const std::string &buffer, std::string_view template_str);
 };

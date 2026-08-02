@@ -239,84 +239,85 @@ static std::string tool_run(const NitroConfig &cfg, Tui &tui, const std::string 
   return out;
 }
 
-void AgentState::apply_generation_params(const NitroConfig &cfg) const {
+void AgentState::apply_generation_params() const {
   llama_->add_stop("<|turn|>");
   llama_->add_stop("<|im_end|>");
   llama_->set_max_tokens(512000);
-  llama_->set_temperature(cfg.temperature_);
-  llama_->set_top_k(cfg.top_k_);
-  llama_->set_top_p(cfg.top_p_);
-  llama_->set_min_p(cfg.min_p_);
-  llama_->set_penalty_repeat(cfg.penalty_repeat_);
-  llama_->set_penalty_last_n(cfg.penalty_last_n_);
-  llama_->set_log_level(cfg.log_level_);
+  llama_->set_temperature(cfg_.temperature_);
+  llama_->set_top_k(cfg_.top_k_);
+  llama_->set_top_p(cfg_.top_p_);
+  llama_->set_min_p(cfg_.min_p_);
+  llama_->set_penalty_repeat(cfg_.penalty_repeat_);
+  llama_->set_penalty_last_n(cfg_.penalty_last_n_);
+  llama_->set_log_level(cfg_.log_level_);
 }
 
 //
 // Shows a modal loading popup while the model loads.
 //
-bool AgentState::setup_model(const NitroConfig &cfg, Tui &tui) {
-  if (cfg.model_path_.empty()) {
-    tui.append_line(ICON_SYS + "No model loaded.  Use /model <path> to load a GGUF.");
-    tui.redraw_all();
+bool AgentState::setup_model() {
+  if (cfg_.model_path_.empty()) {
+    tui_.append_line(ICON_SYS + "No model loaded.  Use /model <path> to load a GGUF.");
+    tui_.redraw_all();
     return false;
   }
 
   // Show a modal popup so the user knows loading is in progress.
-  std::string model_name = fs::path(cfg.model_path_).filename().string();
-  tui.show_modal_popup("Loading " + model_name);
+  std::string model_name = fs::path(cfg_.model_path_).filename().string();
+  tui_.show_modal_popup("Loading " + model_name);
   // Destroy the iterator first — it holds references into the llama context.
   // Freeing llama while iter is still alive causes use-after-free / load failure.
   iter_.reset();
   model_loaded_ = false;
   llama_ = std::make_unique<Llama>();
 
-  apply_generation_params(cfg);
-  if (!llama_->load_model(cfg.model_path_, cfg.n_ctx_, cfg.n_batch_,
-                         cfg.n_gpu_layers_, cfg.log_level_)) {
-    tui.dismiss_modal_popup();
-    tui.append_line(ICON_ERR + llama_->last_error());
-    tui.redraw_all();
+  apply_generation_params();
+  if (!llama_->load_model(cfg_.model_path_, cfg_.n_ctx_, cfg_.n_batch_,
+                          cfg_.n_gpu_layers_, cfg_.log_level_)) {
+    tui_.dismiss_modal_popup();
+    tui_.append_line(ICON_ERR + llama_->last_error());
+    tui_.redraw_all();
     return false;
   }
 
   LlamaMemoryInfo mem = llama_->memory_info();
-  tui.dismiss_modal_popup();
-  tui.setup_model(model_name, mem, cfg.thinking_);
+  tui_.dismiss_modal_popup();
+  tui_.setup_model(model_name, mem, cfg_.thinking_);
 
   model_loaded_ = true;
   return true;
 }
 
-bool AgentState::setup_embed(const std::string &path, Tui &tui) {
-  tui.show_modal_popup("Loading embedding model: " + fs::path(path).filename().string());
-  tui.redraw_all();
+bool AgentState::setup_embed(const std::string &path) {
+  tui_.show_modal_popup("Loading embedding model: " + fs::path(path).filename().string());
+  tui_.redraw_all();
   embed_llama_ = std::make_unique<Llama>();
   if (!embed_llama_->load_embedding_model(path)) {
-    tui.dismiss_modal_popup();
-    tui.append_line(ICON_ERR + embed_llama_->last_error());
-    tui.redraw_all();
+    tui_.dismiss_modal_popup();
+    tui_.append_line(ICON_ERR + embed_llama_->last_error());
+    tui_.redraw_all();
     embed_llama_.reset();
     return false;
   }
-  tui.dismiss_modal_popup();
+  tui_.dismiss_modal_popup();
   rag_db_      = std::make_unique<RagDB>();
   rag_session_ = std::make_unique<RagSession>();
-  tui.append_line(ICON_SYS + "Embedding model ready.");
-  tui.redraw_all();
+  tui_.append_line(ICON_SYS + "Embedding model ready.");
+  tui_.redraw_all();
   return true;
 }
 
-void AgentState::reset_conversation(const std::string &sysprompt, Tui &tui) {
+void AgentState::reset_conversation(const std::string &sysprompt) {
   system_prompt_ = sysprompt;
   llama_->reset();
-  apply_generation_params(NitroConfig{});
+  cfg_.load_settings();
+  apply_generation_params();
   iter_ = std::make_unique<LlamaIter>();
   if (!llama_->add_message(*iter_, "system", system_prompt_)) {
-    tui.append_line(ICON_ERR + "System prompt injection: " + llama_->last_error());
-    tui.redraw_all();
+    tui_.append_line(ICON_ERR + "System prompt injection: " + llama_->last_error());
+    tui_.redraw_all();
   } else {
-    tui.update_usage(tokens_per_sec(), llama_->memory_info());
+    tui_.update_usage(tokens_per_sec(), llama_->memory_info());
   }
 }
 
@@ -350,10 +351,10 @@ std::string AgentState::memory_info_text() const {
   return oss.str();
 }
 
-std::string AgentState::rag_tool(const NitroConfig &cfg, const std::string &agent_query) const {
+std::string AgentState::rag_tool(const std::string &agent_query) const {
   std::string result;
   if (embed_llama_ && rag_db_ && rag_session_) {
-    result = embed_llama_->rag_retrieve(*rag_db_, agent_query, cfg.rag_top_k_, *rag_session_);
+    result = embed_llama_->rag_retrieve(*rag_db_, agent_query, cfg_.rag_top_k_, *rag_session_);
     if (result.empty()) {
       result = std::string("RAG: no context found: ") + embed_llama_->last_error();
     }
@@ -363,34 +364,34 @@ std::string AgentState::rag_tool(const NitroConfig &cfg, const std::string &agen
   return result;
 }
 
-bool AgentState::rag_load_index(const std::string &path, Tui &tui) const {
+bool AgentState::rag_load_index(const std::string &path) const {
   if (!embed_llama_ || !rag_db_) {
-    tui.append_line(ICON_ERR + "Load an embedding model first: /embed <path>");
-    tui.redraw_all();
+    tui_.append_line(ICON_ERR + "Load an embedding model first: /embed <path>");
+    tui_.redraw_all();
     return false;
   }
 
   if (!rag_db_->load(path)) {
-    tui.append_line(ICON_SYS + "failed to load");
-    tui.redraw_all();
+    tui_.append_line(ICON_SYS + "failed to load");
+    tui_.redraw_all();
   }
 
   return true;
 }
 
-bool AgentState::rag_index(const std::string &path, const NitroConfig &cfg, Tui &tui) const {
+bool AgentState::rag_index(const std::string &path) const {
   if (!embed_llama_ || !rag_db_) {
-    tui.append_line(ICON_ERR + "Load an embedding model first: /embed <path>");
-    tui.redraw_all();
+    tui_.append_line(ICON_ERR + "Load an embedding model first: /embed <path>");
+    tui_.redraw_all();
     return false;
   }
 
   auto index_one = [&](const std::string &filepath) {
-    tui.append_line(ICON_SYS + "  indexing: " + filepath);
-    tui.redraw_all();
+    tui_.append_line(ICON_SYS + "  indexing: " + filepath);
+    tui_.redraw_all();
     if (!embed_llama_->rag_index(*rag_db_, filepath)) {
-      tui.append_line(ICON_ERR + "rag_load: " + embed_llama_->last_error());
-      tui.redraw_all();
+      tui_.append_line(ICON_ERR + "rag_load: " + embed_llama_->last_error());
+      tui_.redraw_all();
     }
   };
 
@@ -409,18 +410,18 @@ bool AgentState::rag_index(const std::string &path, const NitroConfig &cfg, Tui 
     index_one(path);
   }
 
-  std::string save_path = join_path(cfg.sandbox_, "rag-index.bin");
-  tui.append_line(ICON_SYS + "saving index: " + save_path);
-  tui.redraw_all();
+  std::string save_path = join_path(cfg_.sandbox_, "rag-index.bin");
+  tui_.append_line(ICON_SYS + "saving index: " + save_path);
+  tui_.redraw_all();
   return rag_db_->save(save_path);
 }
 
-std::string AgentState::restart(const NitroConfig &cfg, Tui &tui) {
+std::string AgentState::restart() {
   if (fs::exists("SESSION.md")) {
     std::vector<std::string> knowledge_files;
-    reset_conversation(cfg.build_system_prompt(), tui);
-    tui.append_line(ICON_ERR + "Session restarted");
-    tui.redraw_all();
+    reset_conversation(cfg_.build_system_prompt());
+    tui_.append_line(ICON_ERR + "Session restarted");
+    tui_.redraw_all();
     return "continue the pending actions found SESSION.md";
   }
   return "save work context to SESSION.md then try again";
@@ -429,8 +430,8 @@ std::string AgentState::restart(const NitroConfig &cfg, Tui &tui) {
 //
 // Tool dispatch
 //
-std::string AgentState::process_tool(const std::string &cmd, const NitroConfig &cfg, Tui &tui) {
-  const std::string &sandbox = cfg.sandbox_;
+std::string AgentState::process_tool(const std::string &cmd) {
+  const std::string &sandbox = cfg_.sandbox_;
 
   std::string op, arg1, arg2;
   auto WS = cmd.find_first_of(" \n");
@@ -475,47 +476,47 @@ std::string AgentState::process_tool(const std::string &cmd, const NitroConfig &
   };
 
   if (op == "TOOL:DATE") {
-    tui.show_tool(op);
+    tui_.show_tool(op);
     char buf[32]; time_t t = time(nullptr);
     strftime(buf, sizeof(buf), "%Y-%m-%d", localtime(&t));
     return buf;
   }
   if (op == "TOOL:TIME") {
-    tui.show_tool(op);
+    tui_.show_tool(op);
     char buf[32]; time_t t = time(nullptr);
     strftime(buf, sizeof(buf), "%H:%M:%S", localtime(&t));
     return buf;
   }
   if (op == "TOOL:RND") {
-    tui.show_tool(op);
+    tui_.show_tool(op);
     return std::to_string(static_cast<double>(rand()) / RAND_MAX);
   }
   if (op == "TOOL:RAG") {
-    tui.show_tool(op);
-    return rag_tool(cfg, arg1);
+    tui_.show_tool(op);
+    return rag_tool(arg1);
   }
   if (op == "TOOL:LIST") {
     std::string dir = resolve(arg1);
-    tui.show_tool("listing: " + dir);
+    tui_.show_tool("listing: " + dir);
     return list_dir(dir);
   }
   if (op == "TOOL:EXISTS") {
     std::string p = resolve(arg1);
-    tui.show_tool("checking: " + p);
+    tui_.show_tool("checking: " + p);
     return fs::exists(p) ? "YES" : "NO";
   }
   if (op == "TOOL:READ") {
-    tui.show_tool("reading: " + arg1);
+    tui_.show_tool("reading: " + arg1);
     std::string p = resolve(arg1);
     return read_file(p);
   }
   if (op == "TOOL:WRITE") {
-    tui.show_tool("writing: " + arg1);
+    tui_.show_tool("writing: " + arg1);
     std::string p = resolve(arg1);
     if (!path_in_sandbox(sandbox, p)) {
       return "ERROR: path outside sandbox";
     }
-    if (cfg.permission_prompt_ && !tui.confirm_dialog(std::format("Allow model to write {}?", p))) {
+    if (cfg_.permission_prompt_ && !tui_.confirm_dialog(std::format("Allow model to write {}?", p))) {
       return "ERROR: action prevented by user";
     }
     std::string content = strip_code_fences(arg1, arg2);
@@ -523,56 +524,102 @@ std::string AgentState::process_tool(const std::string &cmd, const NitroConfig &
   }
   if (op == "TOOL:MKDIR") {
     std::string p = resolve(arg1);
-    tui.show_tool("mkdir: " + arg1);
+    tui_.show_tool("mkdir: " + arg1);
     if (!path_in_sandbox(sandbox, p)) {
       return "ERROR: path outside sandbox";
     }
     return make_dir(p) ? "OK: created " + arg1 : "ERROR: mkdir failed for " + arg1;
   }
   if (op == "TOOL:CURL") {
-    tui.show_tool("curl: " + arg1);
+    tui_.show_tool("curl: " + arg1);
     return tool_curl(arg1);
   }
   if (op == "TOOL:INTROSPECT") {
-    tui.show_tool("introspecting: " + arg1);
-    return cfg.introspect();
+    tui_.show_tool("introspecting: " + arg1);
+    return cfg_.introspect();
   }
   if (op == "TOOL:ASK") {
-    tui.set_thinking(false);
-    tui.show_tool("asking: " + arg1 + " " + arg2);
-    return tui.readline();
+    tui_.set_thinking(false);
+    tui_.show_tool("asking: " + arg1 + " " + arg2);
+    return tui_.readline();
   }
   if (op == "TOOL:RESTART") {
-    tui.show_tool("restart ...");
-    return restart(cfg, tui);
+    tui_.show_tool("restart ...");
+    return restart();
   }
   if (op == "TOOL:PERMISSION") {
-    tui.set_thinking(false);
-    tui.show_tool("asking permission: " + arg1 + " " + arg2);
-    return tui.confirm_dialog(arg1 + " " + arg2) ? "YES" : "NO";
+    tui_.set_thinking(false);
+    tui_.show_tool("asking permission: " + arg1 + " " + arg2);
+    return tui_.confirm_dialog(arg1 + " " + arg2) ? "YES" : "NO";
   }
   if (op == "TOOL:RUN") {
-    return tool_run(cfg, tui, arg1, arg2);
+    return tool_run(cfg_, tui_, arg1, arg2);
   }
   if (op == "TOOL:MCP") {
-    tui.show_tool("mcp: " + arg1);
-    return cfg.mcp_client_.call_tool(arg1.c_str(), arg2.c_str());
+    tui_.show_tool("mcp: " + arg1);
+    return cfg_.mcp_client_.call_tool(arg1, arg2);
   }
   return "ERROR: unknown tool: [" + op + "]";
 }
 
+void AgentState::invoke_tool(const std::string &buffer, const std::string_view template_str) {
+  static constexpr std::string KV_START = "[KV-INFO]";
+  static constexpr std::string KV_END = "[/KV-INFO]";
+  static const std::string_view END_TOOL = "\nNITRO_END_TOOL";
+  static const std::string TOOL_RESULT = "NITRO_TOOL_RESULT: ";
+
+  std::string tool;
+  if (const auto pos = buffer.rfind(END_TOOL); pos != std::string::npos) {
+    tool = buffer.substr(0, pos);
+    const auto endTool = buffer.substr(pos);
+    if (endTool.length() > END_TOOL.length()) {
+      log_write(DEBUG_LEVEL, "ERROR: trailing delimiter: [%s]", endTool.c_str());
+    }
+  } else {
+    tool = buffer;
+  }
+
+  // strip any final [KV-INFO] ... [/KV-INFO] mistakenly added by the agent
+  if (const auto kvEnd = tool.rfind(KV_END); kvEnd == (tool.length() - KV_END.length())) {
+    if (const auto kvStart = tool.rfind(KV_START); kvStart != std::string::npos) {
+      tool = buffer.substr(0, kvStart);
+      log_write(DEBUG_LEVEL, "stripped KV_INFO details output by agent");
+    }
+  }
+
+  log_write(DEBUG_LEVEL, "tool request: [%s]", tool.c_str());
+  std::string result = process_tool(tool);
+  if (result.empty()) {
+    return;
+  }
+  const std::string content = TOOL_RESULT + std::vformat(template_str, std::make_format_args(result)) + memory_info_status();
+  log_write(DEBUG_LEVEL, "tool: [%s] result: [%s]", tool.c_str(), result.c_str());
+  tui_.update_usage(tokens_per_sec(), llama_->memory_info());
+  if (!llama_->add_message(*iter_, "tool_result", content)) {
+    tui_.append_line(ICON_ERR + "tool result inject: " + llama_->last_error());
+  }
+  if (!iter_->_has_next) {
+    tui_.append_line(ICON_ERR + "failed to evoke tool response: " + llama_->last_error());
+  }
+  if (llama_->is_memory_flush()) {
+    tui_.append_line(ICON_ERR + "Warning! - memory has been flushed!");
+  }
+  tui_.redraw_all();
+};
+
 //
 // Agent turn
 //
-bool AgentState::run_turn(const std::string &user_message, const NitroConfig &cfg, Tui &tui) {
+bool AgentState::run_turn(const std::string &user_message) {
   if (!model_loaded_) {
-    tui.append_line(ICON_ERR + "No model loaded. Use /model <path>");
-    tui.redraw_all();
+    tui_.append_line(ICON_ERR + "No model loaded. Use /model <path>");
+    tui_.redraw_all();
     return false;
   }
+
   std::string effective_message = user_message;
   if (embed_llama_ && rag_db_ && rag_session_) {
-    std::string context = embed_llama_->rag_retrieve(*rag_db_, user_message, cfg.rag_top_k_, *rag_session_);
+    std::string context = embed_llama_->rag_retrieve(*rag_db_, user_message, cfg_.rag_top_k_, *rag_session_);
     if (!context.empty()) {
       log_write(DEBUG_LEVEL, "RAG: %s", context.c_str());
       effective_message = "Context:\n" + context + "\n\nUser: " + user_message;
@@ -581,68 +628,23 @@ bool AgentState::run_turn(const std::string &user_message, const NitroConfig &cf
     }
   }
   if (!iter_) {
-    tui.append_line(ICON_ERR + "Conversation not initialised (call /clear to reset)");
-    tui.redraw_all();
+    tui_.append_line(ICON_ERR + "Conversation not initialised (call /clear to reset)");
+    tui_.redraw_all();
     return false;
   }
   if (!llama_->add_message(*iter_, "user", effective_message)) {
-    tui.append_line(ICON_ERR + "add_message: " + llama_->last_error());
-    tui.redraw_all();
+    tui_.append_line(ICON_ERR + "add_message: " + llama_->last_error());
+    tui_.redraw_all();
     return false;
   }
-  tui.append_line("Nitro: ");
+  tui_.append_line("Nitro: ");
 
   // in_think starts false — models that don't use <think> blocks emit
   // visible text immediately.  The spinner activates only while thinking.
-  enum {t_init, t_think, t_thunk} think_mode = (cfg.thinking_ ? t_init : t_thunk);
+  enum {t_init, t_think, t_thunk} think_mode = (cfg_.thinking_ ? t_init : t_thunk);
 
-  tui.set_thinking(true);
+  tui_.set_thinking(true);
   std::string buffer;
-
-  auto invoke_tool = [&](const std::string &buffer, const std::string_view template_str) -> void {
-    static constexpr std::string KV_START = "[KV-INFO]";
-    static constexpr std::string KV_END = "[/KV-INFO]";
-    static const std::string_view END_TOOL = "\nNITRO_END_TOOL";
-    static const std::string TOOL_RESULT = "NITRO_TOOL_RESULT: ";
-
-    std::string tool;
-    if (const auto pos = buffer.rfind(END_TOOL); pos != std::string::npos) {
-      tool = buffer.substr(0, pos);
-      const auto endTool = buffer.substr(pos);
-      if (endTool.length() > END_TOOL.length()) {
-        log_write(DEBUG_LEVEL, "ERROR: trailing delimiter: [%s]", endTool.c_str());
-      }
-    } else {
-      tool = buffer;
-    }
-
-    // strip any final [KV-INFO] ... [/KV-INFO] mistakenly added by the agent
-    if (const auto kvEnd = tool.rfind(KV_END); kvEnd == (tool.length() - KV_END.length())) {
-      if (const auto kvStart = tool.rfind(KV_START); kvStart != std::string::npos) {
-        tool = buffer.substr(0, kvStart);
-        log_write(DEBUG_LEVEL, "stripped KV_INFO details output by agent");
-      }
-    }
-
-    log_write(DEBUG_LEVEL, "tool request: mode:[%d] [%s]", think_mode, tool.c_str());
-    std::string result = process_tool(tool, cfg, tui);
-    if (result.empty()) {
-      return;
-    }
-    const std::string content = TOOL_RESULT + std::vformat(template_str, std::make_format_args(result)) + memory_info_status();
-    log_write(DEBUG_LEVEL, "tool: [%s] result: [%s]", tool.c_str(), result.c_str());
-    tui.update_usage(tokens_per_sec(), llama_->memory_info());
-    if (!llama_->add_message(*iter_, "tool_result", content)) {
-      tui.append_line(ICON_ERR + "tool result inject: " + llama_->last_error());
-    }
-    if (!iter_->_has_next) {
-      tui.append_line(ICON_ERR + "failed to evoke tool response: " + llama_->last_error());
-    }
-    if (llama_->is_memory_flush()) {
-      tui.append_line(ICON_ERR + "Warning! - memory has been flushed!");
-    }
-    tui.redraw_all();
-  };
 
   auto start_think = [&](const std::string &tag) -> void {
     if (think_mode != t_think) {
@@ -671,7 +673,7 @@ bool AgentState::run_turn(const std::string &user_message, const NitroConfig &cf
           // tag is either at the start or end of the line
           if (pos > 0) {
             if (auto thought = buffer.substr(0, pos); thought.length() > 1) {
-              tui.append_token(ICON_THINK + thought + "\n");
+              tui_.append_token(ICON_THINK + thought + "\n");
             }
           }
           buffer = buffer.substr(pos + tag.length());
@@ -681,17 +683,17 @@ bool AgentState::run_turn(const std::string &user_message, const NitroConfig &cf
   };
 
   auto fetch_tool = [&]() -> void {
-    while (iter_->_has_next && !tui.is_escape()) {
+    while (iter_->_has_next && !tui_.is_escape()) {
       const std::string tok = llama_->next(*iter_);
       buffer += tok;
-      tui.tick_spinner();
+      tui_.tick_spinner();
       if (auto pos = buffer.find("</think>"); pos != std::string::npos) {
         break;
       }
     }
   };
 
-  while (iter_->_has_next && !tui.is_escape()) {
+  while (iter_->_has_next && !tui_.is_escape()) {
     if (std::string tok = llama_->next(*iter_); tok == "<") {
       // fetch the complete tag
       std::string tag = tok;
@@ -720,7 +722,7 @@ bool AgentState::run_turn(const std::string &user_message, const NitroConfig &cf
     end_think("<channel|>");
 
     if (think_mode == t_think) {
-      tui.tick_spinner();
+      tui_.tick_spinner();
     }
     auto tool_start = buffer.find("TOOL:");
     if (tool_start == 0) {
@@ -734,31 +736,31 @@ bool AgentState::run_turn(const std::string &user_message, const NitroConfig &cf
     if (pos != std::string::npos) {
       if (think_mode == t_think) {
         if (auto thought = buffer.substr(0, pos + 1); thought.length() > 1) {
-          tui.append_token(ICON_THINK + thought);
+          tui_.append_token(ICON_THINK + thought);
         }
       } else {
-        tui.append_token(buffer.substr(0, pos + 1));
+        tui_.append_token(buffer.substr(0, pos + 1));
       }
       buffer = buffer.substr(pos + 1);
     }
   }
 
   if (!buffer.empty()) {
-    tui.append_token(buffer + "\n");
+    tui_.append_token(buffer + "\n");
   }
 
-  tui.flush_token_acc();
-  tui.set_thinking(false);
-  tui.update_usage(tokens_per_sec(), llama_->memory_info());
+  tui_.flush_token_acc();
+  tui_.set_thinking(false);
+  tui_.update_usage(tokens_per_sec(), llama_->memory_info());
 
   char stat[128];
   const auto pattern = ICON_SYS + "%.1f tok/s  (%d tokens)  KV %.1f%%";
   std::snprintf(stat, sizeof(stat), pattern.c_str(),
-                static_cast<double>(tui.get_tokens_per_sec()),
+                static_cast<double>(tui_.get_tokens_per_sec()),
                 iter_->_tokens_generated,
-                static_cast<double>(tui.get_kv_percent()));
-  tui.append_line(stat);
-  tui.redraw_all();
+                static_cast<double>(tui_.get_kv_percent()));
+  tui_.append_line(stat);
+  tui_.redraw_all();
   return true;
 }
 

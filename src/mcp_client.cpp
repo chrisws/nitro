@@ -134,8 +134,8 @@ static Settings load_settings() {
 }
 
 Client::Client()
-  : enabled_(false)
-  , settings_(load_settings())
+  : settings_(load_settings())
+  , enabled_(false)
   , curl_(curl_easy_init())
   , sse_curl_(nullptr)
   , sse_stop_(false) {
@@ -201,7 +201,7 @@ void Client::start_sse_stream() {
   });
 }
 
-std::string Client::get_system_context(std::string filter) {
+std::string Client::get_system_context(const std::string &filter) {
   std::string p;
   if (connect()) {
     log_write(INFO_LEVEL, "Appending MCP tools");
@@ -210,10 +210,9 @@ std::string Client::get_system_context(std::string filter) {
     p += "## Rules\n";
     p += "- any field named `projectPath` should be populated with the sandbox name\n";
     p += "## Available tools\n";
-    std::vector<mcp::Tool> tools = list_tools();
-    for (const auto &tool : tools) {
+    for (const std::vector<Tool> tools = list_tools(); const auto &tool : tools) {
       if (filter.empty() || utils::starts_with(tool.name_, filter)) {
-        p += tool.spec_.c_str();
+        p += tool.spec_;
       }
     }
   } else {
@@ -334,7 +333,8 @@ std::vector<Tool> Client::list_tools() const {
   root.set_str("method", "tools/list");
 
   // Set empty params
-  auto params = doc.get_child("params");
+  // auto params = doc.get_child("params");
+  // params.set_empty_obj("arguments");
 
   const std::string params_str = doc.to_string();
   if (params_str.empty()) {
@@ -430,7 +430,7 @@ std::string Client::send_request(const std::string &request_body) const {
   }
   if (http_code >= 400) {
     log_write(ERROR_LEVEL, "ERROR: HTTP %s", std::to_string(http_code).c_str());
-    return std::format("ERROR: HTTP {} {}", std::to_string(http_code).c_str(), body.c_str());
+    return std::format("ERROR: HTTP {} {}", std::to_string(http_code), body);
   }
 
   log_write(DEBUG_LEVEL, "received [%s]", body.c_str());
