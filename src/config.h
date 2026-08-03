@@ -54,13 +54,9 @@ struct NitroConfig {
   std::vector<std::string> run_allowed_;
   std::vector<std::string> knowledge_files_;
 
-  void enable_mcp() {
-    mcp_client_.enable();
-    mcp_context_ = mcp_client_.get_system_context(mcp_filter_);
-  }
-
+  // MCP support
   mcp::Client mcp_client_;
   std::string mcp_context_;
-  std::string mcp_filter_;
+  std::vector<std::string> mcp_filter_;
 };
 

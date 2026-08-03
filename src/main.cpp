@@ -290,18 +290,13 @@ static void usage() {
 //
 // confirm mcp settings and connectivity
 //
-static void mcp_test(const std::string &filter) {
+static void mcp_test(const std::vector<std::string> &filter) {
   mcp::Client client;
   log_open_console();
   if (!client.connect()) {
     log_write(LogLevel::INFO_LEVEL, "Failed to connect");
   } else {
-    std::vector<mcp::Tool> tools = client.list_tools();
-    for (const auto &tool : tools) {
-      if (filter.empty() || utils::starts_with(tool.name_, filter)) {
-        log_write(LogLevel::INFO_LEVEL, "%s", tool.spec_.c_str());
-      }
-    }
+    log_write(LogLevel::INFO_LEVEL, "%s", client.get_system_context(filter));
     client.disconnect();
   }
   log_close();
@@ -349,9 +344,11 @@ int main(int argc, char **argv) {
     } else if (a == "-g" || a == "--gpu-layers") {
       cfg.n_gpu_layers_ = std::stoi(take_next(a.c_str()));
     } else if (a == "--mcp-filter") {
-      cfg.mcp_filter_ = take_next(a.c_str());
+      cfg.mcp_filter_.emplace_back(take_next(a.c_str()));
     } else if (a == "--mcp") {
-      cfg.enable_mcp();
+      cfg.mcp_client_.enable();
+    } else if (a == "--skill") {
+      cfg.knowledge_files_.emplace_back(take_next(a.c_str()));
     } else if (a == "-l" || a == "--log") {
       log_open(take_next(a.c_str()));
     } else if (a == "-t" || a == "--think") {
@@ -376,6 +373,10 @@ int main(int argc, char **argv) {
     mcp_test(cfg.mcp_filter_);
     curl_close();
     return 0;
+  }
+
+  if (cfg.mcp_client_.enabled()) {
+    cfg.mcp_context_ = cfg.mcp_client_.get_system_context(cfg.mcp_filter_);
   }
 
   // ── Resolve sandbox ───────────────────────────────────────────────

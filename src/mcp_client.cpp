@@ -201,7 +201,7 @@ void Client::start_sse_stream() {
   });
 }
 
-std::string Client::get_system_context(const std::string &filter) {
+std::string Client::get_system_context(const std::vector<std::string> &filter) {
   std::string p;
   if (connect()) {
     log_write(INFO_LEVEL, "Appending MCP tools");
@@ -211,8 +211,15 @@ std::string Client::get_system_context(const std::string &filter) {
     p += "- any field named `projectPath` should be populated with the sandbox name\n";
     p += "## Available tools\n";
     for (const std::vector<Tool> tools = list_tools(); const auto &tool : tools) {
-      if (filter.empty() || utils::starts_with(tool.name_, filter)) {
+      if (filter.empty()) {
         p += tool.spec_;
+      } else  {
+        for (const auto &next_filter : filter) {
+          if (utils::starts_with(tool.name_, next_filter)) {
+            p += tool.spec_;
+            break;
+          }
+        }
       }
     }
   } else {

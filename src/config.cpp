@@ -57,7 +57,6 @@ void NitroConfig::load_settings() {
   root.get_str("model_path", model_path_);
   root.get_str("embed_path", embed_path_);
   root.get_str("sandbox", sandbox_);
-  root.get_str("mcp_filter", mcp_filter_);
 
   // Integer fields
   root.get_int("n_ctx", n_ctx_);
@@ -223,7 +222,6 @@ std::string NitroConfig::introspect() const {
     "  \"model_path\":     \"{}\",\n"
     "  \"embed_path\":     \"{}\",\n"
     "  \"sandbox\":        \"{}\",\n"
-    "  \"mcp_filter\":     \"{}\",\n"
     "  \"n_ctx\":          {},\n"
     "  \"n_batch\":        {},\n"
     "  \"n_gpu_layers\":   {},\n"
@@ -240,7 +238,6 @@ std::string NitroConfig::introspect() const {
                      model_path_,
                      embed_path_,
                      sandbox_,
-                     mcp_filter_,
                      n_ctx_,
                      n_batch_,
                      n_gpu_layers_,
