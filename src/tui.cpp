@@ -18,6 +18,7 @@
 #include <random>
 
 #include "tui.h"
+#include "string_utils.h"
 
 Tui::Tui()
     : nc_(nullptr)
@@ -96,6 +97,12 @@ void Tui::set_plane_bg(struct ncplane *pl, Color::ColorElement elem) const {
 uint64_t Tui::chat_ch(uint32_t r, uint32_t g, uint32_t b) const {
   const auto bg = theme_->get_color(Color::ColorElement::CHAT_BACKGROUND);
   return NCCHANNELS_INITIALIZER(r, g, b, bg.r, bg.g, bg.b);
+}
+
+uint64_t Tui::chat_ch(const Color::ColorElement elem) const {
+  const auto bg = theme_->get_color(Color::ColorElement::CHAT_BACKGROUND);
+  const auto fg = theme_->get_color(elem);
+  return NCCHANNELS_INITIALIZER(fg.r, fg.g, fg.b, bg.r, bg.g, bg.b);
 }
 
 uint64_t Tui::inp_ch(uint32_t r, uint32_t g, uint32_t b) const {
@@ -188,6 +195,34 @@ void Tui::redraw_header() const {
   ncplane_putstr_yx(header_, 0, 0, buf);
 }
 
+uint64_t Tui::get_line_color(const std::string &line) const {
+  uint64_t result;
+  if (line.rfind("[logo_", 0) == 0 && line.size() > 7 && line[7] == ']') {
+    // Gradient logo: extract row number and use gradient colors
+    int logo_row = line[6] - '0';
+    static const uint32_t GRAD_R[] = {  0,  20,  60, 120, 180, 210, 220 };
+    static const uint32_t GRAD_G[] = { 230, 255, 255, 255, 200, 130,  80 };
+    static const uint32_t GRAD_B[] = { 255, 200, 140,  80, 100, 200, 255 };
+    int gi = std::max(0, std::min(logo_row, 6));
+    result = chat_ch(GRAD_R[gi], GRAD_G[gi], GRAD_B[gi]);
+  } else if (line.rfind("You: ",    0) == 0) {
+    result = chat_ch(Color::ColorElement::COLOR_CHAT_USER);
+  } else if (line.rfind("Nitro: ",  0) == 0) {
+    result = chat_ch(Color::ColorElement::COLOR_CHAT_NITRO);
+  } else if (line.rfind(ICON_SYS,   0) == 0) {
+    result = chat_ch(Color::ColorElement::COLOR_CHAT_SYSTEM);
+  } else if (line.rfind(ICON_TOOL,  0) == 0) {
+    result = chat_ch(Color::ColorElement::COLOR_CHAT_TOOL);
+  } else if (line.rfind(ICON_ERR,   0) == 0) {
+    result = chat_ch(Color::ColorElement::COLOR_CHAT_ERROR);
+  } else if (line.rfind(ICON_THINK, 0) == 0) {
+    result = chat_ch(Color::ColorElement::COLOR_CHAT_THINKING);
+  } else {
+    result = chat_ch(Color::ColorElement::COLOR_CHAT_DEFAULT);
+  }
+  return result;
+}
+
 void Tui::redraw_chat() {
   ncplane_erase(chatpl_);
 
@@ -195,7 +230,7 @@ void Tui::redraw_chat() {
   ncplane_dim_yx(chatpl_, &rows, &cols);
   std::lock_guard<std::mutex> lk(lines_mutex_);
 
-  // Pre-compute wrapped lines so we know total visual rows.
+  // Build visual lines from chat_lines_, splitting on \n and wrapping at cols width.
   struct VisualLine {
     std::string text;
     uint64_t    ch;
@@ -204,32 +239,36 @@ void Tui::redraw_chat() {
   visual.reserve(chat_lines_.size());
 
   for (const std::string &line : chat_lines_) {
-    uint64_t ch;
-    if (line.rfind("[logo_", 0) == 0 && line.size() > 7 && line[7] == ']') {
-      int logo_row = line[6] - '0';
-      static const uint32_t GRAD_R[] = {  0,  20,  60, 120, 180, 210, 220 };
-      static const uint32_t GRAD_G[] = { 230, 255, 255, 255, 200, 130,  80 };
-      static const uint32_t GRAD_B[] = { 255, 200, 140,  80, 100, 200, 255 };
-      int gi = std::max(0, std::min(logo_row, 6));
-      ch = chat_ch(GRAD_R[gi], GRAD_G[gi], GRAD_B[gi]);
+    if (utils::is_blank(line)) {
+      continue;
     }
-    else if (line.rfind("You: ",    0) == 0) ch = chat_ch(100, 200, 255);
-    else if (line.rfind("Nitro: ",  0) == 0) ch = chat_ch(180, 255, 180);
-    else if (line.rfind(ICON_SYS,   0) == 0) ch = chat_ch(160,  82,  45);
-    else if (line.rfind(ICON_TOOL,  0) == 0) ch = chat_ch(255, 180,  80);
-    else if (line.rfind(ICON_ERR,   0) == 0) ch = chat_ch(255,  80,  80);
-    else if (line.rfind(ICON_THINK, 0) == 0) ch = chat_ch(140, 140, 200);
-    else                                     ch = chat_ch(210, 210, 210);
 
-    std::string display = (line.rfind("[logo_", 0) == 0 && line.size() > 8)
-      ? line.substr(8) : line;
+    // determine the logical line color using the theme system
+    uint64_t ch = get_line_color(line);
 
-    // Split into cols-wide chunks, each carrying the same channel.
-    if (display.empty()) {
-      visual.push_back({"", ch});
-    } else {
-      for (size_t off = 0; off < display.size(); off += cols) {
-        visual.push_back({display.substr(off, cols), ch});
+    // layout the text based on new lines and column count
+    std::string display = (line.rfind("[logo_", 0) == 0 && line.size() > 8) ? line.substr(8) : line;
+    std::vector<std::string> parts;
+    std::string current;
+    int column_count = 0;
+    for (char c : display) {
+      if (++column_count >= term_cols_ || c == '\n') {
+        if (!current.empty()) {
+          parts.push_back(current);
+        }
+        column_count = 0;
+        current.clear();
+      } else {
+        current += c;
+      }
+    }
+    if (!current.empty()) {
+      parts.push_back(current);
+    }
+
+    for (const std::string &part : parts) {
+      for (size_t off = 0; off < part.size(); off += cols) {
+        visual.push_back({part.substr(off, cols), ch});
       }
     }
   }
@@ -357,14 +396,7 @@ void Tui::update_usage(float tokens_sec, const LlamaMemoryInfo &mem) {
 //
 void Tui::append_line(const std::string &line) {
   std::lock_guard<std::mutex> lk(lines_mutex_);
-  int w = std::max(1, term_cols_ - 1);
-  if (static_cast<int>(line.size()) <= w) {
-    chat_lines_.push_back(line);
-  } else {
-    for (int off = 0; off < static_cast<int>(line.size()); off += w) {
-      chat_lines_.push_back(line.substr(off, w));
-    }
-  }
+  chat_lines_.push_back(line);
 }
 
 void Tui::append_token(const std::string &token) {

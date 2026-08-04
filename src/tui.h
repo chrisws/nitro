@@ -56,6 +56,14 @@ namespace Color {
     POPUP_BACKGROUND,
     POPUP_BORDER,
     POPUP_TEXT,
+    COLOR_CHAT_LOGO_GRADIENT,
+    COLOR_CHAT_USER,
+    COLOR_CHAT_NITRO,
+    COLOR_CHAT_SYSTEM,
+    COLOR_CHAT_TOOL,
+    COLOR_CHAT_ERROR,
+    COLOR_CHAT_THINKING,
+    COLOR_CHAT_DEFAULT,
   };
 }
 
@@ -71,6 +79,15 @@ class ColorTheme {
 
 // Solarized Dark theme
 namespace Color {
+  namespace Chat {
+    constexpr RGB COLOR_CHAT_NITRO = {180, 255, 180};
+    constexpr RGB COLOR_CHAT_SYSTEM = {160,  82,  45};
+    constexpr RGB COLOR_CHAT_TOOL = {255, 180,  80};
+    constexpr RGB COLOR_CHAT_ERROR = {255,  80,  80};
+    constexpr RGB COLOR_CHAT_THINKING = {140, 140, 200};
+    constexpr RGB COLOR_CHAT_DEFAULT = {210, 210, 210};
+  }
+
   namespace DarkTheme {
     constexpr RGB INPUT_BORDER              = {80, 120, 160};
     constexpr RGB INPUT_PROMPT              = {100, 210, 255};
@@ -109,6 +126,22 @@ namespace Color {
             return POPUP_BORDER;
           case Color::ColorElement::POPUP_TEXT:
             return POPUP_TEXT;
+          case Color::ColorElement::COLOR_CHAT_LOGO_GRADIENT:
+            return CHAT_BACKGROUND;
+          case Color::ColorElement::COLOR_CHAT_USER:
+            return INPUT_PROMPT;
+          case Color::ColorElement::COLOR_CHAT_NITRO:
+            return Color::Chat::COLOR_CHAT_NITRO;
+          case Color::ColorElement::COLOR_CHAT_SYSTEM:
+            return Color::Chat::COLOR_CHAT_SYSTEM;
+          case Color::ColorElement::COLOR_CHAT_TOOL:
+            return Color::Chat::COLOR_CHAT_TOOL;
+          case Color::ColorElement::COLOR_CHAT_ERROR:
+            return Color::Chat::COLOR_CHAT_ERROR;
+          case Color::ColorElement::COLOR_CHAT_THINKING:
+            return Color::Chat::COLOR_CHAT_THINKING;
+          case Color::ColorElement::COLOR_CHAT_DEFAULT:
+            return Color::Chat::COLOR_CHAT_DEFAULT;
           default:
             return INPUT_PROMPT;
         }
@@ -159,6 +192,22 @@ namespace Color {
             return POPUP_BORDER;
           case Color::ColorElement::POPUP_TEXT:
             return POPUP_TEXT;
+          case Color::ColorElement::COLOR_CHAT_LOGO_GRADIENT:
+            return CHAT_BACKGROUND;
+          case Color::ColorElement::COLOR_CHAT_USER:
+            return INPUT_PROMPT;
+          case Color::ColorElement::COLOR_CHAT_NITRO:
+            return Color::Chat::COLOR_CHAT_NITRO;
+          case Color::ColorElement::COLOR_CHAT_SYSTEM:
+            return Color::Chat::COLOR_CHAT_SYSTEM;
+          case Color::ColorElement::COLOR_CHAT_TOOL:
+            return Color::Chat::COLOR_CHAT_TOOL;
+          case Color::ColorElement::COLOR_CHAT_ERROR:
+            return Color::Chat::COLOR_CHAT_ERROR;
+          case Color::ColorElement::COLOR_CHAT_THINKING:
+            return Color::Chat::COLOR_CHAT_THINKING;
+          case Color::ColorElement::COLOR_CHAT_DEFAULT:
+            return Color::Chat::COLOR_CHAT_DEFAULT;
           default:
             return INPUT_PROMPT;
         }
@@ -209,6 +258,22 @@ namespace Color {
             return POPUP_BORDER;
           case Color::ColorElement::POPUP_TEXT:
             return POPUP_TEXT;
+          case Color::ColorElement::COLOR_CHAT_LOGO_GRADIENT:
+            return CHAT_BACKGROUND;
+          case Color::ColorElement::COLOR_CHAT_USER:
+            return INPUT_PROMPT;
+          case Color::ColorElement::COLOR_CHAT_NITRO:
+            return Color::Chat::COLOR_CHAT_NITRO;
+          case Color::ColorElement::COLOR_CHAT_SYSTEM:
+            return Color::Chat::COLOR_CHAT_SYSTEM;
+          case Color::ColorElement::COLOR_CHAT_TOOL:
+            return Color::Chat::COLOR_CHAT_TOOL;
+          case Color::ColorElement::COLOR_CHAT_ERROR:
+            return Color::Chat::COLOR_CHAT_ERROR;
+          case Color::ColorElement::COLOR_CHAT_THINKING:
+            return Color::Chat::COLOR_CHAT_THINKING;
+          case Color::ColorElement::COLOR_CHAT_DEFAULT:
+            return Color::Chat::COLOR_CHAT_DEFAULT;
           default:
             return INPUT_PROMPT;
         }
@@ -296,9 +361,13 @@ class Tui final: TuiContext {
   void set_plane_base(ncplane *pl, Color::ColorElement elem) const;
   void set_plane_fg(ncplane *pl, Color::ColorElement elem) const;
   void set_plane_bg(ncplane *pl, Color::ColorElement elem) const;
+  uint64_t chat_ch(const Color::ColorElement elem) const;
   uint64_t chat_ch(uint32_t r, uint32_t g, uint32_t b) const;
   uint64_t inp_ch(uint32_t r, uint32_t g, uint32_t b) const;
   void setup_backgrounds() const;
+
+  // ── utils ─────────────────────────────────────────────────────────
+  uint64_t get_line_color(const std::string &line) const;
 
   // ── status bar values ─────────────────────────────────────────────
   std::string current_model_;
