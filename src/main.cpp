@@ -288,26 +288,12 @@ static void usage() {
 }
 
 //
-// confirm mcp settings and connectivity
-//
-static void mcp_test(const std::vector<std::string> &filter) {
-  mcp::Client client;
-  log_open_console();
-  if (!client.connect()) {
-    log_write(LogLevel::INFO_LEVEL, "Failed to connect");
-  } else {
-    log_write(LogLevel::INFO_LEVEL, "%s", client.get_system_context(filter));
-    client.disconnect();
-  }
-  log_close();
-}
-
-//
 // main()
 //
 int main(int argc, char **argv) {
   // ── Load persisted settings first (provides defaults) ────────────
   NitroConfig cfg;
+
   // ── Parse arguments (command-line overrides saved settings) ──────
   cfg.load_settings();
   auto resolve_path = [](const std::string &arg) -> std::string {
@@ -323,13 +309,9 @@ int main(int argc, char **argv) {
   };
 
   bool do_mcp_test = false;
+  mcp::Client mcp_client;
 
   for (int i = 1; i < argc; ++i) {
-    std::string a = argv[i];
-    if (a == "--mcp-test") {
-      do_mcp_test = true;
-      break;
-    }
     auto take_next = [&](const char *flag) -> std::string {
       if (i + 1 >= argc) {
         std::fprintf(stderr, "nitro: %s requires an argument\n", flag);
@@ -337,6 +319,7 @@ int main(int argc, char **argv) {
       }
       return argv[++i];
     };
+    std:string a = argv[i];
     if (a == "-m" || a == "--model") {
       cfg.model_path_ = resolve_path(take_next(a.c_str()));
     } else if (a == "-e" || a == "--embed") {
@@ -346,7 +329,9 @@ int main(int argc, char **argv) {
     } else if (a == "--mcp-filter") {
       cfg.mcp_filter_.emplace_back(take_next(a.c_str()));
     } else if (a == "--mcp") {
-      cfg.mcp_client_.enable();
+      mcp_client.enable();
+    } else if (a == "--mcp-test") {
+      do_mcp_test = true;      
     } else if (a == "--skill") {
       cfg.knowledge_files_.emplace_back(take_next(a.c_str()));
     } else if (a == "-l" || a == "--log") {
@@ -369,14 +354,19 @@ int main(int argc, char **argv) {
   // ── Init curl globally ────────────────────────────────────────────
   curl_init();
 
+  // ── Init MCP ──────────────────────────────────────────────────────
   if (do_mcp_test) {
-    mcp_test(cfg.mcp_filter_);
+    log_open_console();
+    if (!mcp_client.connect()) {
+      puts(mcp_client.get_system_context(cfg.mcp_filter_).c_str());
+    }
     curl_close();
+    log_close();    
     return 0;
   }
 
-  if (cfg.mcp_client_.enabled()) {
-    cfg.mcp_context_ = cfg.mcp_client_.get_system_context(cfg.mcp_filter_);
+  if (mcp_client.enabled()) {
+    cfg.mcp_context_ = mcp_client.get_system_context(cfg.mcp_filter_);
   }
 
   // ── Resolve sandbox ───────────────────────────────────────────────
@@ -390,7 +380,7 @@ int main(int argc, char **argv) {
   }
 
   // ── Auto-discover knowledge files ─────────────────────────────────
-  for (const char *kf : {"nitro.md", "AGENTS.md", "README.md"}) {
+  for (const char *kf : {"nitro.md", "persona.md", "AGENTS.md", "README.md"}) {
     if (fs::exists(kf)) {
       cfg.knowledge_files_.emplace_back(kf);
     }
@@ -403,13 +393,11 @@ int main(int argc, char **argv) {
   tui.history_load(history_path());
   welcome(tui, cfg.sandbox_);
 
-  log_write(INFO_LEVEL, "nitro starting");
-
   // ── Init agent ────────────────────────────────────────────────────
-  AgentState agent(cfg, tui);
+  AgentState agent(cfg, tui, mcp_client);
   if (!cfg.model_path_.empty()) {
     if (agent.setup_model()) {
-      if (cfg.mcp_client_.enabled()) {
+      if (mcp_client.enabled()) {
         if (cfg.mcp_context_.empty()) {
           tui.append_line(ICON_SYS + "Failed to load MCP context");
         } else {
@@ -436,6 +424,7 @@ int main(int argc, char **argv) {
   }
 
   // ── Main loop ─────────────────────────────────────────────────────
+  log_write(INFO_LEVEL, "nitro starting");
   for (;;) {
     tui.resize();
     std::string input = tui.readline();

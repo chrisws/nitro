@@ -545,7 +545,8 @@ bool Llama::configure_sampler() {
     llama_sampler_chain_add(chain, grammar);
   }
   if (_penalty_last_n != 0 && _penalty_repeat != 1.0f) {
-    auto penalties = llama_sampler_init_penalties(_penalty_last_n, _penalty_repeat, _penalty_freq, _penalty_present);
+    auto n_vocab = llama_vocab_n_tokens(_vocab);
+    auto penalties = llama_sampler_init_penalties(n_vocab, _penalty_last_n, _penalty_repeat, _penalty_freq, _penalty_present);
     llama_sampler_chain_add(chain, penalties);
   }
   if (_temperature <= 0.0f) {

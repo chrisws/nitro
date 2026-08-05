@@ -400,26 +400,9 @@ void Tui::append_line(const std::string &line) {
 }
 
 void Tui::append_token(const std::string &token) {
-  token_acc_ += token;
-  for (;;) {
-    auto pos = token_acc_.find('\n');
-    if (pos == std::string::npos) {
-      break;
-    }
-    append_line(token_acc_.substr(0, pos));
-    token_acc_ = token_acc_.substr(pos + 1);
-  }
+  append_line(token);
   redraw_chat();
   notcurses_render(nc_);
-}
-
-void Tui::flush_token_acc() {
-  if (!token_acc_.empty()) {
-    append_line(token_acc_);
-    token_acc_.clear();
-    redraw_chat();
-    notcurses_render(nc_);
-  }
 }
 
 //

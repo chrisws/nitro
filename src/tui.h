@@ -314,7 +314,6 @@ class Tui final: TuiContext {
   // ── content helpers ───────────────────────────────────────────────
   void append_line(const std::string &line);
   void append_token(const std::string &token);
-  void flush_token_acc();
 
   // ── interaction ───────────────────────────────────────────────────
   bool confirm_dialog(const std::string &prompt) const;

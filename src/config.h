@@ -13,7 +13,6 @@
 #include <filesystem>
 #include "llama.h"
 #include "config.h"
-#include "mcp_client.h"
 
 namespace fs = std::filesystem;
 
@@ -55,7 +54,6 @@ struct NitroConfig {
   std::vector<std::string> knowledge_files_;
 
   // MCP support
-  mcp::Client mcp_client_;
   std::string mcp_context_;
   std::vector<std::string> mcp_filter_;
 };

@@ -12,14 +12,18 @@
 #include <string>
 
 #include "llama_sb_rag.h"
+#include "config.h"
+#include "tui.h"
+#include "mcp_client.h"
 
 //
 // AgentState
 //
 struct AgentState {
-  AgentState(NitroConfig &cfg, Tui &tui)
+  AgentState(NitroConfig &cfg, Tui &tui, mcp::Client &mcp_client)
     : cfg_(cfg)
-    , tui_(tui) {
+    , tui_(tui)
+    , mcp_client_(mcp_client) {
   }
   ~AgentState() = default;
 
@@ -36,6 +40,8 @@ struct AgentState {
   private:
   NitroConfig &cfg_;
   Tui &tui_;
+  mcp::Client &mcp_client_;
+
   std::unique_ptr<Llama> llama_;
   std::unique_ptr<LlamaIter> iter_;
   std::unique_ptr<Llama> embed_llama_;
@@ -48,6 +54,7 @@ struct AgentState {
   std::string process_tool(const std::string &cmd);
   std::string rag_tool(const std::string &agent_query) const;
   std::string restart();
+  double elapsed_seconds() const;
   float tokens_per_sec() const;
   void invoke_tool(const std::string &buffer, std::string_view template_str);
 };

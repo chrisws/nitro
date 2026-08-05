@@ -329,6 +329,12 @@ void AgentState::reset_conversation(const std::string &sysprompt) {
   }
 }
 
+double AgentState::elapsed_seconds() const {
+  if (!iter_) return 0.0;
+  auto now = std::chrono::high_resolution_clock::now();
+  return std::chrono::duration<double>(now - iter_->_t_start).count();
+}
+
 float AgentState::tokens_per_sec() const {
   if (!iter_) return 0.0f;
   auto now = std::chrono::high_resolution_clock::now();
@@ -565,7 +571,7 @@ std::string AgentState::process_tool(const std::string &cmd) {
   }
   if (op == "TOOL:MCP") {
     tui_.show_tool("mcp: " + arg1);
-    return cfg_.mcp_client_.call_tool(arg1, arg2);
+    return mcp_client_.call_tool(arg1, arg2);
   }
   return "ERROR: unknown tool: [" + op + "]";
 }
@@ -760,15 +766,15 @@ bool AgentState::run_turn(const std::string &user_message) {
     tui_.append_token(buffer + "\n");
   }
 
-  tui_.flush_token_acc();
   tui_.set_thinking(false);
   tui_.update_usage(tokens_per_sec(), llama_->memory_info());
 
   char stat[128];
-  const auto pattern = ICON_SYS + "%.1f tok/s  (%d tokens)  KV %.1f%%";
+  const auto pattern = ICON_SYS + "%.1f tok/s  (%d tokens)  %.1fs elapsed  KV %.1f%%";
   std::snprintf(stat, sizeof(stat), pattern.c_str(),
                 static_cast<double>(tui_.get_tokens_per_sec()),
                 iter_->_tokens_generated,
+                elapsed_seconds(),
                 static_cast<double>(tui_.get_kv_percent()));
   tui_.append_line(stat);
   tui_.redraw_all();
