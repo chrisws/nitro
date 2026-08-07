@@ -25,13 +25,15 @@ struct NitroConfig {
 
   std::string build_system_prompt() const;
   std::string introspect() const;
+  std::string settings_path() const;
   bool save_settings() const;
   void load_settings();
-  static std::string settings_path() ;
+  void set_config(std::string config);
 
   std::string model_path_;
   std::string embed_path_;
   std::string sandbox_;
+  std::string config_ = "nitro.config.json";
 
   int   n_ctx_          = 65536;
   int   n_batch_        = 512;

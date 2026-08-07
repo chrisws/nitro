@@ -25,14 +25,20 @@ NitroConfig::NitroConfig() {
 // Settings persistence  (~/.config/nitro/nitro.settings.json)
 // Returns the canonical settings path: ~/.config/nitro/settings.json
 //
-std::string NitroConfig::settings_path() {
+std::string NitroConfig::settings_path() const {
   // Attempt to read settings from the current working directory first
-  if (fs::exists("nitro.config.json")) {
-    return "nitro.config.json";
+  if (fs::exists(config_)) {
+    return config_;
   }
   const char *home = getenv("HOME");
   std::string base = home ? std::string(home) : ".";
   return base + "/.config/nitro/settings.json";
+}
+
+void NitroConfig::set_config(std::string config) {
+  if (fs::exists(config)) {
+    config_ = config;
+  }
 }
 
 // Load settings from disk into cfg.  Fields present in the file overwrite
