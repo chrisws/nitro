@@ -229,11 +229,6 @@ std::string Input::readline(TuiContext &tui) {
       ctrl_x_mode_ = false;
     }
 
-    if (ev.is(Key::F1)) {
-      tui.show_help();
-      continue;
-    }
-
     if (ev.is(Key::F2)) {
       mouse_mode_ = !mouse_mode_;
       tui.enable_mouse(mouse_mode_);

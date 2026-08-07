@@ -472,25 +472,6 @@ void Tui::show_modal_popup(const std::string &message) {
   notcurses_render(nc_);
 }
 
-void Tui::show_help() {
-  append_line(ICON_SYS + "Commands:");
-  append_line(ICON_SYS + "  /model  [path]           load a GGUF model (picker if no path)");
-  append_line(ICON_SYS + "  /embed  [path]           load an embedding model (picker if no path)");
-  append_line(ICON_SYS + "  /rag    [path]           index file or directory (picker if no path)");
-  append_line(ICON_SYS + "  /memory                  KV / VRAM / layer stats");
-  append_line(ICON_SYS + "  /clear                   reset conversation");
-  append_line(ICON_SYS + "  /settings                show current settings");
-  append_line(ICON_SYS + "  /theme                   toggle the theme");
-  append_line(ICON_SYS + "  /set    <key> <value>    change a setting live");
-  append_line(ICON_SYS + "  /help                    this message");
-  append_line(ICON_SYS + "  exit / quit              exit Nitro");
-  append_line(ICON_SYS + "Settable keys (via /set):");
-  append_line(ICON_SYS + "  temperature  top_p  top_k  min_p  penalty_repeat");
-  append_line(ICON_SYS + "  penalty_last_n  rag_top_k  n_gpu_layers");
-  append_line(ICON_SYS + "  run_allowed  (comma-separated list, e.g. python3,make)");
-  redraw_all();
-}
-
 void Tui::dismiss_modal_popup() {
   if (modal_plane_) {
     ncplane_destroy(modal_plane_);

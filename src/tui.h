@@ -321,7 +321,6 @@ class Tui final: TuiContext {
 
   // Modal popup overlay while a long operation runs.
   void show_modal_popup(const std::string &message);
-  void show_help() override;
   void dismiss_modal_popup();
 
   // ── folder picker popup ───────────────────────────────────────
