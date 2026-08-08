@@ -9,12 +9,12 @@
 #include <string>
 #include <fstream>
 #include <sstream>
-#include <iostream>
 #include <regex>
-#include <algorithm>
-#include <stdexcept>
+#include <filesystem>
 
-#include "patch.h"
+#include "file.h"
+
+namespace fs = std::filesystem;
 
 //
 // Check if a string has balanced braces and parentheses
@@ -129,7 +129,7 @@ static std::string replaceAll(std::string text, const std::string& old_block, co
 //
 // Main patch function
 //
-const std::string tool_patch(const std::string& filename, const std::string& patch_str) {
+std::string tool_patch(const std::string& filename, const std::string& patch_str) {
   // Read the target file
   std::ifstream file(filename);
   if (!file) {
@@ -189,3 +189,22 @@ const std::string tool_patch(const std::string& filename, const std::string& pat
   return "SUCCESS: Patch applied to " + filename;
 }
 
+std::string tool_write(const std::string &path, const std::string &data) {
+  fs::path p(path);
+  if (p.has_parent_path()) {
+    std::error_code ec;
+    fs::create_directories(p.parent_path(), ec);
+  }
+  std::ofstream f(path, std::ios::binary | std::ios::trunc);
+
+  // Validation TODO:
+  // error is content size shrinks by more than n%
+  // error file name is a curley brace lang (javascript, java, c, cpp++ etc?) and
+  //  1. content fails isBalanced
+  //  2. old content is > n-bytes must usa TOOL:PATCH instead
+  
+  if (f) {
+    f.write(data.data(), static_cast<std::streamsize>(data.size()));
+  }
+  return f && f.good() ? "OK: written to " + path : "ERROR: write failed for " + path;
+}

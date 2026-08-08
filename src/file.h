@@ -41,4 +41,5 @@
  * - always provide the complete function body, from signature to closing brace — never a partial range, never
  * - Must include the full function signature line as the first line of both OLD and NEW blocks, even if the signature itself is unchanged
  */
-const std::string tool_patch(const std::string& filename, const std::string& patch_str);
+std::string tool_patch(const std::string& filename, const std::string& patch_str);
+std::string tool_write(const std::string &path, const std::string &data);

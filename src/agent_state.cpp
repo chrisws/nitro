@@ -20,6 +20,7 @@
 #include "logging.h"
 #include "curl.h"
 #include "string_utils.h"
+#include "file.h"
 
 //
 // handling for strip_code_fences
@@ -81,18 +82,6 @@ static bool path_in_sandbox(const std::string &sandbox, const std::string &path)
   std::string bstr = base.string() + "/";
   std::string tstr = target.string();
   return tstr == base.string() || tstr.compare(0, bstr.size(), bstr) == 0;
-}
-
-static bool write_file(const std::string &path, const std::string &data) {
-  fs::path p(path);
-  if (p.has_parent_path()) {
-    std::error_code ec;
-    fs::create_directories(p.parent_path(), ec);
-  }
-  std::ofstream f(path, std::ios::binary | std::ios::trunc);
-  if (!f) return false;
-  f.write(data.data(), static_cast<std::streamsize>(data.size()));
-  return f.good();
 }
 
 //
@@ -533,8 +522,7 @@ std::string AgentState::process_tool(const std::string &cmd) {
     if (cfg_.permission_prompt_ && !tui_.confirm_dialog(std::format("Allow model to write {}?", p))) {
       return "ERROR: action prevented by user";
     }
-    std::string content = strip_code_fences(arg1, arg2);
-    return write_file(p, content) ? "OK: written to " + arg1 : "ERROR: write failed for " + arg1;
+    return tool_write(p, strip_code_fences(arg1, arg2));
   }
   if (op == "TOOL:MKDIR") {
     std::string p = resolve(arg1);
@@ -572,6 +560,10 @@ std::string AgentState::process_tool(const std::string &cmd) {
   if (op == "TOOL:MCP") {
     tui_.show_tool("mcp: " + arg1);
     return mcp_client_.call_tool(arg1, arg2);
+  }
+  if (op == "TOOL:PATCH") {
+    tui_.show_tool("patch: " + arg1);
+    return tool_patch(arg1, arg2);
   }
   return "ERROR: unknown tool: [" + op + "]";
 }
