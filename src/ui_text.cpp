@@ -6,7 +6,7 @@
 // Download the GNU Public License (GPL) from www.gnu.org
 //
 
-#include "ui.h"
+#include "ui_text.h"
 
 namespace ui {
 

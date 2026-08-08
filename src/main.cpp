@@ -32,7 +32,7 @@
 #include "curl.h"
 #include "mcp_client.h"
 #include "string_utils.h"
-#include "ui.h"
+#include "ui_text.h"
 
 // Returns the history file path: ~/.config/nitro/history.txt
 static std::string history_path() {
