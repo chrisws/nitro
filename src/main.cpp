@@ -302,9 +302,7 @@ int main(int argc, char **argv) {
   // ── Init MCP ──────────────────────────────────────────────────────
   if (do_mcp_test) {
     log_open_console();
-    if (!mcp_client.connect()) {
-      puts(mcp_client.get_system_context(cfg.mcp_filter_).c_str());
-    }
+    log_write(INFO_LEVEL, mcp_client.get_system_context(cfg.mcp_filter_).c_str());
     curl_close();
     log_close();    
     return 0;

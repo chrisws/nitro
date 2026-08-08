@@ -94,20 +94,21 @@ std::string formatSpec(const json::JsonValue &root) {
 
   if (root.get_str("name", name) &&
       root.get_str("description", description) &&
-      inputSchema.is_valid() &&
-      outputSchema.is_valid()) {
+      inputSchema.is_valid()) {
     result = "# Name: " + name + "\n\n";
     result += "## Description\n";
     result += description + "\n";
     result += required(inputSchema);
     result += "## Example request\n";
     result += "```\n";
-    result += createExample(inputSchema.get_child("properties"));;
-    result += "\n```\n\n";
-    result += "## Response schema\n";
-    result += "```\n";
-    result += outputSchema.to_string();
+    result += createExample(inputSchema.get_child("properties"));
     result += "\n```\n";
+    if (outputSchema.is_valid()) {
+      result += "\n## Response schema\n";
+      result += "```\n";
+      result += outputSchema.to_string();
+      result += "\n```\n";
+    }
   }
   return result;
 }

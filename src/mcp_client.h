@@ -22,6 +22,7 @@ struct Tool {
 };
 
 struct Settings {
+  std::string context_;
   std::string host_;
   int port_;
 };
@@ -29,7 +30,7 @@ struct Settings {
 class Client {
   public:
   Client();
-  ~Client();
+  virtual ~Client();
 
   bool enabled() const { return enabled_; }
   void enable() { enabled_ = true; }

@@ -80,6 +80,8 @@ static Settings load_settings() {
   Settings result;
   std::string settings_path;
 
+  result.context_ = "stream";
+
   // Try mcp.json first
   if (std::filesystem::exists("mcp.json")) {
     settings_path = "mcp.json";
@@ -117,6 +119,7 @@ static Settings load_settings() {
     if (auto server = root.get_child("server"); server.is_object()) {
       if (server.get_str("host", result.host_) &&
           server.get_int("port", result.port_)) {
+        server.get_str("context", result.context_);
         return result;
       }
     }
@@ -124,6 +127,7 @@ static Settings load_settings() {
     // alternative: top-level host/port
     if (root.get_str("host", result.host_) &&
         root.get_int("port", result.port_)) {
+      root.get_str("context", result.context_);
       return result;
     }
   } catch (...) {
@@ -143,6 +147,22 @@ Client::Client()
 
 Client::~Client() {
   disconnect();
+}
+
+void Client::disconnect() {
+  log_write(DEBUG_LEVEL, "disconnect entered");
+  sse_stop_.store(true);
+
+  if (sse_thread_.joinable()) {
+    sse_thread_.join();
+    log_write(DEBUG_LEVEL, "thread join completed");
+  }
+  if (curl_) {
+    log_write(DEBUG_LEVEL, "cleanup curl");
+    curl_easy_cleanup(curl_);
+    curl_ = nullptr;
+  }
+  session_id_.clear();
 }
 
 bool Client::notify_initialized() const {
@@ -170,7 +190,7 @@ void Client::start_sse_stream() {
     return;
   }
 
-  const std::string url = std::format("http://{}:{}/stream", settings_.host_, settings_.port_);
+  const std::string url = std::format("http://{}:{}/{}", settings_.host_, settings_.port_, settings_.context_);
   const std::string session_header = "Mcp-Session-Id: " + session_id_;
 
   sse_thread_ = std::thread([this, url, session_header]() {
@@ -198,6 +218,7 @@ void Client::start_sse_stream() {
     curl_slist_free_all(headers);
     curl_easy_cleanup(sse_curl_);
     sse_curl_ = nullptr;
+    log_write(INFO_LEVEL, "leaving SSE stream thread");
   });
 }
 
@@ -265,11 +286,7 @@ bool Client::connect() {
 
   auto params = doc.get_child("params");
   params.set_str("protocolVersion", "2025-06-18");
-
-  auto capabilities = params.get_child("capabilities");
-  auto roots = capabilities.get_child("roots");
-  roots.set_bool("listChanged", true);
-  capabilities.set_empty_obj("sampling");
+  params.set_empty_obj("capabilities");
 
   auto clientInfo = params.get_child("clientInfo");
   clientInfo.set_str("name", "nitro");
@@ -340,8 +357,8 @@ std::vector<Tool> Client::list_tools() const {
   root.set_str("method", "tools/list");
 
   // Set empty params
-  // auto params = doc.get_child("params");
-  // params.set_empty_obj("arguments");
+  auto params = doc.get_child("params");
+  params.set_empty_obj("arguments");
 
   const std::string params_str = doc.to_string();
   if (params_str.empty()) {
@@ -412,7 +429,7 @@ std::string Client::send_request(const std::string &request_body) const {
     curl_headers = curl_slist_append(curl_headers, session_header.c_str());
   }
 
-  const std::string base_url = std::format("http://{}:{}/stream", settings_.host_, settings_.port_);
+  const std::string base_url = std::format("http://{}:{}/{}", settings_.host_, settings_.port_, settings_.context_);
   curl_easy_setopt(curl_, CURLOPT_HTTPHEADER, curl_headers);
   curl_easy_setopt(curl_, CURLOPT_URL, base_url.c_str());
   curl_easy_setopt(curl_, CURLOPT_POSTFIELDS, request_body.c_str());
@@ -436,7 +453,7 @@ std::string Client::send_request(const std::string &request_body) const {
     return std::format("ERROR: curl: {}", curl_easy_strerror(res));
   }
   if (http_code >= 400) {
-    log_write(ERROR_LEVEL, "ERROR: HTTP %s", std::to_string(http_code).c_str());
+    log_write(ERROR_LEVEL, "ERROR: HTTP %s %s", std::to_string(http_code).c_str(), body.c_str());
     return std::format("ERROR: HTTP {} {}", std::to_string(http_code), body);
   }
 
@@ -444,18 +461,6 @@ std::string Client::send_request(const std::string &request_body) const {
   log_write(DEBUG_LEVEL, "sessionId [%s]", session_id_.c_str());
 
   return body;
-}
-
-void Client::disconnect() {
-  sse_stop_.store(true);
-  if (sse_curl_ != nullptr && sse_thread_.joinable()) {
-    sse_thread_.join();
-  }
-  if (curl_) {
-    curl_easy_cleanup(curl_);
-    curl_ = nullptr;
-  }
-  session_id_.clear();
 }
 
 std::string Client::call_tool(const std::string &name, const std::string &args_str) const {
