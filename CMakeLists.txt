@@ -202,8 +202,10 @@ add_executable(nitro
   src/input.cpp
   src/llama_sb_rag.cpp
   src/llama_sb.cpp
+  src/file.cpp
   src/agent_state.cpp
   src/tui.cpp
+  src/ui_text.cpp
   src/curl.cpp
   src/logging.cpp
   src/main.cpp

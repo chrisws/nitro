@@ -17,7 +17,7 @@
 namespace fs = std::filesystem;
 
 static const std::vector<std::string> curlyBraceExtensions = {
-  ".js", ".jsx", ".ts", ".tsx", ".java", ".c", ".cpp", ".h", ".hpp", ".cs", ".py", ".rb", ".go", ".rs", ".php", ".swift", ".kt", ".scala"
+  ".js", ".jsx", ".ts", ".tsx", ".java", ".c", ".cpp", ".h", ".hpp"
 };
 
 static bool isCurlyBraceLanguage(const fs::path& path) {
@@ -135,6 +135,34 @@ static std::string replaceAll(std::string text, const std::string& old_block, co
 }
 
 //
+// Append data to a file
+// Similar to tool_write but uses append mode
+//
+std::string tool_append(const std::string &path, const std::string &data) {
+  fs::path p(path);
+
+  // Validation checks for curly brace languages
+  // Check if it's a curly brace language and content is unbalanced
+  if (isCurlyBraceLanguage(p) && !isBalanced(data)) {
+    return "ERROR: File appears to be a curly brace language with unbalanced braces";
+  }
+
+  // Create parent directories if needed
+  if (p.has_parent_path()) {
+    std::error_code ec;
+    fs::create_directories(p.parent_path(), ec);
+  }
+
+  // Open file in append mode
+  std::ofstream f(path, std::ios::binary | std::ios::app);
+
+  if (f) {
+    f.write(data.data(), static_cast<std::streamsize>(data.size()));
+  }
+  return f && f.good() ? "OK: appended to " + path : "ERROR: append failed for " + path;
+}
+
+//
 // Main patch function
 //
 std::string tool_patch(const std::string& filename, const std::string& patch_str) {
@@ -197,6 +225,9 @@ std::string tool_patch(const std::string& filename, const std::string& patch_str
   return "SUCCESS: Patch applied to " + filename;
 }
 
+//
+// tool_write
+//
 std::string tool_write(const std::string &path, const std::string &data) {
   fs::path p(path);
 
@@ -237,3 +268,4 @@ std::string tool_write(const std::string &path, const std::string &data) {
   }
   return f && f.good() ? "OK: written to " + path : "ERROR: write failed for " + path;
 }
+

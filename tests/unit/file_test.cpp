@@ -330,8 +330,8 @@ void test_tool_write_curly_balanced() {
 
 // Test tool_write with curly brace language and unbalanced content
 void test_tool_write_curly_unbalanced() {
-  string test_file = "/tmp/test_curly_unbalanced.py";
-  string content = "def test():\n    return 1";
+  string test_file = "/tmp/test_curly_balanced.js";
+  string content = "function test() { return 1; }}";
 
   string result = tool_write(test_file, content);
   assert(result.find("ERROR") != string::npos);
@@ -474,6 +474,243 @@ void test_tool_write_multiline() {
   cout << "test_tool_write_multiline passed" << endl;
 }
 
+// Test tool_append with new file
+void test_tool_append_new_file() {
+  string test_file = "/tmp/test_append_new.cpp";
+  string content = "int main() { return 0; }";
+
+  string result = tool_append(test_file, content);
+  assert(result == "OK: appended to " + test_file);
+
+  // Verify file was created with correct content
+  ifstream in(test_file);
+  string file_content((istreambuf_iterator<char>(in)), istreambuf_iterator<char>());
+  in.close();
+
+  assert(file_content == content);
+
+  // Clean up
+  remove(test_file.c_str());
+
+  cout << "test_tool_append_new_file passed" << endl;
+}
+
+// Test tool_append with existing file
+void test_tool_append_existing_file() {
+  string test_file = "/tmp/test_append_existing.cpp";
+  string original_content = "int foo() { return 1; }";
+  string append_content = "int bar() { return 2; }";
+
+  // Create original file
+  ofstream out(test_file);
+  out << original_content;
+  out.close();
+
+  // Append new content
+  string result = tool_append(test_file, append_content);
+  assert(result == "OK: appended to " + test_file);
+
+  // Verify file has both contents
+  ifstream in(test_file);
+  string file_content((istreambuf_iterator<char>(in)), istreambuf_iterator<char>());
+  in.close();
+
+  assert(file_content == original_content + append_content);
+
+  // Clean up
+  remove(test_file.c_str());
+
+  cout << "test_tool_append_existing_file passed" << endl;
+}
+
+// Test tool_append with multiple appends
+void test_tool_append_multiple() {
+  string test_file = "/tmp/test_append_multiple.cpp";
+
+  // First append
+  tool_append(test_file, "line 1\n");
+  // Second append
+  tool_append(test_file, "line 2\n");
+  // Third append
+  tool_append(test_file, "line 3\n");
+
+  // Verify all content is there
+  ifstream in(test_file);
+  string file_content((istreambuf_iterator<char>(in)), istreambuf_iterator<char>());
+  in.close();
+
+  assert(file_content == "line 1\nline 2\nline 3\n");
+
+  // Clean up
+  remove(test_file.c_str());
+
+  cout << "test_tool_append_multiple passed" << endl;
+}
+
+// Test tool_append with nested directories
+void test_tool_append_nested_dirs() {
+  string test_file = "/tmp/nested/dir1/dir2/test.txt";
+  string content = "Hello World";
+
+  string result = tool_append(test_file, content);
+  assert(result == "OK: appended to " + test_file);
+
+  // Verify file was created
+  ifstream in(test_file);
+  string file_content((istreambuf_iterator<char>(in)), istreambuf_iterator<char>());
+  in.close();
+
+  assert(file_content == content);
+
+  // Clean up
+  remove(test_file.c_str());
+  fs::remove_all("/tmp/nested");
+
+  cout << "test_tool_append_nested_dirs passed" << endl;
+}
+
+// Test tool_append with curly brace language and balanced content
+void test_tool_append_curly_balanced() {
+  string test_file = "/tmp/test_curly_append.js";
+  string content = "function test() { return 1; }";
+
+  string result = tool_append(test_file, content);
+  assert(result == "OK: appended to " + test_file);
+
+  // Verify file was created
+  ifstream in(test_file);
+  string file_content((istreambuf_iterator<char>(in)), istreambuf_iterator<char>());
+  in.close();
+
+  assert(file_content == content);
+
+  // Clean up
+  remove(test_file.c_str());
+
+  cout << "test_tool_append_curly_balanced passed" << endl;
+}
+
+// Test tool_append with curly brace language and unbalanced content
+void test_tool_append_curly_unbalanced() {
+  string test_file = "/tmp/test_curly_balanced.js";
+  string content = "function test( { return 1; }";
+
+  string result = tool_append(test_file, content);
+  assert(result.find("ERROR") != string::npos);
+  assert(result.find("unbalanced") != string::npos);
+
+  // Verify file was NOT created
+  assert(!fs::exists(test_file));
+
+  cout << "test_tool_append_curly_unbalanced passed" << endl;
+}
+
+// Test tool_append with binary content
+void test_tool_append_binary() {
+  string test_file = "/tmp/test_append_binary.bin";
+  string content = "\x00\x01\x02\x03\x04\x05";
+
+  string result = tool_append(test_file, content);
+  assert(result == "OK: appended to " + test_file);
+
+  // Verify binary content was appended correctly
+  ifstream in(test_file, ios::binary);
+  string file_content((istreambuf_iterator<char>(in)), istreambuf_iterator<char>());
+  in.close();
+
+  assert(file_content == content);
+
+  // Clean up
+  remove(test_file.c_str());
+
+  cout << "test_tool_append_binary passed" << endl;
+}
+
+// Test tool_append with empty content
+void test_tool_append_empty() {
+  string test_file = "/tmp/test_append_empty.cpp";
+  string content = "";
+
+  string result = tool_append(test_file, content);
+  assert(result == "OK: appended to " + test_file);
+
+  // Verify file was created (empty)
+  ifstream in(test_file);
+  string file_content((istreambuf_iterator<char>(in)), istreambuf_iterator<char>());
+  in.close();
+
+  assert(file_content == "");
+
+  // Clean up
+  remove(test_file.c_str());
+
+  cout << "test_tool_append_empty passed" << endl;
+}
+
+// Test tool_append with special characters
+void test_tool_append_special_chars() {
+  string test_file = "/tmp/test_append_special.cpp";
+  string content = "int main() { return 1; } // comment with \"quotes\" and 'apostrophes'";
+
+  string result = tool_append(test_file, content);
+  assert(result == "OK: appended to " + test_file);
+
+  // Verify file was created with correct content
+  ifstream in(test_file);
+  string file_content((istreambuf_iterator<char>(in)), istreambuf_iterator<char>());
+  in.close();
+
+  assert(file_content == content);
+
+  // Clean up
+  remove(test_file.c_str());
+
+  cout << "test_tool_append_special_chars passed" << endl;
+}
+
+// Test tool_append with multi-line content
+void test_tool_append_multiline() {
+  string test_file = "/tmp/test_append_multiline.cpp";
+  string content = "int main() {\n    int x = 1;\n    int y = 2;\n    return x + y;\n}";
+
+  string result = tool_append(test_file, content);
+  assert(result == "OK: appended to " + test_file);
+
+  // Verify file was created with correct content
+  ifstream in(test_file);
+  string file_content((istreambuf_iterator<char>(in)), istreambuf_iterator<char>());
+  in.close();
+
+  assert(file_content == content);
+
+  // Clean up
+  remove(test_file.c_str());
+
+  cout << "test_tool_append_multiline passed" << endl;
+}
+
+// Test tool_append with log-like content
+void test_tool_append_log() {
+  string test_file = "/tmp/test_append.log";
+
+  // Simulate log entries
+  tool_append(test_file, "2024-01-01 10:00:00 INFO Starting application\n");
+  tool_append(test_file, "2024-01-01 10:00:01 DEBUG Loading config\n");
+  tool_append(test_file, "2024-01-01 10:00:02 INFO Application ready\n");
+
+  // Verify log entries are in order
+  ifstream in(test_file);
+  string file_content((istreambuf_iterator<char>(in)), istreambuf_iterator<char>());
+  in.close();
+
+  assert(file_content == "2024-01-01 10:00:00 INFO Starting application\n2024-01-01 10:00:01 DEBUG Loading config\n2024-01-01 10:00:02 INFO Application ready\n");
+
+  // Clean up
+  remove(test_file.c_str());
+
+  cout << "test_tool_append_log passed" << endl;
+}
+
 int main() {
   test_isBalanced();
   test_parsePatch();
@@ -487,7 +724,7 @@ int main() {
   test_tool_patch_empty_old();
   test_tool_patch_empty_new();
 
-  cout << "\nAll tool_patch tests passed!" << endl;
+  cout << "\nAll tool_patch tests passed!\n" << endl;
 
   test_tool_write_new_file();
   test_tool_write_overwrite();
@@ -501,7 +738,21 @@ int main() {
   test_tool_write_special_chars();
   test_tool_write_multiline();
 
-  cout << "\nAll tool_write tests passed!" << endl;
+  cout << "\nAll tool_write tests passed!\n" << endl;
+
+  test_tool_append_new_file();
+  test_tool_append_existing_file();
+  test_tool_append_multiple();
+  test_tool_append_nested_dirs();
+  test_tool_append_curly_balanced();
+  test_tool_append_curly_unbalanced();
+  test_tool_append_binary();
+  test_tool_append_empty();
+  test_tool_append_special_chars();
+  test_tool_append_multiline();
+  test_tool_append_log();
+
+  cout << "\nAll tool_append tests passed!\n" << endl;
 
   return 0;
 }

@@ -565,6 +565,10 @@ std::string AgentState::process_tool(const std::string &cmd) {
     tui_.show_tool("patch: " + arg1);
     return tool_patch(arg1, arg2);
   }
+  if (op == "TOOL:APPEND") {
+    tui_.show_tool("append: " + arg1);
+    return tool_append(arg1, arg2);
+  }
   return "ERROR: unknown tool: [" + op + "]";
 }
 
