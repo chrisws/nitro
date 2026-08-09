@@ -23,12 +23,13 @@ void test_isBalanced() {
   assert(isBalanced(")") == false);
   assert(isBalanced("{{") == false);
   assert(isBalanced("}}") == false);
-  assert(isBalanced("{()}") == false);
   assert(isBalanced("if (x) { return 1") == false);
-  
+
+  assert(isBalanced("{()}") == true);
+
   // Strings with strings (should still be balanced)
-  assert(isBalanced("\"hello\"") == false);
-  assert(isBalanced("\"hello\";") == false);
+  assert(isBalanced("\"hello\"") == true);
+  assert(isBalanced("\"hello\";") == true);
   assert(isBalanced("string s = \"hello\";") == true);
   
   cout << "test_isBalanced passed" << endl;
@@ -133,7 +134,7 @@ void test_tool_patch_missing_old() {
 // Test tool_patch function with multiple OLD blocks
 void test_tool_patch_multiple_old() {
   string test_file = "/tmp/test_patch3.cpp";
-  string content = "int foo() { return 1; }\nint foo() { return 2; }\nint bar() { return 3; }";
+  string content = "int foo() { return 1; }\nint foo() { return 1; }\nint bar() { return 3; }";
   
   ofstream out(test_file);
   out << content;

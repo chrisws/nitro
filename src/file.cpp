@@ -62,37 +62,33 @@ static std::pair<std::string, std::string> parsePatch(const std::string& patch_s
   std::string new_block;
   bool in_old = false;
   bool in_new = false;
-  std::string current_block;
 
   for (size_t i = 0; i < patch_str.length(); ++i) {
-    if (patch_str.substr(i, 6) == "<<<<<<<") {
+    if (patch_str.substr(i, PATCH_BEGIN.length()) == PATCH_BEGIN) {
       in_old = true;
       in_new = false;
-      i += 6;
+      i += PATCH_BEGIN.length();
       while (i < patch_str.length() && patch_str[i] != '\n') i++;
-      if (i < patch_str.length()) i++; // skip newline
       continue;
     }
 
-    if (patch_str.substr(i, 4) == "=====") {
+    if (patch_str.substr(i, PATCH_BOUNDARY.length()) == PATCH_BOUNDARY) {
       in_old = false;
       in_new = true;
-      i += 4;
+      i += PATCH_BOUNDARY.length();
       while (i < patch_str.length() && patch_str[i] != '\n') i++;
-      if (i < patch_str.length()) i++; // skip newline
       continue;
     }
 
-    if (patch_str.substr(i, 9) == ">>>>>>>") {
+    if (patch_str.substr(i, PATCH_END.length()) == PATCH_END) {
       in_new = false;
-      i += 9;
+      i += PATCH_END.length();
       while (i < patch_str.length() && patch_str[i] != '\n') i++;
-      if (i < patch_str.length()) i++; // skip newline
       continue;
     }
 
     if (in_old) {
-      current_block += patch_str[i];
+      old_block += patch_str[i];
     } else if (in_new) {
       new_block += patch_str[i];
     }
@@ -140,9 +136,9 @@ std::string tool_patch(const std::string& filename, const std::string& patch_str
   file.close();
 
   // Check for conflict markers in the file itself  
-  if (file_content.find("<<<<<<<") != std::string::npos ||
-      file_content.find("=======") != std::string::npos ||
-      file_content.find(">>>>>>>") != std::string::npos) {
+  if (file_content.find(PATCH_BEGIN) != std::string::npos ||
+      file_content.find(PATCH_BOUNDARY) != std::string::npos ||
+      file_content.find(PATCH_END) != std::string::npos) {
     return "ERROR: File contains conflict markers (<<<<<<</=======/>>>>>>>). Cannot patch.";
   }
 
