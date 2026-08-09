@@ -16,6 +16,18 @@
 
 namespace fs = std::filesystem;
 
+static const std::vector<std::string> curlyBraceExtensions = {
+  ".js", ".jsx", ".ts", ".tsx", ".java", ".c", ".cpp", ".h", ".hpp", ".cs", ".py", ".rb", ".go", ".rs", ".php", ".swift", ".kt", ".scala"
+};
+
+static bool isCurlyBraceLanguage(const fs::path& path) {
+  std::string ext = path.extension().string();
+  for (const auto& e : curlyBraceExtensions) {
+    if (ext == e) return true;
+  }
+  return false;
+}
+
 //
 // Check if a string has balanced braces and parentheses
 //
@@ -135,7 +147,7 @@ std::string tool_patch(const std::string& filename, const std::string& patch_str
                            std::istreambuf_iterator<char>());
   file.close();
 
-  // Check for conflict markers in the file itself  
+  // Check for conflict markers in the file itself
   if (file_content.find(PATCH_BEGIN) != std::string::npos ||
       file_content.find(PATCH_BOUNDARY) != std::string::npos ||
       file_content.find(PATCH_END) != std::string::npos) {
@@ -187,18 +199,39 @@ std::string tool_patch(const std::string& filename, const std::string& patch_str
 
 std::string tool_write(const std::string &path, const std::string &data) {
   fs::path p(path);
+
+  // Validation checks
+  if (fs::exists(p)) {
+    auto old_size = fs::file_size(p);
+
+    // Check if content shrinks by more than 50%
+    if (old_size > 0 && data.size() < old_size * 0.5) {
+      return "ERROR: Content size shrunk by more than 50%";
+    }
+
+    // Check if old content is > 200 bytes
+    if (old_size > 200) {
+      return "ERROR: File is large (> 200 bytes), use TOOL:PATCH instead";
+    }
+  }
+
+  // Check if it's a curly brace language and content is unbalanced
+  if (isCurlyBraceLanguage(p)) {
+    // Assume isBalanced exists
+    if (!isBalanced(data)) {
+      return "ERROR: File appears to be a curly brace language with unbalanced braces";
+    }
+  }
+
+  // Create parent directories if needed
   if (p.has_parent_path()) {
     std::error_code ec;
     fs::create_directories(p.parent_path(), ec);
   }
+
+  // Write the file
   std::ofstream f(path, std::ios::binary | std::ios::trunc);
 
-  // Validation TODO:
-  // error is content size shrinks by more than n%
-  // error file name is a curley brace lang (javascript, java, c, cpp++ etc?) and
-  //  1. content fails isBalanced
-  //  2. old content is > n-bytes must usa TOOL:PATCH instead
-  
   if (f) {
     f.write(data.data(), static_cast<std::streamsize>(data.size()));
   }
