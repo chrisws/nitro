@@ -24,7 +24,6 @@ Most agentic shells assume a hosted API and treat context as free. Nitro assumes
 
 - **notcurses TUI** — plane-based rendering, modal popups, persistent input history (Up/Down navigation), live `/set` commands for generation parameters.
 - **Fragmentation-aware KV cache management** — `full_flush_except_system()` as a graceful recovery path when sequence removal fragments the cache instead of compacting it; a `KVCachePreset` enum (`F16` / `Balanced` / `Compact`) coupled to flash-attention settings.
-- **Dynamic tool-result budgeting** — `max_tool_result_size()` targets ~75% of remaining context so a single large tool result can't blow the budget.
 - **Unambiguous tool-call protocol** — an explicit `NITRO_END_TOOL` terminator so tool boundaries never get confused with model chatter.
 - **Built-in tools** — `TOOL:CURL` (via libcurl, with HTML stripping) and an allowlisted `run_allowed` command runner.
 - **Pure C++ RAG pipeline** — semantic chunker, binary `.db` index, deduplicating `RagSession`, with a folder picker for building indexes on the fly.
