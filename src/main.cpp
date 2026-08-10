@@ -27,7 +27,7 @@
 #include "llama.h"
 #include "config.h"
 #include "tui.h"
-#include "agent_state.h"
+#include "agent.h"
 #include "logging.h"
 #include "curl.h"
 #include "mcp_client.h"
@@ -44,10 +44,7 @@ static std::string history_path() {
 //
 // Slash command handler
 //
-static void handle_slash(const std::string &input,
-                         NitroConfig       &cfg,
-                         AgentState        &agent,
-                         Tui          &tui) {
+static void handle_slash(const std::string &input, NitroConfig &cfg, Agent &agent, Tui &tui) {
   auto sp = input.find(' ');
   std::string verb = (sp == std::string::npos) ? input : input.substr(0, sp);
   std::string rest;
@@ -337,7 +334,7 @@ int main(int argc, char **argv) {
   ui::welcome(tui, cfg.sandbox_);
 
   // ── Init agent ────────────────────────────────────────────────────
-  AgentState agent(cfg, tui, mcp_client);
+  Agent agent(cfg, tui, mcp_client);
   if (!cfg.model_path_.empty()) {
     if (agent.setup_model()) {
       if (mcp_client.enabled()) {

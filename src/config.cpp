@@ -121,11 +121,19 @@ std::string NitroConfig::build_system_prompt() const {
     "- Do I need external data (files, tools)?\n"
     "- What is the safest and most correct action?\n"
     "</|think|>\n\n"
+
     "Rules:\n"
     "- Do NOT call tools inside <|think|>\n"
     "- Do NOT include the final answer inside <|think|>\n"
     "- Always follow <|think|> with either a tool call OR a final answer\n"
-    "- Skip <|think|> only for trivial or conversational responses\n\n"
+    "- Skip <|think|> only for trivial or conversational responses\n"
+    "- Use ASK when user intent is unclear or missing critical parameters\n"
+    "- Query RAG when user asks about project-specific knowledge or when uncertain\n\n"
+
+    "## Execution Model\n"
+    "- Single-threaded: Only ONE tool call can be active at a time\n"
+    "- Sequential execution: Wait for NITRO_TOOL_RESULT before issuing next tool\n"
+    "- No parallel tool calls or batched requests\n\n"
 
     "## Tool Protocol\n"
     "Emit ONE tool call at a time, immediately followed by NITRO_END_TOOL.\n"
@@ -223,7 +231,7 @@ std::string NitroConfig::build_system_prompt() const {
     "- If no user request is provided, respond with a brief readiness message\n\n"
 
     "## Auto-Restart Protocol\n"
-    "**When:** - When KV >= 80% (as reported in the tool results footer).\n"
+    "**When:** - When KV >= 75% (as reported in the tool results footer).\n"
     "**Steps:**\n"
     "1. **Save State:** Write current task context to `SESSION.md` using `TOOL:WRITE`.\n"
     "   - Include: Timestamp, KV usage, current task description, pending actions, and last conversation summary.\n"
@@ -239,7 +247,7 @@ std::string NitroConfig::build_system_prompt() const {
     "- <action 2>\n"
     "**Last Output:**\n"
     "<last few lines of conversation>\n"
-      "```\n\n";
+    "```\n\n";
 
   p += mcp_context_;
 

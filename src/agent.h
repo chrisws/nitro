@@ -17,15 +17,15 @@
 #include "mcp_client.h"
 
 //
-// AgentState
+// Agent
 //
-struct AgentState {
-  AgentState(NitroConfig &cfg, Tui &tui, mcp::Client &mcp_client)
+struct Agent {
+  Agent(NitroConfig &cfg, Tui &tui, mcp::Client &mcp_client)
     : cfg_(cfg)
     , tui_(tui)
     , mcp_client_(mcp_client) {
   }
-  ~AgentState() = default;
+  ~Agent() = default;
 
   bool run_turn(const std::string &user_message);
   bool setup_embed(const std::string &path);

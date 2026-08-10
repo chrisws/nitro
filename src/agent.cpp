@@ -16,7 +16,7 @@
 #include "llama.h"
 #include "config.h"
 #include "tui.h"
-#include "agent_state.h"
+#include "agent.h"
 #include "logging.h"
 #include "curl.h"
 #include "string_utils.h"
@@ -228,7 +228,7 @@ static std::string tool_run(const NitroConfig &cfg, Tui &tui, const std::string 
   return out;
 }
 
-void AgentState::apply_generation_params() const {
+void Agent::apply_generation_params() const {
   llama_->add_stop("<|turn|>");
   llama_->add_stop("<|im_end|>");
   llama_->set_max_tokens(512000);
@@ -244,7 +244,7 @@ void AgentState::apply_generation_params() const {
 //
 // Shows a modal loading popup while the model loads.
 //
-bool AgentState::setup_model() {
+bool Agent::setup_model() {
   if (cfg_.model_path_.empty()) {
     tui_.append_line(ICON_SYS + "No model loaded.  Use /model <path> to load a GGUF.");
     tui_.redraw_all();
@@ -285,7 +285,7 @@ bool AgentState::setup_model() {
   return true;
 }
 
-bool AgentState::setup_embed(const std::string &path) {
+bool Agent::setup_embed(const std::string &path) {
   tui_.show_modal_popup("Loading embedding model: " + fs::path(path).filename().string());
   tui_.redraw_all();
   embed_llama_ = std::make_unique<Llama>();
@@ -304,7 +304,7 @@ bool AgentState::setup_embed(const std::string &path) {
   return true;
 }
 
-void AgentState::reset_conversation(const std::string &sysprompt) {
+void Agent::reset_conversation(const std::string &sysprompt) {
   system_prompt_ = sysprompt;
   llama_->reset();
   cfg_.load_settings();
@@ -318,13 +318,13 @@ void AgentState::reset_conversation(const std::string &sysprompt) {
   }
 }
 
-double AgentState::elapsed_seconds() const {
+double Agent::elapsed_seconds() const {
   if (!iter_) return 0.0;
   auto now = std::chrono::high_resolution_clock::now();
   return std::chrono::duration<double>(now - iter_->_t_start).count();
 }
 
-float AgentState::tokens_per_sec() const {
+float Agent::tokens_per_sec() const {
   if (!iter_) return 0.0f;
   auto now = std::chrono::high_resolution_clock::now();
   double elapsed = std::chrono::duration<double>(now - iter_->_t_start).count();
@@ -332,13 +332,13 @@ float AgentState::tokens_per_sec() const {
   return static_cast<float>(iter_->_tokens_generated / elapsed);
 }
 
-std::string AgentState::memory_info_status() const {
+std::string Agent::memory_info_status() const {
   float kv_percent = llama_->memory_kv_percent();
   auto message = kv_percent > 75 ? "(Warning: Approaching limit)" : "";
   return std::format("\n[KV-INFO] KV Cache: {}%{} [/KV-INFO]", kv_percent, message);
 }
 
-std::string AgentState::memory_info_text() const {
+std::string Agent::memory_info_text() const {
   if (!model_loaded_) return "No model loaded.";
   LlamaMemoryInfo m = llama_->memory_info();
   std::ostringstream oss;
@@ -354,7 +354,7 @@ std::string AgentState::memory_info_text() const {
   return oss.str();
 }
 
-std::string AgentState::rag_tool(const std::string &agent_query) const {
+std::string Agent::rag_tool(const std::string &agent_query) const {
   std::string result;
   if (embed_llama_ && rag_db_ && rag_session_) {
     result = embed_llama_->rag_retrieve(*rag_db_, agent_query, cfg_.rag_top_k_, *rag_session_);
@@ -367,7 +367,7 @@ std::string AgentState::rag_tool(const std::string &agent_query) const {
   return result;
 }
 
-bool AgentState::rag_load_index(const std::string &path) const {
+bool Agent::rag_load_index(const std::string &path) const {
   if (!embed_llama_ || !rag_db_) {
     tui_.append_line(ICON_ERR + "Load an embedding model first: /embed <path>");
     tui_.redraw_all();
@@ -382,7 +382,7 @@ bool AgentState::rag_load_index(const std::string &path) const {
   return true;
 }
 
-bool AgentState::rag_index(const std::string &path) const {
+bool Agent::rag_index(const std::string &path) const {
   if (!embed_llama_ || !rag_db_) {
     tui_.append_line(ICON_ERR + "Load an embedding model first: /embed <path>");
     tui_.redraw_all();
@@ -419,7 +419,7 @@ bool AgentState::rag_index(const std::string &path) const {
   return rag_db_->save(save_path);
 }
 
-std::string AgentState::restart() {
+std::string Agent::restart() {
   if (fs::exists("SESSION.md")) {
     std::vector<std::string> knowledge_files;
     reset_conversation(cfg_.build_system_prompt());
@@ -433,7 +433,7 @@ std::string AgentState::restart() {
 //
 // Tool dispatch
 //
-std::string AgentState::process_tool(const std::string &cmd) {
+std::string Agent::process_tool(const std::string &cmd) {
   const std::string &sandbox = cfg_.sandbox_;
 
   std::string op, arg1, arg2;
@@ -572,7 +572,7 @@ std::string AgentState::process_tool(const std::string &cmd) {
   return "ERROR: unknown tool: [" + op + "]";
 }
 
-void AgentState::invoke_tool(const std::string &buffer, const std::string_view template_str) {
+void Agent::invoke_tool(const std::string &buffer, const std::string_view template_str) {
   static constexpr std::string KV_START = "[KV-INFO]";
   static constexpr std::string KV_END = "[/KV-INFO]";
   static const std::string_view END_TOOL = "\nNITRO_END_TOOL";
@@ -620,7 +620,7 @@ void AgentState::invoke_tool(const std::string &buffer, const std::string_view t
 //
 // Agent turn
 //
-bool AgentState::run_turn(const std::string &user_message) {
+bool Agent::run_turn(const std::string &user_message) {
   if (!model_loaded_) {
     tui_.append_line(ICON_ERR + "No model loaded. Use /model <path>");
     tui_.redraw_all();
