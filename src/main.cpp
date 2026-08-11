@@ -231,11 +231,9 @@ static void handle_slash(const std::string &input, NitroConfig &cfg, Agent &agen
 // main()
 //
 int main(int argc, char **argv) {
-  // ── Load persisted settings first (provides defaults) ────────────
   NitroConfig cfg;
 
   // ── Parse arguments (command-line overrides saved settings) ──────
-  cfg.load_settings();
   auto resolve_path = [](const std::string &arg) -> std::string {
     if (arg.substr(0, 2) == "~/") {
       const char *home = getenv("HOME");
@@ -271,7 +269,7 @@ int main(int argc, char **argv) {
     } else if (a == "--mcp") {
       mcp_client.enable();
     } else if (a == "--mcp-test") {
-      do_mcp_test = true;      
+      do_mcp_test = true;
     } else if (a == "--skill") {
       cfg.knowledge_files_.emplace_back(take_next(a.c_str()));
     } else if (a == "-c" || a == "--config") {
@@ -293,6 +291,9 @@ int main(int argc, char **argv) {
     }
   }
 
+  // ── Load persisted settings first (provides defaults) ─────────────
+  cfg.load_settings();
+
   // ── Init curl globally ────────────────────────────────────────────
   curl_init();
 
@@ -301,7 +302,7 @@ int main(int argc, char **argv) {
     log_open_console();
     log_write(INFO_LEVEL, mcp_client.get_system_context(cfg.mcp_filter_).c_str());
     curl_close();
-    log_close();    
+    log_close();
     return 0;
   }
 
