@@ -23,6 +23,12 @@ constexpr std::string g_block = "█";
 //
 // Graph data structure for visualization
 //
+struct TreeNode {
+  std::string label;
+  float value;
+  std::vector<TreeNode> children;
+};
+
 struct GraphData {
   std::string title_;
   std::string type_;
@@ -31,6 +37,9 @@ struct GraphData {
   int height_ = 24;
   std::string color_;
   std::string unit_;
+
+  // Nested tree support
+  std::vector<TreeNode> tree_nodes_;
 
   // Validation
   bool isValid() const;
@@ -150,6 +159,23 @@ bool GraphData::isValid() const {
 //
 // JSON parsing
 //
+static TreeNode parse_tree_node(const json::JsonValue &item) {
+  TreeNode node;
+  if (item.is_object()) {
+    item.get_str("label", node.label);
+    item.get_float("value", node.value);
+
+    // Parse children if present
+    std::vector<json::JsonValue> children_arr;
+    if (item.get_array("children", children_arr)) {
+      for (const auto &child : children_arr) {
+        node.children.push_back(parse_tree_node(child));
+      }
+    }
+  }
+  return node;
+}
+
 std::optional<GraphData> parse(const std::string &json) {
   json::JsonDoc doc = json::parse(json);
   if (!doc.is_valid()) {
@@ -193,6 +219,16 @@ std::optional<GraphData> parse(const std::string &json) {
     }
   }
 
+  // Parse tree nodes for tree type
+  if (result.type_ == "tree") {
+    std::vector<json::JsonValue> tree_arr;
+    if (root.get_array("data", tree_arr)) {
+      for (const auto &item : tree_arr) {
+        result.tree_nodes_.push_back(parse_tree_node(item));
+      }
+    }
+  }
+
   if (result.isValid() && !result.data_.empty()) {
     return result;
   }
@@ -202,7 +238,7 @@ std::optional<GraphData> parse(const std::string &json) {
 //
 // Rendering functions
 //
-static void render_bar_chart(Canvas &canvas, const GraphData &data) {
+static void render_bar_chart(Canvas &canvas, const GraphData &data, bool horizontal = false) {
   int width = data.width_;
   int height = data.height_;
 
@@ -250,6 +286,90 @@ static void render_bar_chart(Canvas &canvas, const GraphData &data) {
   }
 }
 
+static void render_horizontal_bar_chart(Canvas &canvas, const GraphData &data) {
+  int width = data.width_;
+  int height = data.height_;
+
+  // Find max value for scaling
+  float max_val = 0;
+  for (const auto &point : data.data_) {
+    max_val = std::max(max_val, point.second);
+  }
+  if (max_val == 0) max_val = 1;
+
+  // Calculate bar dimensions
+  int bar_area_width = width - 4; // Leave space for labels and values
+  int bar_area_height = height - 4; // Leave space for title and axis labels
+  int bar_height = std::max(1, bar_area_height / static_cast<int>(data.data_.size()));
+
+  // Draw title
+  if (!data.title_.empty()) {
+    canvas.draw_text(data.color_, 2, 1, data.title_);
+  }
+
+  // Draw axes
+  canvas.draw_hline(data.color_, 2, height - 2, width - 2);
+  canvas.draw_vline(data.color_, width - 2, 2, height - 3);
+
+  // Draw bars (horizontal)
+  for (size_t i = 0; i < data.data_.size(); ++i) {
+    int y = 4 + static_cast<int>(i) * bar_height;
+    int bar_width = static_cast<int>((data.data_[i].second / max_val) * bar_area_width);
+
+    // Draw bar
+    for (int x = 0; x < bar_width; ++x) {
+      canvas.draw_char(data.color_, width - 3 - x, y, g_block);
+    }
+
+    // Draw label
+    if (bar_height >= 4 && !data.data_[i].first.empty()) {
+      std::string label = data.data_[i].first.substr(0, bar_height - 2);
+      canvas.draw_text(data.color_, 2, y + 1, label);
+    }
+
+    // Draw value
+    std::ostringstream value_str;
+    value_str << std::fixed << std::setprecision(1) << data.data_[i].second;
+    canvas.draw_text(data.color_, width - 4, y, value_str.str());
+  }
+}
+
+static void render_tree_node(Canvas &canvas, const TreeNode &node, int indent_level, int &y, int width, int height, const std::string &color) {
+  if (y >= height - 1) return;
+
+  // Calculate indentation
+  int indent = indent_level * 2;
+  std::string prefix;
+  for (int i = 0; i < indent; i++) {
+    prefix += " ";
+  }
+
+  // Add connector based on position
+  if (indent_level > 0) {
+    prefix += "├── ";
+  } else {
+    prefix += "└── ";
+  }
+
+  // Build line with label and value
+  std::ostringstream line;
+  line << prefix << node.label << " (" << std::fixed << std::setprecision(1) << node.value << ")";
+
+  // Truncate if too long
+  std::string line_str = line.str();
+  if (line_str.length() > static_cast<size_t>(width - 2)) {
+    line_str = line_str.substr(0, width - 2);
+  }
+
+  canvas.draw_text(color, 2, y, line_str);
+  y++;
+
+  // Render children
+  for (const auto &child : node.children) {
+    render_tree_node(canvas, child, indent_level + 1, y, width, height, color);
+  }
+}
+
 static void render_tree_view(Canvas &canvas, const GraphData &data) {
   int width = data.width_;
   int height = data.height_;
@@ -259,19 +379,10 @@ static void render_tree_view(Canvas &canvas, const GraphData &data) {
   }
 
   int y = 3;
-  for (const auto &point : data.data_) {
-    if (y >= height - 1) break;
 
-    std::ostringstream line;
-    line << "├── " << point.first << " (" << std::fixed << std::setprecision(1) << point.second << ")";
-
-    std::string line_str = line.str();
-    if (line_str.length() > static_cast<size_t>(width - 2)) {
-      line_str = line_str.substr(0, width - 2);
-    }
-
-    canvas.draw_text(data.color_, 2, y, line_str);
-    y++;
+  // Render root nodes
+  for (const auto &node : data.tree_nodes_) {
+    render_tree_node(canvas, node, 0, y, width, height, data.color_);
   }
 }
 
@@ -284,7 +395,7 @@ GraphResult tool_graph(int term_cols, const std::string &graph_json) {
     result.set_error("No data to render");
   } else if (!data->isValid()) {
     result.set_error("Invalid graph data");
-  } else if (data->type_ != "bar" && data->type_ != "tree") {
+  } else if (data->type_ != "bar" && data->type_ != "tree" && data->type_ != "horizontal") {
     result.set_error("Unsupported graph type");
   } else {
     data->width_ = std::min(data->width_, term_cols);
@@ -292,6 +403,8 @@ GraphResult tool_graph(int term_cols, const std::string &graph_json) {
     Canvas canvas(data->width_, data->height_);
     if (data->type_ == "bar") {
       render_bar_chart(canvas, *data);
+    } else if (data->type_ == "horizontal") {
+      render_horizontal_bar_chart(canvas, *data);
     } else {
       render_tree_view(canvas, *data);
     }
