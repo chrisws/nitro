@@ -11,26 +11,27 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-add_executable(file_test
-  unit/file_test.cpp
+add_executable(nitro_tests
+  ../yyjson/src/yyjson.c
+  ../src/json.cpp
+  ../src/graph.cpp
+  src/file_test.cpp
+  src/graph_test.cpp
+  src/main.cpp
 )
 
 # Basic test includes (no llama, no curl dependencies)
-target_include_directories(file_test PRIVATE
+target_include_directories(nitro_tests PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}
+  ${CMAKE_CURRENT_SOURCE_DIR}/../yyjson/src
   ${CMAKE_CURRENT_SOURCE_DIR}/../src
 )
 
-# Link only standard libraries (no external deps)
-target_link_libraries(file_test PRIVATE
-  stdc++fs
-)
-
-set_target_properties(file_test PROPERTIES
+set_target_properties(nitro_tests PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
 )
 
 # Add test discovery
 enable_testing()
-add_test(NAME file_test COMMAND file_test)
+add_test(NAME nitro_tests COMMAND nitro_tests)
 

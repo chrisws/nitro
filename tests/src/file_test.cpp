@@ -6,7 +6,7 @@
 using namespace std;
 
 // Test isBalanced function
-void test_isBalanced() {
+static void test_isBalanced() {
   // Valid balanced strings
   assert(isBalanced("{}") == true);
   assert(isBalanced("()") == true);
@@ -36,7 +36,7 @@ void test_isBalanced() {
 }
 
 // Test parsePatch function
-void test_parsePatch() {
+static void test_parsePatch() {
   string patch1 = "<<<<<<< OLD\nint foo() { return 1; }\n=======\nint foo() { return 2; }\n>>>>>>> NEW";
 
   auto [old1, new1] = parsePatch(patch1);
@@ -53,7 +53,7 @@ void test_parsePatch() {
 }
 
 // Test countOccurrences function
-void test_countOccurrences() {
+static void test_countOccurrences() {
   string text = "foo foo foo";
   assert(countOccurrences(text, "foo") == 3);
 
@@ -70,7 +70,7 @@ void test_countOccurrences() {
 }
 
 // Test replaceAll function
-void test_replaceAll() {
+static void test_replaceAll() {
   string text = "foo bar foo baz foo";
   string result = replaceAll(text, "foo", "qux");
   assert(result == "qux bar qux baz qux");
@@ -83,7 +83,7 @@ void test_replaceAll() {
 }
 
 // Test tool_patch function with valid patch
-void test_tool_patch_valid() {
+static void test_tool_patch_valid() {
   // Create a temporary file with test content
   string test_file = "/tmp/test_patch.cpp";
   string content = "int foo() { return 1; }\nint bar() { return 2; }";
@@ -111,7 +111,7 @@ void test_tool_patch_valid() {
 }
 
 // Test tool_patch function with missing OLD block
-void test_tool_patch_missing_old() {
+static void test_tool_patch_missing_old() {
   string test_file = "/tmp/test_patch2.cpp";
   string content = "int foo() { return 1; }\nint bar() { return 2; }";
 
@@ -132,7 +132,7 @@ void test_tool_patch_missing_old() {
 }
 
 // Test tool_patch function with multiple OLD blocks
-void test_tool_patch_multiple_old() {
+static void test_tool_patch_multiple_old() {
   string test_file = "/tmp/test_patch3.cpp";
   string content = "int foo() { return 1; }\nint foo() { return 1; }\nint bar() { return 3; }";
 
@@ -153,7 +153,7 @@ void test_tool_patch_multiple_old() {
 }
 
 // Test tool_patch function with unbalanced NEW block
-void test_tool_patch_unbalanced() {
+static void test_tool_patch_unbalanced() {
   string test_file = "/tmp/test_patch4.cpp";
   string content = "int foo() { return 1; }\n";
 
@@ -174,7 +174,7 @@ void test_tool_patch_unbalanced() {
 }
 
 // Test tool_patch function with conflict markers in file
-void test_tool_patch_conflict_markers() {
+static void test_tool_patch_conflict_markers() {
   string test_file = "/tmp/test_patch5.cpp";
   string content = "<<<<<<< CONFLICT\nint foo() { return 1; }\n=======\nint foo() { return 2; }\n>>>>>>> CONFLICT\n";
 
@@ -195,7 +195,7 @@ void test_tool_patch_conflict_markers() {
 }
 
 // Test tool_patch function with empty OLD block
-void test_tool_patch_empty_old() {
+static void test_tool_patch_empty_old() {
   string test_file = "/tmp/test_patch6.cpp";
   string content = "int foo() { return 1; }\n";
 
@@ -216,7 +216,7 @@ void test_tool_patch_empty_old() {
 }
 
 // Test tool_patch function with empty NEW block
-void test_tool_patch_empty_new() {
+static void test_tool_patch_empty_new() {
   string test_file = "/tmp/test_patch7.cpp";
   string content = "int foo() { return 1; }\n";
 
@@ -237,7 +237,7 @@ void test_tool_patch_empty_new() {
 }
 
 // Test tool_write with new file
-void test_tool_write_new_file() {
+static void test_tool_write_new_file() {
   string test_file = "/tmp/test_write_new.cpp";
   string content = "int main() { return 0; }";
 
@@ -258,7 +258,7 @@ void test_tool_write_new_file() {
 }
 
 // Test tool_write with existing file (overwrite)
-void test_tool_write_overwrite() {
+static void test_tool_write_overwrite() {
   string test_file = "/tmp/test_write_overwrite.cpp";
   string original_content = "int foo() { return 1; }";
   string new_content = "int foo() { return 2; }";
@@ -286,7 +286,7 @@ void test_tool_write_overwrite() {
 }
 
 // Test tool_write with nested directories
-void test_tool_write_nested_dirs() {
+static void test_tool_write_nested_dirs() {
   string test_file = "/tmp/nested/dir1/dir2/test.cpp";
   string content = "int bar() { return 42; }";
 
@@ -308,7 +308,7 @@ void test_tool_write_nested_dirs() {
 }
 
 // Test tool_write with curly brace language and balanced content
-void test_tool_write_curly_balanced() {
+static void test_tool_write_curly_balanced() {
   string test_file = "/tmp/test_curly_balanced.js";
   string content = "function test() { return 1; }";
 
@@ -329,7 +329,7 @@ void test_tool_write_curly_balanced() {
 }
 
 // Test tool_write with curly brace language and unbalanced content
-void test_tool_write_curly_unbalanced() {
+static void test_tool_write_curly_unbalanced() {
   string test_file = "/tmp/test_curly_balanced.js";
   string content = "function test() { return 1; }}";
 
@@ -344,7 +344,7 @@ void test_tool_write_curly_unbalanced() {
 }
 
 // Test tool_write with non-curly brace language
-void test_tool_write_non_curly() {
+static void test_tool_write_non_curly() {
   string test_file = "/tmp/test_non_curly.txt";
   string content = "Hello World";
 
@@ -365,7 +365,7 @@ void test_tool_write_non_curly() {
 }
 
 // Test tool_write with large file (> 200 bytes)
-void test_tool_write_large_file() {
+static void test_tool_write_large_file() {
   string test_file = "/tmp/test_large.cpp";
   string content = "int main() { return 0; }";
 
@@ -391,7 +391,7 @@ void test_tool_write_large_file() {
 }
 
 // Test tool_write with binary content
-void test_tool_write_binary() {
+static void test_tool_write_binary() {
   string test_file = "/tmp/test_binary.bin";
   string content = "\x00\x01\x02\x03\x04\x05";
 
@@ -412,7 +412,7 @@ void test_tool_write_binary() {
 }
 
 // Test tool_write with empty content
-void test_tool_write_empty() {
+static void test_tool_write_empty() {
   string test_file = "/tmp/test_empty.cpp";
   string content = "";
 
@@ -433,7 +433,7 @@ void test_tool_write_empty() {
 }
 
 // Test tool_write with special characters
-void test_tool_write_special_chars() {
+static void test_tool_write_special_chars() {
   string test_file = "/tmp/test_special.cpp";
   string content = "int main() { return 1; } // comment with \"quotes\" and 'apostrophes'";
 
@@ -454,7 +454,7 @@ void test_tool_write_special_chars() {
 }
 
 // Test tool_write with multi-line content
-void test_tool_write_multiline() {
+static void test_tool_write_multiline() {
   string test_file = "/tmp/test_multiline.cpp";
   string content = "int main() {\n    int x = 1;\n    int y = 2;\n    return x + y;\n}";
 
@@ -475,7 +475,7 @@ void test_tool_write_multiline() {
 }
 
 // Test tool_append with new file
-void test_tool_append_new_file() {
+static void test_tool_append_new_file() {
   string test_file = "/tmp/test_append_new.cpp";
   string content = "int main() { return 0; }";
 
@@ -496,7 +496,7 @@ void test_tool_append_new_file() {
 }
 
 // Test tool_append with existing file
-void test_tool_append_existing_file() {
+static void test_tool_append_existing_file() {
   string test_file = "/tmp/test_append_existing.cpp";
   string original_content = "int foo() { return 1; }";
   string append_content = "int bar() { return 2; }";
@@ -524,7 +524,7 @@ void test_tool_append_existing_file() {
 }
 
 // Test tool_append with multiple appends
-void test_tool_append_multiple() {
+static void test_tool_append_multiple() {
   string test_file = "/tmp/test_append_multiple.cpp";
 
   // First append
@@ -548,7 +548,7 @@ void test_tool_append_multiple() {
 }
 
 // Test tool_append with nested directories
-void test_tool_append_nested_dirs() {
+static void test_tool_append_nested_dirs() {
   string test_file = "/tmp/nested/dir1/dir2/test.txt";
   string content = "Hello World";
 
@@ -570,7 +570,7 @@ void test_tool_append_nested_dirs() {
 }
 
 // Test tool_append with curly brace language and balanced content
-void test_tool_append_curly_balanced() {
+static void test_tool_append_curly_balanced() {
   string test_file = "/tmp/test_curly_append.js";
   string content = "function test() { return 1; }";
 
@@ -591,7 +591,7 @@ void test_tool_append_curly_balanced() {
 }
 
 // Test tool_append with curly brace language and unbalanced content
-void test_tool_append_curly_unbalanced() {
+static void test_tool_append_curly_unbalanced() {
   string test_file = "/tmp/test_curly_balanced.js";
   string content = "function test( { return 1; }";
 
@@ -606,7 +606,7 @@ void test_tool_append_curly_unbalanced() {
 }
 
 // Test tool_append with binary content
-void test_tool_append_binary() {
+static void test_tool_append_binary() {
   string test_file = "/tmp/test_append_binary.bin";
   string content = "\x00\x01\x02\x03\x04\x05";
 
@@ -627,7 +627,7 @@ void test_tool_append_binary() {
 }
 
 // Test tool_append with empty content
-void test_tool_append_empty() {
+static void test_tool_append_empty() {
   string test_file = "/tmp/test_append_empty.cpp";
   string content = "";
 
@@ -648,7 +648,7 @@ void test_tool_append_empty() {
 }
 
 // Test tool_append with special characters
-void test_tool_append_special_chars() {
+static void test_tool_append_special_chars() {
   string test_file = "/tmp/test_append_special.cpp";
   string content = "int main() { return 1; } // comment with \"quotes\" and 'apostrophes'";
 
@@ -669,7 +669,7 @@ void test_tool_append_special_chars() {
 }
 
 // Test tool_append with multi-line content
-void test_tool_append_multiline() {
+static void test_tool_append_multiline() {
   string test_file = "/tmp/test_append_multiline.cpp";
   string content = "int main() {\n    int x = 1;\n    int y = 2;\n    return x + y;\n}";
 
@@ -690,7 +690,7 @@ void test_tool_append_multiline() {
 }
 
 // Test tool_append with log-like content
-void test_tool_append_log() {
+static void test_tool_append_log() {
   string test_file = "/tmp/test_append.log";
 
   // Simulate log entries
@@ -711,7 +711,7 @@ void test_tool_append_log() {
   cout << "test_tool_append_log passed" << endl;
 }
 
-int main() {
+void file_test() {
   test_isBalanced();
   test_parsePatch();
   test_countOccurrences();
@@ -753,8 +753,6 @@ int main() {
   test_tool_append_log();
 
   cout << "\nAll tool_append tests passed!\n" << endl;
-
-  return 0;
 }
 
 
