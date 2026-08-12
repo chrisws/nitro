@@ -206,6 +206,7 @@ add_executable(nitro
   src/agent.cpp
   src/tui.cpp
   src/ui_text.cpp
+  src/graph.cpp
   src/curl.cpp
   src/logging.cpp
   src/main.cpp

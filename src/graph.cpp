@@ -20,52 +20,85 @@ constexpr std::string g_horz_bar = "─";
 constexpr std::string g_vert_bar = "│";
 constexpr std::string g_block = "█";
 
-namespace
-{
-  // Graph data structure for visualization
-  struct GraphData {
-    std::string title_;
-    // "bar", "line", "tree", "network"
-    std::string type_;
-    std::vector<std::pair<std::string, float>> data_;
-    int width_ = 80;
-    int height_ = 24;
-    std::string color_;
-    std::string unit_;
+//
+// Graph data structure for visualization
+//
+struct GraphData {
+  std::string title_;
+  std::string type_;
+  std::vector<std::pair<std::string, float>> data_;
+  int width_ = 80;
+  int height_ = 24;
+  std::string color_;
+  std::string unit_;
 
-    // Validation
-    bool isValid() const;
-  };
-}
+  // Validation
+  bool isValid() const;
+};
 
-namespace
-{
-  //
-  // Canvas class for drawing operations
-  //
-  class Canvas {
+//
+// Canvas class for drawing operations
+//
+class Canvas {
   public:
-    Canvas(std::vector<std::string> buffer, int width, int height);
+  Canvas(size_t width, size_t height)
+    : width_(width)
+    , height_(height) {
+    buffer_.resize(height, std::vector<std::string>(width, ""));
+  }
 
-    void draw_vline(const std::string &color, int x, int y1, int y2);
-    void draw_hline(const std::string &color, int x1, int y1, int x2);
-    void draw_text(const std::string &color, int x, int y, const std::string &text);
-    void draw_char(const std::string &color, int x, int y, std::string c);
+  void draw_vline(const std::string &color, int x, int y1, int y2);
+  void draw_hline(const std::string &color, int x1, int y1, int x2);
+  void draw_text(const std::string &color, int x, int y, const std::string &str);
+  void draw_char(const std::string &color, int x, int y, const std::string str);
 
-    int getWidth() const { return width_; }
-    int getHeight() const { return height_; }
+  // Set a unicode character (as string) at position (y, x)
+  void insert_at(size_t y, size_t x, std::string str);
+
+  // Clear the entire canvas
+  void clear();
+
+  // Get canvas dimensions
+  int width() const { return width_; }
+  int height() const { return height_; }
+
+  // Render the canvas by concatenating all columns into rows
+  std::vector<std::string> render() const;
 
   private:
-    std::vector<std::string> &buffer_;
-    int width_;
-    int height_;
-  };
+  std::vector<std::vector<std::string>> buffer_;
+  int width_ = 0;
+  int height_ = 0;
+};
+
+void Canvas::clear() {
+  for (auto& row : buffer_) {
+    for (auto& cell : row) {
+      cell.clear();
+    }
+  }
 }
 
-Canvas::Canvas(std::vector<std::string> buffer, int width, int height)
-  : buffer_(buffer)
-  , width_(width), height_(height) {
-  buffer_.resize(height, std::string(width, ' '));
+std::vector<std::string> Canvas::render() const {
+  std::vector<std::string> result;
+  result.reserve(height_);
+  for (size_t y = 0; y < height_; ++y) {
+    std::string row;
+    // Reserve space for potential multi-byte chars
+    row.reserve(width_ * 4);
+    for (size_t x = 0; x < width_; ++x) {
+      row += buffer_[y][x];
+    }
+    result.push_back(row);
+  }
+  return result;
+}
+
+void Canvas::insert_at(size_t y, size_t x, std::string wch) {
+  if (x < 0 || x >= width_ || y < 0 || y >= height_) {
+    return;
+  }
+  buffer_[y][x] = wch;
 }
 
 void Canvas::draw_vline(const std::string &color, int x, int y1, int y2) {
@@ -73,21 +106,25 @@ void Canvas::draw_vline(const std::string &color, int x, int y1, int y2) {
   int startY = std::max(0, y1);
   int endY = std::min(height_ - 1, y2);
   for (int y = startY; y <= endY; ++y) {
-    buffer_[y][x] = g_vert_bar.front();
+    insert_at(y, x, g_vert_bar);
   }
 }
 
 void Canvas::draw_hline(const std::string &color, int x1, int y1, int x2) {
-  if (y1 < 0 || y1 >= height_) return;
+  if (y1 < 0 || y1 >= height_) {
+    return;
+  }
   int startX = std::max(0, x1);
   int endX = std::min(width_ - 1, x2);
   for (int x = startX; x <= endX; ++x) {
-    buffer_[y1][x] = g_horz_bar.front();
+    insert_at(y1, x, g_horz_bar);
   }
 }
 
 void Canvas::draw_text(const std::string &color, int x, int y, const std::string &text) {
-  if (y < 0 || y >= height_) return;
+  if (y < 0 || y >= height_) {
+    return;
+  }
   for (size_t i = 0; i < text.length(); ++i) {
     int pos = x + static_cast<int>(i);
     if (pos >= 0 && pos < width_) {
@@ -96,9 +133,8 @@ void Canvas::draw_text(const std::string &color, int x, int y, const std::string
   }
 }
 
-void Canvas::draw_char(const std::string &color, int x, int y, std::string c) {
-  if (x < 0 || x >= width_ || y < 0 || y >= height_) return;
-  buffer_[y][x] = c.front();
+void Canvas::draw_char(const std::string &color, int x, int y, const std::string str) {
+  insert_at(y, x, str);
 }
 
 //
@@ -167,8 +203,8 @@ std::optional<GraphData> parse(const std::string &json) {
 // Rendering functions
 //
 static void render_bar_chart(Canvas &canvas, const GraphData &data) {
-  int width = std::min(data.width_, 80);
-  int height = std::min(data.height_, 24);
+  int width = data.width_;
+  int height = data.height_;
 
   // Find max value for scaling
   float max_val = 0;
@@ -215,15 +251,13 @@ static void render_bar_chart(Canvas &canvas, const GraphData &data) {
 }
 
 static void render_tree_view(Canvas &canvas, const GraphData &data) {
-  int width = std::min(data.width_, 80);
-  int height = std::min(data.height_, 24);
+  int width = data.width_;
+  int height = data.height_;
 
-  // Draw title
   if (!data.title_.empty()) {
     canvas.draw_text(data.color_, 2, 1, data.title_);
   }
 
-  // Draw tree structure
   int y = 3;
   for (const auto &point : data.data_) {
     if (y >= height - 1) break;
@@ -255,12 +289,13 @@ GraphResult tool_graph(int term_cols, const std::string &graph_json) {
   } else {
     data->width_ = std::min(data->width_, term_cols);
     data->height_ = std::min(data->height_, 24);
-    Canvas canvas(result.data_, data->width_, data->height_);
+    Canvas canvas(data->width_, data->height_);
     if (data->type_ == "bar") {
       render_bar_chart(canvas, *data);
     } else {
       render_tree_view(canvas, *data);
     }
+    result.data_ = canvas.render();
   }
   return result;
 }
