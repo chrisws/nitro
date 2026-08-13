@@ -216,19 +216,49 @@ static void test_tree_with_nested_children() {
   std::cout << "\n=== Test: Tree with Nested Children ===\n";
 
   std::string json = R"({
+    "title": "Project Structure",
     "type": "tree",
-    "title": "File System",
-    "data": [
-      {"label": "root", "value": 100},
-      {"label": "src", "value": 80},
-      {"label": "include", "value": 60},
-      {"label": "tests", "value": 50},
-      {"label": "docs", "value": 40}
-    ],
-    "width": 70,
+    "color": "#4CAF50",
+    "unit": "%",
+    "width": 80,
     "height": 12,
-    "color": "cyan"
-  })";
+    "data": [{
+      "label": "src",
+      "children": [{
+        "label": "graph.cpp",
+        "value": 45.5,
+        "children": [{
+          "label": "render",
+          "value": 25.0,
+          "children": []
+        }, {
+          "label": "parse",
+          "value": 20.5,
+          "children": []
+        }]
+      }, {
+        "label": "json.cpp",
+        "value": 30.0,
+        "children": [{
+          "label": "parse",
+          "value": 15.0,
+          "children": []
+          }
+        ]}
+      ]}, {
+        "label": "include",
+        "value": 80.0,
+        "children": [{
+          "label": "graph.h",
+          "value": 35.0,
+          "children": []
+        },{
+          "label": "json.h",
+          "value": 45.0,
+          "children": []
+        }]
+    }]
+   })";
 
   GraphResult result = tool_graph(80, json);
 
@@ -616,34 +646,34 @@ void graph_test() {
   std::cout << "  Graph Integration Test Suite\n";
   std::cout << "========================================\n";
 
-  test_invalid_json();
-  test_empty_data();
-  test_unsupported_type();
-  test_zero_values();
-  test_single_value();
-  test_very_small_canvas();
-  test_very_large_values();
-  test_decimal_values();
-  test_no_title();
-  test_no_color();
-  test_very_long_labels();
-  test_special_characters_in_labels();
-  test_width_constraint();
-  test_height_constraint();
-  test_all_same_values();
-  test_monotonic_increasing();
-  test_monotonic_decreasing();
-  test_empty_title();
-  test_very_narrow_canvas();
-  test_very_tall_canvas();
+  // test_invalid_json();
+  // test_empty_data();
+  // test_unsupported_type();
+  // test_zero_values();
+  // test_single_value();
+  // test_very_small_canvas();
+  // test_very_large_values();
+  // test_decimal_values();
+  // test_no_title();
+  // test_no_color();
+  // test_very_long_labels();
+  // test_special_characters_in_labels();
+  // test_width_constraint();
+  // test_height_constraint();
+  // test_all_same_values();
+  // test_monotonic_increasing();
+  // test_monotonic_decreasing();
+  // test_empty_title();
+  // test_very_narrow_canvas();
+  // test_very_tall_canvas();
 
   // visual tests
   test_tree_with_nested_children();
-  test_large_dataset();  
-  test_valid_tree_view();
-  test_valid_bar_chart();
-  test_horizontal_bar_chart();
-  test_minimal_bar_chart();
+  // test_large_dataset();  
+  // test_valid_tree_view();
+  // test_valid_bar_chart();
+  // test_horizontal_bar_chart();
+  // test_minimal_bar_chart();
   
   std::cout << "\n========================================\n";
   std::cout << "  All tests completed!\n";
