@@ -15,6 +15,7 @@ add_executable(nitro_tests
   ../yyjson/src/yyjson.c
   ../src/json.cpp
   ../src/graph.cpp
+  ../src/logging.cpp
   src/file_test.cpp
   src/graph_test.cpp
   src/main.cpp

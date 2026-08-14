@@ -64,7 +64,7 @@ cmake --build build -j
 nitro/
 ├── CMakeLists.txt
 ├── src/
-│   ├── nitro.cpp              # entry point, TUI event loop
+│   ├── main.cpp              # entry point, TUI event loop
 │   ├── llama-sb.h/.cpp        # llama.cpp wrapper
 │   └── llama-sb-rag.cpp       # RAG session, chunker, indexer
 ├── include/                   # vendored utility sources (param, hashmap, apiexec)

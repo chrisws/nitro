@@ -40,14 +40,16 @@ struct TreeNode {
 };
 
 struct GraphData {
-  GraphData() : rows_(0), percent_(false) {}
+  GraphData() : rows_(0), precision_(0), percent_(false) {}
   virtual ~GraphData() = default;
 
   std::string title_;
   std::string type_;
+  std::string suffix_;
   std::vector<std::pair<std::string, float>> data_;
   std::vector<TreeNode> tree_nodes_;
   int rows_;
+  int precision_;
   bool percent_;
 
   bool isValid() const;
@@ -188,6 +190,8 @@ static std::optional<GraphData> parse(const std::string &json) {
   // Extract string fields
   root.get_str("title", result.title_);
   root.get_str("type", result.type_);
+  root.get_str("suffix", result.suffix_);
+  root.get_int("precision", result.precision_);
   root.get_bool("percent", result.percent_);
 
   // Parse data array
@@ -239,27 +243,33 @@ static void render_title(Canvas &canvas, const GraphData &data) {
   }
 }
 
-static void render_bar_chart(Canvas &canvas, const GraphData &data) {
+static void render_bar_chart(Canvas &canvas, GraphData &data) {
   const int width = canvas.get_width();
   const int height = canvas.get_height();
 
   // Find max value for scaling and longest label
-  float total_val = 0;
+  float scale_value = 0;
   size_t longest_label = 0;
   for (const auto &point : data.data_) {
-    total_val += point.second;
+    if (data.percent_) {
+      // display data as a percentage
+      scale_value += point.second;
+    } else if (point.second > scale_value) {
+      // display relative to the largest value
+      scale_value = point.second;
+    }
     const size_t label_len = point.first.length();
     if (label_len > longest_label) {
       longest_label = label_len;
     }
   }
-  if (total_val == 0) {
-    total_val = 1;
+  if (scale_value == 0) {
+    scale_value = 1;
   }
 
   // Calculate bar dimensions
   const int bar_area_left = longest_label + 4;
-  const int bar_area_width = width - bar_area_left - 12;
+  const int bar_area_width = width - bar_area_left - 14;
 
   // Draw axes and joiners
   canvas.draw_hline(1, height - 1, width - 2);
@@ -270,10 +280,18 @@ static void render_bar_chart(Canvas &canvas, const GraphData &data) {
   canvas.draw_char(width - 1, 2, g_box_right_pipe);
   canvas.draw_char(width - 1, height - 1, g_box_bottom_right);
 
+  if (!data.percent_) {
+    // sort the data in order of largest value to smallest
+    std::sort(data.data_.begin(), data.data_.end(),                                                                                                                                                                                               
+              [](const auto &a, const auto &b) {                                                                                                                                                                                                          
+                return a.second > b.second;                                                                                                                                                                                                               
+              });       
+  }
+
   // Draw bars (horizontal)
   for (size_t i = 0; i < data.data_.size(); ++i) {
     const int y = 3 + i;
-    const int bar_width = std::max(1, static_cast<int>(data.data_[i].second * bar_area_width / total_val));
+    const int bar_width = std::max(1, static_cast<int>(data.data_[i].second * bar_area_width / scale_value));
 
     // Draw label with space after it
     if (!data.data_[i].first.empty()) {
@@ -294,9 +312,9 @@ static void render_bar_chart(Canvas &canvas, const GraphData &data) {
     const auto value = data.data_[i].second;
     std::ostringstream value_str;
     if (data.percent_) {
-      value_str << std::fixed << std::setprecision(0) << (value * 100 / total_val) << "%";
+      value_str << std::fixed << std::setprecision(data.precision_) << (value * 100 / scale_value) << "%";
     } else {
-      value_str << std::fixed << std::setprecision(0) << (value);
+      value_str << std::fixed << std::setprecision(data.precision_) << (value) << " " << data.suffix_;
     }
     canvas.draw_text(bar_area_left + bar_area_width + 1, y, value_str.str());
   }

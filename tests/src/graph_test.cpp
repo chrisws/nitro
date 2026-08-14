@@ -17,15 +17,15 @@ static void test_valid_bar_chart() {
 
   std::string json = R"({
     "type": "bar",
-    "title": "KV Cache Usage",
+    "title": "House pets",
+    "percent": false,
+    "suffix": "pts",
     "data": [
-      {"label": "A", "value": 85},
-      {"label": "B", "value": 72},
-      {"label": "C", "value": 91}
-    ],
-    "width": 40,
-    "height": 10,
-    "color": "green"
+      {"label": "Spiders", "value": 20.0},
+      {"label": "Cats", "value": 4},
+      {"label": "Dogs", "value": 1},
+      {"label": "A lot of ants", "value": 80}
+    ]
   })";
 
   GraphResult result = tool_graph(80, json);
@@ -52,10 +52,7 @@ static void test_valid_tree_view() {
       {"label": "src", "value": 85},
       {"label": "include", "value": 72},
       {"label": "tests", "value": 65}
-    ],
-    "width": 60,
-    "height": 15,
-    "color": "blue"
+    ]
   })";
 
   GraphResult result = tool_graph(80, json);
@@ -90,9 +87,7 @@ static void test_empty_data() {
   std::string json = R"({
     "type": "bar",
     "title": "Empty Chart",
-    "data": [],
-    "width": 40,
-    "height": 10
+    "data": []
   })";
 
   GraphResult result = tool_graph(80, json);
@@ -112,9 +107,7 @@ static void test_unsupported_type() {
     "data": [
       {"label": "A", "value": 50},
       {"label": "B", "value": 50}
-    ],
-    "width": 40,
-    "height": 10
+    ]
   })";
 
   GraphResult result = tool_graph(80, json);
@@ -163,10 +156,7 @@ static void test_large_dataset() {
       {"label": "DISK", "value": 81},
       {"label": "IO", "value": 73},
       {"label": "MEM", "value": 89}
-    ],
-    "width": 100,
-    "height": 15,
-    "color": "red"
+    ]
   })";
 
   GraphResult result = tool_graph(80, json);
@@ -182,20 +172,19 @@ static void test_large_dataset() {
   }
 }
 
-static void test_horizontal_bar_chart() {
-  std::cout << "\n=== Test: Horizontal Bar Chart ===\n";
+static void test_bar_chart() {
+  std::cout << "\n=== Test: Bar Chart ===\n";
 
   std::string json = R"({
-    "type": "horizontal",
+    "type": "bar",
     "title": "Memory Usage",
+    "percent": true,
+    "precision": 1,
     "data": [
       {"label": "Heap", "value": 75},
       {"label": "Stack", "value": 25},
       {"label": "Static", "value": 10}
-    ],
-    "width": 80,
-    "height": 10,
-    "color": "purple"
+    ]
   })";
 
   GraphResult result = tool_graph(80, json);
@@ -218,44 +207,35 @@ static void test_tree_with_nested_children() {
   std::string json = R"({
     "title": "Project Structure",
     "type": "tree",
-    "color": "#4CAF50",
-    "unit": "%",
-    "width": 80,
-    "height": 12,
     "data": [{
-      "label": "src",
+      "label": "level 1.1",
       "children": [{
-        "label": "graph.cpp",
-        "value": 45.5,
+        "label": "level 2.1",
+        "value": 111,
         "children": [{
-          "label": "render",
-          "value": 25.0,
-          "children": []
+          "label": "level 3.1",
+          "value": 222.3
         }, {
-          "label": "parse",
-          "value": 20.5,
-          "children": []
+          "label": "level 3.2",
+          "value": 333.3
         }]
       }, {
-        "label": "json.cpp",
-        "value": 30.0,
+        "label": "level 2.2",
+        "value": 444.2,
         "children": [{
-          "label": "parse",
-          "value": 15.0,
-          "children": []
+          "label": "level 3.1",
+          "value": 555.3
           }
         ]}
       ]}, {
-        "label": "include",
-        "value": 80.0,
+        "label": "level 1.2",
+        "value": 666.1,
         "children": [{
-          "label": "graph.h",
-          "value": 35.0,
-          "children": []
+          "label": "2.1",
+          "value": 777.2
         },{
-          "label": "json.h",
-          "value": 45.0,
-          "children": []
+          "label": "2.2",
+          "value": 888.2
         }]
     }]
    })";
@@ -284,9 +264,7 @@ static void test_zero_values() {
       {"label": "A", "value": 0},
       {"label": "B", "value": 50},
       {"label": "C", "value": 0}
-    ],
-    "width": 40,
-    "height": 10
+    ]
   })";
 
   GraphResult result = tool_graph(80, json);
@@ -304,9 +282,7 @@ static void test_single_value() {
     "title": "Single",
     "data": [
       {"label": "Only", "value": 100}
-    ],
-    "width": 40,
-    "height": 10
+    ]
   })";
 
   GraphResult result = tool_graph(80, json);
@@ -324,9 +300,7 @@ static void test_very_small_canvas() {
     "title": "Small",
     "data": [
       {"label": "X", "value": 50}
-    ],
-    "width": 10,
-    "height": 5
+    ]
   })";
 
   GraphResult result = tool_graph(80, json);
@@ -347,9 +321,7 @@ static void test_very_large_values() {
       {"label": "A", "value": 9999},
       {"label": "B", "value": 8888},
       {"label": "C", "value": 7777}
-    ],
-    "width": 60,
-    "height": 10
+    ]
   })";
 
   GraphResult result = tool_graph(80, json);
@@ -369,9 +341,7 @@ static void test_decimal_values() {
       {"label": "A", "value": 33.33},
       {"label": "B", "value": 66.66},
       {"label": "C", "value": 12.34}
-    ],
-    "width": 50,
-    "height": 10
+    ]
   })";
 
   GraphResult result = tool_graph(80, json);
@@ -389,9 +359,7 @@ static void test_no_title() {
     "data": [
       {"label": "A", "value": 50},
       {"label": "B", "value": 50}
-    ],
-    "width": 40,
-    "height": 10
+    ]
   })";
 
   GraphResult result = tool_graph(80, json);
@@ -409,9 +377,7 @@ static void test_no_color() {
     "title": "No Color",
     "data": [
       {"label": "A", "value": 50}
-    ],
-    "width": 40,
-    "height": 10
+    ]
   })";
 
   GraphResult result = tool_graph(80, json);
@@ -430,9 +396,7 @@ static void test_very_long_labels() {
     "data": [
       {"label": "ThisIsAVeryLongLabelThatShouldBeTruncated", "value": 50},
       {"label": "AnotherVeryLongLabelHere", "value": 60}
-    ],
-    "width": 40,
-    "height": 10
+    ]
   })";
 
   GraphResult result = tool_graph(80, json);
@@ -452,9 +416,7 @@ static void test_special_characters_in_labels() {
       {"label": "CPU@100%", "value": 95},
       {"label": "GPU#88", "value": 88},
       {"label": "RAM$76", "value": 76}
-    ],
-    "width": 50,
-    "height": 10
+    ]
   })";
 
   GraphResult result = tool_graph(80, json);
@@ -476,9 +438,7 @@ static void test_width_constraint() {
       {"label": "C", "value": 70},
       {"label": "D", "value": 80},
       {"label": "E", "value": 90}
-    ],
-    "width": 30,
-    "height": 10
+    ]
   })";
 
   GraphResult result = tool_graph(80, json);
@@ -499,9 +459,7 @@ static void test_height_constraint() {
       {"label": "A", "value": 50},
       {"label": "B", "value": 60},
       {"label": "C", "value": 70}
-    ],
-    "width": 60,
-    "height": 6
+    ]
   })";
 
   GraphResult result = tool_graph(80, json);
@@ -521,9 +479,7 @@ static void test_all_same_values() {
       {"label": "A", "value": 50},
       {"label": "B", "value": 50},
       {"label": "C", "value": 50}
-    ],
-    "width": 40,
-    "height": 10
+    ]
   })";
 
   GraphResult result = tool_graph(80, json);
@@ -544,9 +500,7 @@ static void test_monotonic_increasing() {
       {"label": "B", "value": 20},
       {"label": "C", "value": 30},
       {"label": "D", "value": 40}
-    ],
-    "width": 50,
-    "height": 10
+    ]
   })";
 
   GraphResult result = tool_graph(80, json);
@@ -567,9 +521,7 @@ static void test_monotonic_decreasing() {
       {"label": "B", "value": 80},
       {"label": "C", "value": 60},
       {"label": "D", "value": 40}
-    ],
-    "width": 50,
-    "height": 10
+    ]
   })";
 
   GraphResult result = tool_graph(80, json);
@@ -587,9 +539,7 @@ static void test_empty_title() {
     "title": "",
     "data": [
       {"label": "A", "value": 50}
-    ],
-    "width": 40,
-    "height": 10
+    ]
   })";
 
   GraphResult result = tool_graph(80, json);
@@ -607,9 +557,7 @@ static void test_very_narrow_canvas() {
     "title": "Narrow",
     "data": [
       {"label": "A", "value": 50}
-    ],
-    "width": 15,
-    "height": 8
+    ]
   })";
 
   GraphResult result = tool_graph(80, json);
@@ -628,9 +576,7 @@ static void test_very_tall_canvas() {
     "title": "Tall",
     "data": [
       {"label": "A", "value": 50}
-    ],
-    "width": 40,
-    "height": 30
+    ]
   })";
 
   GraphResult result = tool_graph(80, json);
@@ -646,34 +592,34 @@ void graph_test() {
   std::cout << "  Graph Integration Test Suite\n";
   std::cout << "========================================\n";
 
-  // test_invalid_json();
-  // test_empty_data();
-  // test_unsupported_type();
-  // test_zero_values();
-  // test_single_value();
-  // test_very_small_canvas();
-  // test_very_large_values();
-  // test_decimal_values();
-  // test_no_title();
-  // test_no_color();
-  // test_very_long_labels();
-  // test_special_characters_in_labels();
-  // test_width_constraint();
-  // test_height_constraint();
-  // test_all_same_values();
-  // test_monotonic_increasing();
-  // test_monotonic_decreasing();
-  // test_empty_title();
-  // test_very_narrow_canvas();
-  // test_very_tall_canvas();
+  test_invalid_json();
+  test_empty_data();
+  test_unsupported_type();
+  test_zero_values();
+  test_single_value();
+  test_very_small_canvas();
+  test_very_large_values();
+  test_decimal_values();
+  test_no_title();
+  test_no_color();
+  test_very_long_labels();
+  test_special_characters_in_labels();
+  test_width_constraint();
+  test_height_constraint();
+  test_all_same_values();
+  test_monotonic_increasing();
+  test_monotonic_decreasing();
+  test_empty_title();
+  test_very_narrow_canvas();
+  test_very_tall_canvas();
 
   // visual tests
+  test_large_dataset();
   test_tree_with_nested_children();
-  // test_large_dataset();  
-  // test_valid_tree_view();
-  // test_valid_bar_chart();
-  // test_horizontal_bar_chart();
-  // test_minimal_bar_chart();
+  test_valid_tree_view();
+  test_valid_bar_chart();
+  test_bar_chart();
+  test_minimal_bar_chart();
   
   std::cout << "\n========================================\n";
   std::cout << "  All tests completed!\n";
