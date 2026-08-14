@@ -17,6 +17,16 @@
 constexpr std::string g_horz_bar = "─";
 constexpr std::string g_vert_bar = "│";
 constexpr std::string g_block = "█";
+constexpr std::string g_block_light = "░";
+constexpr std::string g_box_top_left = "┌";
+constexpr std::string g_box_top_right = "┐";
+constexpr std::string g_box_bottom_left = "└";
+constexpr std::string g_box_bottom_right = "┘";
+constexpr std::string g_box_left_pipe = "├";
+constexpr std::string g_box_right_pipe = "┤";
+constexpr std::string g_tree_bottom = "└── ";
+constexpr std::string g_tree_mid = "├── ";
+constexpr std::string g_tree_top = "┌── ";
 
 //
 // Graph data structure for visualization
@@ -220,10 +230,10 @@ static void render_title(Canvas &canvas, const GraphData &data) {
   canvas.draw_hline(1, 2, width - 2);
   canvas.draw_vline(0, 1, 1);
   canvas.draw_vline(width - 1, 1, 1);
-  canvas.draw_char(0, 0, "┌");
-  canvas.draw_char(width - 1, 0, "┐");
-  canvas.draw_char(0, 2, "└");
-  canvas.draw_char(width - 1, 2, "┘");
+  canvas.draw_char(0, 0, g_box_top_left);
+  canvas.draw_char(width - 1, 0, g_box_top_right);
+  canvas.draw_char(0, 2, g_box_bottom_left);
+  canvas.draw_char(width - 1, 2, g_box_bottom_right);
   if (!data.title_.empty()) {
     canvas.draw_text(2, 1, data.title_);
   }
@@ -254,12 +264,11 @@ static void render_bar_chart(Canvas &canvas, const GraphData &data) {
   // Draw axes and joiners
   canvas.draw_hline(1, height - 1, width - 2);
   canvas.draw_vline(0, 3, height - 1);
-  canvas.draw_char(0, 2, "├");
-  canvas.draw_char(0, height - 1, "└");
-
+  canvas.draw_char(0, 2, g_box_left_pipe);
+  canvas.draw_char(0, height - 1, g_box_bottom_left);
   canvas.draw_vline(width - 1, 3, height - 2);
-  canvas.draw_char(width - 1, 2, "┤");
-  canvas.draw_char(width - 1, height - 1, "┘");
+  canvas.draw_char(width - 1, 2, g_box_right_pipe);
+  canvas.draw_char(width - 1, height - 1, g_box_bottom_right);
 
   // Draw bars (horizontal)
   for (size_t i = 0; i < data.data_.size(); ++i) {
@@ -277,7 +286,7 @@ static void render_bar_chart(Canvas &canvas, const GraphData &data) {
       if (x < bar_width) {
         canvas.draw_char(bar_area_left + x, y, g_block);
       } else {
-        canvas.draw_char(bar_area_left + x, y, "░");
+        canvas.draw_char(bar_area_left + x, y, g_block_light);
       }
     }
 
@@ -309,19 +318,19 @@ static void render_tree_node(Canvas &canvas, const GraphData &data, const TreeNo
   y++;
 
   for (int i = 0; i < node.children.size(); i++) {
-    std::string child_prefix = "│";
+    std::string child_prefix = g_vert_bar;
     const int indent = indent_level * 2;
     for (int j = 0; j < indent; j++) {
       if (!last_parent && j > 1 && j % 2 == 0) {
-        child_prefix += "│";
+        child_prefix += g_vert_bar;
       } else {
         child_prefix += " ";
       }
     }
     if (i == node.children.size() - 1) {
-      child_prefix += "└── ";
+      child_prefix += g_tree_bottom;
     } else {
-      child_prefix += "├── ";
+      child_prefix += g_tree_mid;
     }
     auto &child_node = node.children[i];
     bool last_child_parent = (i == node.children.size() - 1);
@@ -334,9 +343,9 @@ static void render_tree_view(Canvas &canvas, const GraphData &data) {
   for (int i = 0; i < data.tree_nodes_.size(); i++) {
     std::string child_prefix;
     if (i == 0) {
-      child_prefix = "┌── ";
+      child_prefix = g_tree_top;
     } else {
-      child_prefix = "├── ";
+      child_prefix = g_tree_mid;
     }
     bool last_parent = (i == data.tree_nodes_.size()- 1);
     auto &node = data.tree_nodes_[i];
@@ -353,7 +362,7 @@ GraphResult tool_graph(int term_cols, const std::string &graph_json) {
     result.set_error("No data to render");
   } else if (!data->isValid()) {
     result.set_error("Invalid graph data");
-  } else if (data->type_ != "bar" && data->type_ != "tree" && data->type_ != "horizontal") {
+  } else if (data->type_ != "bar" && data->type_ != "tree") {
     result.set_error("Unsupported graph type");
   } else {
     const int rows = data->rows_ + (data->type_ == "bar" ? 4 : 2);
