@@ -11,6 +11,7 @@
 #include <format>
 #include <yyjson.h>
 #include "json.h"
+#include "logging.h"
 
 namespace json {
 
@@ -130,7 +131,11 @@ JsonDoc parse(const std::string &json_str) {
 }
 
 JsonDoc JsonDoc::parse(const std::string &json_str) {
-  yyjson_doc *doc = yyjson_read_opts(const_cast<char*>(json_str.data()), json_str.size(), 0, nullptr, nullptr);
+  yyjson_read_err err;
+  yyjson_doc *doc = yyjson_read_opts(const_cast<char*>(json_str.data()), json_str.size(), 0, nullptr, &err);
+  if (!doc) {
+    log_write(INFO_LEVEL, "json error: [%d] [%s]", err.code, err.msg);
+  }
   return JsonDoc(doc);
 }
 
@@ -219,11 +224,16 @@ JsonMutDoc JsonMutDoc::parse(const std::string &json_str) {
     yyjson_mut_val *root = yyjson_mut_obj(doc);
     yyjson_mut_doc_set_root(doc, root);
   } else {
-    if (yyjson_doc *parsed = yyjson_read_opts(const_cast<char*>(json_str.data()), json_str.size(), 0, nullptr, nullptr)) {
-      const yyjson_val *parsed_root = yyjson_doc_get_root(parsed);
-      yyjson_mut_val *root_copy = yyjson_val_mut_copy(doc, parsed_root);
-      yyjson_mut_doc_set_root(doc, root_copy);
-      yyjson_doc_free(parsed);
+    yyjson_read_err err;
+    if (yyjson_doc *parsed = yyjson_read_opts(const_cast<char*>(json_str.data()), json_str.size(), 0, nullptr, &err)) {
+      if (!parsed) {
+        log_write(INFO_LEVEL, "json error: [%d] [%s]", err.code, err.msg);
+      } else {
+        const yyjson_val *parsed_root = yyjson_doc_get_root(parsed);
+        yyjson_mut_val *root_copy = yyjson_val_mut_copy(doc, parsed_root);
+        yyjson_mut_doc_set_root(doc, root_copy);
+        yyjson_doc_free(parsed);
+      }
     } else {
       // parse failed - fall back to an empty object so the doc is still usable
       yyjson_mut_val *root = yyjson_mut_obj(doc);
