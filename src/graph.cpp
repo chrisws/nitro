@@ -30,14 +30,15 @@ struct TreeNode {
 };
 
 struct GraphData {
-  GraphData() = default;
+  GraphData() : rows_(0), percent_(false) {}
   virtual ~GraphData() = default;
+
   std::string title_;
   std::string type_;
   std::vector<std::pair<std::string, float>> data_;
-  std::string unit_;
   std::vector<TreeNode> tree_nodes_;
   int rows_;
+  bool percent_;
 
   bool isValid() const;
 };
@@ -162,12 +163,12 @@ static TreeNode parse_tree_node(const json::JsonValue &item, int &rows) {
 }
 
 static std::optional<GraphData> parse(const std::string &json) {
-  json::JsonDoc doc = json::parse(json);
+  const json::JsonDoc doc = json::parse(json);
   if (!doc.is_valid()) {
     return std::nullopt;
   }
 
-  json::JsonValue root = doc.get_root();
+  const json::JsonValue root = doc.get_root();
   if (!root.is_object()) {
     return std::nullopt;
   }
@@ -177,8 +178,7 @@ static std::optional<GraphData> parse(const std::string &json) {
   // Extract string fields
   root.get_str("title", result.title_);
   root.get_str("type", result.type_);
-  root.get_str("unit", result.unit_);
-  result.rows_ = 1;
+  root.get_bool("percent", result.percent_);
 
   // Parse data array
   std::vector<json::JsonValue> data_arr;
@@ -233,44 +233,63 @@ static void render_bar_chart(Canvas &canvas, const GraphData &data) {
   const int width = canvas.get_width();
   const int height = canvas.get_height();
 
-  // Find max value for scaling
-  float max_val = 0;
+  // Find max value for scaling and longest label
+  float total_val = 0;
+  size_t longest_label = 0;
   for (const auto &point : data.data_) {
-    max_val = std::max(max_val, point.second);
+    total_val += point.second;
+    const size_t label_len = point.first.length();
+    if (label_len > longest_label) {
+      longest_label = label_len;
+    }
   }
-  if (max_val == 0) max_val = 1;
+  if (total_val == 0) {
+    total_val = 1;
+  }
 
   // Calculate bar dimensions
-  int bar_area_width = width - 4; // Leave space for labels and values
-  int bar_area_height = height - 4; // Leave space for title and axis labels
-  int bar_height = std::max(1, bar_area_height / static_cast<int>(data.data_.size()));
+  const int bar_area_left = longest_label + 4;
+  const int bar_area_width = width - bar_area_left - 12;
 
-  // Draw axes
-  canvas.draw_hline(0, height - 1, width - 1);
+  // Draw axes and joiners
+  canvas.draw_hline(1, height - 1, width - 2);
   canvas.draw_vline(0, 3, height - 1);
   canvas.draw_char(0, 2, "├");
   canvas.draw_char(0, height - 1, "└");
 
+  canvas.draw_vline(width - 1, 3, height - 2);
+  canvas.draw_char(width - 1, 2, "┤");
+  canvas.draw_char(width - 1, height - 1, "┘");
+
   // Draw bars (horizontal)
   for (size_t i = 0; i < data.data_.size(); ++i) {
-    int y = 4 + static_cast<int>(i) * bar_height;
-    int bar_width = static_cast<int>((data.data_[i].second / max_val) * bar_area_width);
+    const int y = 3 + i;
+    const int bar_width = std::max(1, static_cast<int>(data.data_[i].second * bar_area_width / total_val));
+
+    // Draw label with space after it
+    if (!data.data_[i].first.empty()) {
+      canvas.draw_text(2, y, data.data_[i].first + " ");
+    }
 
     // Draw bar
-    for (int x = 0; x < bar_width; ++x) {
-      canvas.draw_char(width - 3 - x, y, g_block);
+    for (int x = 0; x < bar_area_width; ++x) {
+      // for all of the bar_area
+      if (x < bar_width) {
+        canvas.draw_char(bar_area_left + x, y, g_block);
+      } else {
+        canvas.draw_char(bar_area_left + x, y, "░");
+      }
     }
 
-    // Draw label
-    if (bar_height >= 4 && !data.data_[i].first.empty()) {
-      std::string label = data.data_[i].first.substr(0, bar_height - 2);
-      canvas.draw_text(2, y + 1, label);
-    }
-
-    // Draw value
+    // Draw value as percentage
+    const auto value = data.data_[i].second;
     std::ostringstream value_str;
-    value_str << std::fixed << std::setprecision(1) << data.data_[i].second;
-    canvas.draw_text(width - 4, y, value_str.str());
+    if (data.percent_) {
+      value_str << std::fixed << std::setprecision(0) << (value * 100 / total_val) << "%";
+    } else {
+      value_str << std::fixed << std::setprecision(0) << (value);
+    }
+    canvas.draw_text(bar_area_left + bar_area_width + 1, y, value_str.str());
   }
 }
 
@@ -337,7 +356,7 @@ GraphResult tool_graph(int term_cols, const std::string &graph_json) {
   } else if (data->type_ != "bar" && data->type_ != "tree" && data->type_ != "horizontal") {
     result.set_error("Unsupported graph type");
   } else {
-    const int rows = data->rows_ + ((data->type_ == "bar") ? 4 : 1);
+    const int rows = data->rows_ + (data->type_ == "bar" ? 4 : 2);
     Canvas canvas(term_cols, rows);
     render_title(canvas, *data);
     if (data->type_ == "bar") {
