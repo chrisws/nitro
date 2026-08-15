@@ -133,6 +133,11 @@ JsonDoc parse(const std::string &json_str) {
 JsonDoc JsonDoc::parse(const std::string &json_str) {
   yyjson_read_err err;
   yyjson_doc *doc = yyjson_read_opts(const_cast<char*>(json_str.data()), json_str.size(), 0, nullptr, &err);
+  if (!doc && err.code == YYJSON_READ_ERROR_UNEXPECTED_END) {
+    // in case the model omitted final "}"
+    const std::string &json_fix = json_str + "}";
+    doc = yyjson_read_opts(const_cast<char*>(json_fix.data()), json_fix.size(), 0, nullptr, &err);
+  }
   if (!doc) {
     log_write(INFO_LEVEL, "json error: [%d] [%s]", err.code, err.msg);
   }

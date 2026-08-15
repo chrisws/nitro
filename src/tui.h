@@ -25,6 +25,7 @@ constexpr std::string ICON_ERR   = " ⚡ ▏";
 constexpr std::string ICON_THINK = " 🤔 ▏";
 constexpr std::string ICON_TOOL  = " 🔧 ▏";
 constexpr std::string ICON_SYS   = " ✨ ▏";
+constexpr std::string ICON_DATA  = " 📊 ▏";
 
 // Theme enum for switching
 enum class ThemeMode {
@@ -302,8 +303,9 @@ class Tui final: TuiContext {
   void tick_spinner();
   void set_thinking(bool on);
   void update_usage(float tokens_sec, const LlamaMemoryInfo &mem);
-  int get_term_rows() const { return term_rows_; }
   void show_tool(const std::string &tool);
+  int get_term_rows() const { return term_rows_; }
+  int get_term_cols() const { return term_cols_; }
 
   // ── draw ──────────────────────────────────────────────────────────
   void redraw_header() const;

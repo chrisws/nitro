@@ -165,6 +165,7 @@ std::string NitroConfig::build_system_prompt() const {
     "  TOOL:RND                   random float 0..1\n"
     "  TOOL:RAG    <query>        query the RAG index for additional context\n"
     "  TOOL:ASK    <query>        ask the user for clarification or additional context\n"
+    "  TOOL:GRAPH  <json>         data visualisation - load skills/graph.md when required\n"
     "  TOOL:INTROSPECT            show current model settings\n"
     "  TOOL:CURL   <url>          HTTP GET, returns response body (max 32 KB)\n"
     "  TOOL:PERMISSION            ask user for explicit permission\n"

@@ -10,15 +10,14 @@ The tree view supports unlimited nesting depth. Each node can have child nodes, 
 
 ## Required Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `title` | string | Title of the graph (optional) |
-| `type` | string | Must be `"tree"` |
-| `color` | string | Color for rendering (optional) |
-| `unit` | string | Unit label (optional) |
-| `width` | integer | Canvas width (optional, default: 80) |
-| `height` | integer | Canvas height (optional, default: 24) |
-| `data` | array | Root-level nodes array |
+| Field       | Type   | Description                                       |
+|-------------|--------|---------------------------------------------------|
+| `title`     | string | Title of the graph (optional)                     |
+| `type`      | string | Must be either `"tree"` or `"bar"`                |
+| `suffix`    | string | Unit label (optional)                             |
+| `precision` | int    | display precision for value (optional)            |
+| `percent`   | bool   | When true display bar chart values as percentages |
+| `data`      | array  | Root-level nodes array                            |
 
 ## Node Structure
 
@@ -30,84 +29,88 @@ Each node in the `data` array must have:
 | `value` | float | Numeric value for the node |
 | `children` | array | Optional array of child nodes |
 
-## Example
+## Example bar
 
 ```json
 {
+   "type": "bar",
+   "title": "KV Cache Usage",
+   "data": [
+     {"label": "A", "value": 85},
+     {"label": "B", "value": 72},
+     {"label": "C", "value": 91}
+   ]
+}
+```
+
+## Example tree
+
+```
+{
   "title": "Project Structure",
   "type": "tree",
-  "color": "#4CAF50",
-  "unit": "%",
-  "width": 80,
-  "height": 24,
-  "data": [
-    {
-      "label": "src",
-      "value": 100.0,
-      "children": [
-        {
-          "label": "graph.cpp",
-          "value": 45.5,
-          "children": [
-            {
-              "label": "render()",
-              "value": 25.0,
-              "children": []
-            },
-            {
-              "label": "parse()",
-              "value": 20.5,
-              "children": []
-            }
-          ]
-        },
-        {
-          "label": "json.cpp",
-          "value": 30.0,
-          "children": [
-            {
-              "label": "parse()",
-              "value": 15.0,
-              "children": []
-            }
-          ]
+  "data": [{
+    "label": "level 1.1",
+    "children": [{
+      "label": "level 2.1",
+      "value": 111,
+      "children": [{
+        "label": "level 3.1",
+        "value": 222.3
+      }, {
+        "label": "level 3.2",
+        "value": 333.3
+      }]
+    }, {
+      "label": "level 2.2",
+      "value": 444.2,
+      "children": [{
+        "label": "level 3.1",
+        "value": 555.3
         }
-      ]
-    },
-    {
-      "label": "include",
-      "value": 80.0,
-      "children": [
-        {
-          "label": "graph.h",
-          "value": 35.0,
-          "children": []
-        },
-        {
-          "label": "json.h",
-          "value": 45.0,
-          "children": []
-        }
-      ]
-    }
-  ]
+      ]}
+    ]}, {
+      "label": "level 1.2",
+      "value": 666.1,
+      "children": [{
+        "label": "2.1",
+        "value": 777.2
+      },{
+        "label": "2.2",
+        "value": 888.2
+      }]
+  }]
 }
+  
 ```
 
 ## Usage
 
-To render a tree graph, call the `tool_graph` function with:
-
-```cpp
-GraphResult result = tool_graph(term_cols, json_string);
-```
+TOOL:GRAPH `json_string`
+NITRO_END_TOOL
 
 The `json_string` should be a valid JSON string matching the format above.
 
+**Important:** The JSON must be passed as a properly formatted string. When calling TOOL:GRAPH, ensure the JSON is:
+- Valid JSON syntax
+- Properly escaped if needed
+- Not wrapped in additional JSON object syntax
+
+### Correct Example
+
+```json
+{"title":"Demo","type":"tree","data":[{"label":"Root","value":100.0,"children":[{"label":"Child","value":50.0,"children":[{"label":"Leaf","value":25.0}]}]}]}
+```
+
+### Common Mistakes
+
+- ❌ Not providing the final closing `}` character
+- ❌ Passing a JSON object instead of a string
+- ❌ Using unescaped special characters
+- ❌ Missing required fields like `type` or `data`
+- ❌ Incorrect nesting (using `data` instead of `children` for nested nodes)
+
 ## Notes
 
-- Empty `children` arrays (`[]`) indicate leaf nodes
 - The `data` field at the root level contains top-level nodes
 - Nested nodes use the `children` field instead of `data`
-- Values are displayed with 1 decimal precision
-- The tree is rendered with box-drawing characters (├──, └──, │)

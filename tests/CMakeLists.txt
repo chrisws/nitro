@@ -18,6 +18,7 @@ add_executable(nitro_tests
   ../src/logging.cpp
   src/file_test.cpp
   src/graph_test.cpp
+  src/string_utils_test.cpp
   src/main.cpp
 )
 

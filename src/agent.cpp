@@ -21,6 +21,7 @@
 #include "curl.h"
 #include "string_utils.h"
 #include "file.h"
+#include "graph.h"
 
 //
 // handling for strip_code_fences
@@ -569,6 +570,16 @@ std::string Agent::process_tool(const std::string &cmd) {
     tui_.show_tool("append: " + arg1);
     return tool_append(arg1, arg2);
   }
+  if (op == "TOOL:GRAPH") {
+    tui_.show_tool("graph: " + arg1);
+    auto graphResult = tool_graph(tui_.get_term_cols() - 10, arg1 + arg2);
+    if (graphResult.success_) {
+      for (const auto &line : graphResult.data_) {
+        tui_.append_line(ICON_DATA + line);
+      }
+    }
+    return graphResult.success_ ? "OK" : graphResult.message_;
+  }
   return "ERROR: unknown tool: [" + op + "]";
 }
 
@@ -702,6 +713,7 @@ bool Agent::run_turn(const std::string &user_message) {
         break;
       }
     }
+    log_write(DEBUG_LEVEL, "fetch_tool: \n%s\n\n", buffer.c_str());
   };
 
   while (iter_->_has_next && !tui_.is_escape()) {
