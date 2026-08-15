@@ -19,6 +19,7 @@
 
 #include "tui.h"
 #include "string_utils.h"
+#include "logging.h"
 
 Tui::Tui()
     : nc_(nullptr)
@@ -225,16 +226,16 @@ uint64_t Tui::get_line_color(const std::string &line) const {
 
 void Tui::redraw_chat() {
   ncplane_erase(chatpl_);
-
   unsigned rows, cols;
   ncplane_dim_yx(chatpl_, &rows, &cols);
+
   std::lock_guard<std::mutex> lk(lines_mutex_);
 
-  // Build visual lines from chat_lines_, splitting on \n and wrapping at cols width.
   struct VisualLine {
     std::string text;
     uint64_t    ch;
   };
+
   std::vector<VisualLine> visual;
   visual.reserve(chat_lines_.size());
 
@@ -242,35 +243,9 @@ void Tui::redraw_chat() {
     if (utils::is_blank(line)) {
       continue;
     }
-
-    // determine the logical line color using the theme system
     uint64_t ch = get_line_color(line);
-
-    // layout the text based on new lines and column count
     std::string display = (line.rfind("[logo_", 0) == 0 && line.size() > 8) ? line.substr(8) : line;
-    std::vector<std::string> parts;
-    std::string current;
-    int column_count = 0;
-    for (char c : display) {
-      if (++column_count >= term_cols_ || c == '\n') {
-        if (!current.empty()) {
-          parts.push_back(current);
-        }
-        column_count = 0;
-        current.clear();
-      } else {
-        current += c;
-      }
-    }
-    if (!current.empty()) {
-      parts.push_back(current);
-    }
-
-    for (const std::string &part : parts) {
-      for (size_t off = 0; off < part.size(); off += cols) {
-        visual.push_back({part.substr(off, cols), ch});
-      }
-    }
+    visual.push_back({display + "\n", ch});
   }
 
   int total   = static_cast<int>(visual.size());
@@ -280,7 +255,10 @@ void Tui::redraw_chat() {
 
   for (int i = start, row = 0; i < end; ++i, ++row) {
     ncplane_set_channels(chatpl_, visual[i].ch);
-    ncplane_putstr_yx(chatpl_, row, 0, visual[i].text.c_str());
+    int result = ncplane_puttext(chatpl_, row, NCALIGN_LEFT, visual[i].text.c_str(), nullptr);
+    if (result > 0 && result > cols) {
+      row += (result / cols);
+    }
   }
 }
 
@@ -397,6 +375,13 @@ void Tui::update_usage(float tokens_sec, const LlamaMemoryInfo &mem) {
 void Tui::append_line(const std::string &line) {
   std::lock_guard<std::mutex> lk(lines_mutex_);
   chat_lines_.push_back(line);
+}
+
+void Tui::append_lines(const std::vector<std::string> &lines) {
+  for (const auto &line : lines) {
+    append_line(line);
+  }
+  redraw_all();
 }
 
 void Tui::append_token(const std::string &token) {

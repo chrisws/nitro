@@ -314,6 +314,7 @@ class Tui final: TuiContext {
 
   // ── content helpers ───────────────────────────────────────────────
   void append_line(const std::string &line);
+  void append_lines(const std::vector<std::string> &lines);
   void append_token(const std::string &token);
 
   // ── interaction ───────────────────────────────────────────────────

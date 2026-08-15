@@ -18,7 +18,7 @@ void help(Tui &tui) {
   tui.append_line(ICON_SYS + "  /memory                  KV / VRAM / layer stats");
   tui.append_line(ICON_SYS + "  /clear                   reset conversation");
   tui.append_line(ICON_SYS + "  /settings                show current settings");
-  tui.append_line(ICON_SYS + "  /theme                   toggle the theme");
+  tui.append_line(ICON_SYS + "  /theme                   toggle the theme (F12)");
   tui.append_line(ICON_SYS + "  /set    <key> <value>    change a setting live");
   tui.append_line(ICON_SYS + "  /help                    this message");
   tui.append_line(ICON_SYS + "  exit / quit              exit Nitro");
@@ -84,11 +84,11 @@ void usage() {
 //
 void welcome(Tui &tui, const std::string &sandbox) {
   tui.append_line("[logo_5]  ────────W E L C O M E  T O  N I T R O────────────");  
-  tui.append_line("[logo_0]    ▄▅▆░██▄▅   ▄▅▆░██▄▅      ▄▅▆     ▆▅▄ ▅▆░██▄▅    ");
-  tui.append_line("[logo_1]       ▄▅█ ◉ █▄ ▄▅█ ◉ █▄    ▄▅█ ◉ ◉ █▄    ▄▅█ ◉ █▄  ");
-  tui.append_line("[logo_2]     ▄▅░██░██▄▅ ▄▅░██░██▄▅  ▄▅░██░██▄▅   ▄▅░██░██▄▅ ");
-  tui.append_line("[logo_3]   ▄▅▒██░██▄▅  ▄▅▒██░██▄▅ ▄▅▒██░██▄▅      ▄▅▒██▄▅   ");
-  tui.append_line("[logo_4]     ▀▄█░█▓▄   ▀▄█░█▓▄     ▀▄█ ░█▓▄         ▓▓▓     ");
+  tui.append_line("[logo_0]    ▄▅▆░██▄▅   ▄▅▆░██▄▅    ▄▅▆     ▆▅▄  ▅▆░██▄▅    ");
+  tui.append_line("[logo_1]       ▄▅█ ◉ █▄ ▄▅█ ◉ █▄   ▄▅█ ◕ ◕ █▄   ▄▅█ ◉ █▄   ");
+  tui.append_line("[logo_2]     ▄▅░██░██▄▅ ▄▅░██░██▄▅  ▄▅░██░██▄▅   ▄▅░██░██▄▅");
+  tui.append_line("[logo_3]   ▄▅▒██░██▄▅  ▄▅▒██░██▄▅    ▄▅▒██░██▄▅   ▄▅▒██▄▅  ");
+  tui.append_line("[logo_4]     ▀▄█░█▓▄   ▀▄█░█▓▄       ▀▄█ ░█▓▄      ▓▓▓     ");
   tui.append_line("[logo_5]  ─────────── agentic LLM shell v1.0 ──────────────");
   tui.append_line(ICON_SYS + " Sandbox : " + sandbox);
   tui.append_line(ICON_SYS + " /help for commands  ·  exit to quit");

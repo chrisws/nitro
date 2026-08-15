@@ -165,7 +165,7 @@ std::string NitroConfig::build_system_prompt() const {
     "  TOOL:RND                   random float 0..1\n"
     "  TOOL:RAG    <query>        query the RAG index for additional context\n"
     "  TOOL:ASK    <query>        ask the user for clarification or additional context\n"
-    "  TOOL:GRAPH  <json>         data visualisation - load skills/graph.md when required\n"
+    "  TOOL:GRAPH  <json>         display tree/bar charts.\n"
     "  TOOL:INTROSPECT            show current model settings\n"
     "  TOOL:CURL   <url>          HTTP GET, returns response body (max 32 KB)\n"
     "  TOOL:PERMISSION            ask user for explicit permission\n"
@@ -187,6 +187,10 @@ std::string NitroConfig::build_system_prompt() const {
     "- Do NOT hallucinate file contents\n"
     "- Do NOT fabricate tool outputs\n"
     "- Do NOT assume files exist — use TOOL:EXISTS to check first\n\n"
+
+    "## TOOL:GRAPH Rules\n"
+    "- For TOOL:GRAPH, Reference `skills/graph.md` when you need the full schema details\n"
+    "- Only expand the context when actively working with graphs\n\n"
 
     "## File Writing Rules\n"
     "Use TOOL:WRITE only if explicitly requested. Prefer TOOL:APPEND or TOOL:PATCH\n"
