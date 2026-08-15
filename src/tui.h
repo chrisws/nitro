@@ -25,7 +25,6 @@ constexpr std::string ICON_ERR   = " ⚡ ▏";
 constexpr std::string ICON_THINK = " 🤔 ▏";
 constexpr std::string ICON_TOOL  = " 🔧 ▏";
 constexpr std::string ICON_SYS   = " ✨ ▏";
-constexpr std::string ICON_DATA  = " 📊 ▏";
 
 // Theme enum for switching
 enum class ThemeMode {

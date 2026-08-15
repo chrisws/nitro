@@ -24,9 +24,9 @@ constexpr std::string g_box_bottom_left = "└";
 constexpr std::string g_box_bottom_right = "┘";
 constexpr std::string g_box_left_pipe = "├";
 constexpr std::string g_box_right_pipe = "┤";
-constexpr std::string g_tree_bottom = "└── ";
-constexpr std::string g_tree_mid = "├── ";
-constexpr std::string g_tree_top = "┌── ";
+constexpr std::string g_tree_bottom = "└──";
+constexpr std::string g_tree_mid = "├──";
+constexpr std::string g_tree_top = "┌──";
 
 //
 // Graph data structure for visualization
@@ -250,16 +250,15 @@ static void render_bar_chart(Canvas &canvas, GraphData &data) {
   // Find max value for scaling and longest label
   float scale_value = 0;
   size_t longest_label = 0;
-  for (const auto &point : data.data_) {
+  for (const auto &[first, second] : data.data_) {
     if (data.percent_) {
       // display data as a percentage
-      scale_value += point.second;
-    } else if (point.second > scale_value) {
+      scale_value += second;
+    } else if (second > scale_value) {
       // display relative to the largest value
-      scale_value = point.second;
+      scale_value = second;
     }
-    const size_t label_len = point.first.length();
-    if (label_len > longest_label) {
+    if (const size_t label_len = first.length(); label_len > longest_label) {
       longest_label = label_len;
     }
   }
@@ -282,10 +281,9 @@ static void render_bar_chart(Canvas &canvas, GraphData &data) {
 
   if (!data.percent_) {
     // sort the data in order of largest value to smallest
-    std::sort(data.data_.begin(), data.data_.end(),                                                                                                                                                                                               
-              [](const auto &a, const auto &b) {                                                                                                                                                                                                          
-                return a.second > b.second;                                                                                                                                                                                                               
-              });       
+    std::ranges::sort(data.data_, [](const auto &a, const auto &b) {
+      return a.second > b.second;
+    });
   }
 
   // Draw bars (horizontal)
@@ -308,7 +306,7 @@ static void render_bar_chart(Canvas &canvas, GraphData &data) {
       }
     }
 
-    // Draw value as percentage
+    // Draw value
     const auto value = data.data_[i].second;
     std::ostringstream value_str;
     if (data.percent_) {
@@ -320,26 +318,24 @@ static void render_bar_chart(Canvas &canvas, GraphData &data) {
   }
 }
 
-static void render_tree_node(Canvas &canvas, const GraphData &data, const TreeNode &node, int indent_level, const std::string &prefix, int &y, bool last_parent) {
+static void render_tree_node(Canvas &canvas, const GraphData &data, const TreeNode &node, int indent, const std::string &prefix, int &y, bool last_parent) {
   if (const int height = canvas.get_height(); y >= height - 1) {
     return;
   }
   std::ostringstream line;
-  const std::string value = std::format("({})", node.value);
-  if (value == "(0)") {
-    line << prefix << node.label;
+  if (const std::string value = std::format("({})", node.value); value == "(0)") {
+    line << prefix << " " << node.label;
   } else {
-    line << prefix << node.label << " " << value;
+    line << prefix << " " << node.label << " " << value;
   }
 
   canvas.draw_text(1, y, line.str());
   y++;
 
   for (int i = 0; i < node.children.size(); i++) {
-    std::string child_prefix = g_vert_bar;
-    const int indent = indent_level * 2;
+    std::string child_prefix;
     for (int j = 0; j < indent; j++) {
-      if (!last_parent && j > 1 && j % 2 == 0) {
+      if ((!last_parent || j == 0) && j % 4 == 0) {
         child_prefix += g_vert_bar;
       } else {
         child_prefix += " ";
@@ -351,8 +347,8 @@ static void render_tree_node(Canvas &canvas, const GraphData &data, const TreeNo
       child_prefix += g_tree_mid;
     }
     auto &child_node = node.children[i];
-    bool last_child_parent = (i == node.children.size() - 1);
-    render_tree_node(canvas, data, child_node, indent_level + 1, child_prefix, y, last_child_parent);
+    const bool last_child_parent = (i == node.children.size() - 1);
+    render_tree_node(canvas, data, child_node, indent + 4, child_prefix, y, last_child_parent);
   }
 }
 
@@ -365,13 +361,13 @@ static void render_tree_view(Canvas &canvas, const GraphData &data) {
     } else {
       child_prefix = g_tree_mid;
     }
-    bool last_parent = (i == data.tree_nodes_.size()- 1);
+    const bool last_parent = (i == data.tree_nodes_.size()- 1);
     auto &node = data.tree_nodes_[i];
-    render_tree_node(canvas, data, node, 1, child_prefix, y, last_parent);
+    render_tree_node(canvas, data, node, 4, child_prefix, y, last_parent);
   }
 }
 
-GraphResult tool_graph(int term_cols, const std::string &graph_json) {
+GraphResult tool_graph(const int term_cols, const std::string &graph_json) {
   GraphResult result;
   auto data = parse(graph_json);
   if (!data) {

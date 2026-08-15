@@ -214,7 +214,14 @@ static void test_tree_with_nested_children() {
         "value": 111,
         "children": [{
           "label": "level 3.1",
-          "value": 222.3
+          "value": 222.3,
+          "children": [{
+            "label": "level 4.1",
+            "value": 222.44
+          }, {
+            "label": "level 4.2",
+            "value": 333.44
+          }]
         }, {
           "label": "level 3.2",
           "value": 333.3

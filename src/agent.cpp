@@ -575,7 +575,7 @@ std::string Agent::process_tool(const std::string &cmd) {
     auto graphResult = tool_graph(tui_.get_term_cols() - 10, arg1 + arg2);
     if (graphResult.success_) {
       for (const auto &line : graphResult.data_) {
-        tui_.append_line(ICON_DATA + line);
+        tui_.append_line(line);
       }
     }
     return graphResult.success_ ? "OK" : graphResult.message_;
