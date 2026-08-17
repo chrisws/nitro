@@ -194,6 +194,7 @@ endif()
 # nitro executable
 # -----------------------------
 add_executable(nitro
+  src/string_utils.cpp
   yyjson/src/yyjson.c
   src/config.cpp
   src/mcp_format.cpp
@@ -216,6 +217,7 @@ target_include_directories(nitro PRIVATE
   ${LLAMA_DIR}/include
   ${LLAMA_DIR}/ggml/include
   ${CMAKE_CURRENT_SOURCE_DIR}/src
+  ${CMAKE_CURRENT_SOURCE_DIR}/lib/utfcpp/source
   ${JSON_INCLUDE}
 )
 

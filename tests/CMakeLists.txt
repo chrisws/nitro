@@ -16,6 +16,7 @@ add_executable(nitro_tests
   ../src/json.cpp
   ../src/graph.cpp
   ../src/logging.cpp
+  ../src/string_utils.cpp
   src/file_test.cpp
   src/graph_test.cpp
   src/string_utils_test.cpp
@@ -27,6 +28,7 @@ target_include_directories(nitro_tests PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/../yyjson/src
   ${CMAKE_CURRENT_SOURCE_DIR}/../src
+  ${CMAKE_CURRENT_SOURCE_DIR}/../lib/utfcpp/source
 )
 
 set_target_properties(nitro_tests PROPERTIES
