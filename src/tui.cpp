@@ -229,7 +229,7 @@ void Tui::redraw_chat() {
   unsigned rows, cols;
   ncplane_dim_yx(chatpl_, &rows, &cols);
 
-  std::lock_guard<std::mutex> lk(lines_mutex_);
+  std::lock_guard lk(lines_mutex_);
 
   struct VisualLine {
     std::string text;
@@ -243,21 +243,24 @@ void Tui::redraw_chat() {
     if (utils::is_blank(line)) {
       continue;
     }
-    uint64_t ch = get_line_color(line);
-    std::string display = (line.rfind("[logo_", 0) == 0 && line.size() > 8) ? line.substr(8) : line;
-    visual.push_back({display + "\n", ch});
+    const auto ch = get_line_color(line);
+    const auto display = (line.rfind("[logo_", 0) == 0 && line.size() > 8) ? line.substr(8) : line;
+    for (const auto &segment : utils::split_utf8_string(display, cols)) {
+      visual.push_back({segment + "\n", ch});
+    }
   }
 
-  int total   = static_cast<int>(visual.size());
-  int visible = static_cast<int>(rows);
-  int start   = std::max(0, total - visible - input_.get_scroll_offset());
-  int end     = std::min(total, start + visible);
-
+  const int total   = static_cast<int>(visual.size());
+  const int visible = static_cast<int>(rows);
+  const int start   = std::max(0, total - visible - input_.get_scroll_offset());
+  const int end     = std::min(total, start + visible);
+ 
   for (int i = start, row = 0; i < end; ++i, ++row) {
     ncplane_set_channels(chatpl_, visual[i].ch);
-    int result = ncplane_puttext(chatpl_, row, NCALIGN_LEFT, visual[i].text.c_str(), nullptr);
+    const int result = ncplane_puttext(chatpl_, row, NCALIGN_LEFT, visual[i].text.c_str(), nullptr);
     if (result > 0 && result > cols) {
-      row += (result / cols);
+      const int extra = (result / cols);
+      row += extra;
     }
   }
 }

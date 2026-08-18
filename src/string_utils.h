@@ -37,14 +37,6 @@ namespace utils {
   std::string trim(std::string_view str);
 
   //
-  // Check if a character is a word boundary character (whitespace or punctuation).
-  //
-  // @param cp Unicode code point
-  // @return true if the character is a word boundary
-  //
-  bool is_word_boundary(char32_t cp);
-
-  //
   // Split a UTF-8 string into segments based on word boundaries or newlines.
   //
   // @param input The UTF-8 encoded string to split

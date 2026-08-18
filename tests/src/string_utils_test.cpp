@@ -196,7 +196,8 @@ TEST(test_split_utf8_string_newline_unicode) {
 
 TEST(test_split_utf8_string_word_boundary) {
   std::string input = "Hello world! This is a test.";
-  auto segments = split_utf8_string(input, 10);
+  //                   123456789012
+  auto segments = split_utf8_string(input, 12);
 
   // Should break at word boundaries
   assert(segments.size() >= 2);
@@ -207,36 +208,11 @@ TEST(test_split_utf8_string_punctuation_boundary) {
   std::string input = "Hello, world!";
   auto segments = split_utf8_string(input, 5);
 
-  assert(segments.size() == 2);
+  assert(segments.size() == 4);
   assert(segments[0] == "Hello");
-  assert(segments[1] == ", world!");
-}
-
-TEST(test_is_word_boundary_space) {
-  assert(is_word_boundary(' ') == true);
-  assert(is_word_boundary('\t') == true);
-  assert(is_word_boundary('\n') == true);
-  assert(is_word_boundary('\r') == true);
-}
-
-TEST(test_is_word_boundary_punctuation) {
-  assert(is_word_boundary('.') == true);
-  assert(is_word_boundary(',') == true);
-  assert(is_word_boundary('!') == true);
-  assert(is_word_boundary('?') == true);
-  assert(is_word_boundary(':') == true);
-}
-
-TEST(test_is_word_boundary_alphanumeric) {
-  assert(is_word_boundary('a') == false);
-  assert(is_word_boundary('Z') == false);
-  assert(is_word_boundary('0') == false);
-  assert(is_word_boundary('A') == false);
-}
-
-TEST(test_is_word_boundary_unicode) {
-  assert(is_word_boundary(0x0400) == false); // Cyrillic А
-  assert(is_word_boundary(0x1F600) == false); // Emoji 😀
+  assert(segments[1] == ", ");
+  assert(segments[2] == "world");
+  assert(segments[3] == "!");
 }
 
 TEST(test_split_utf8_string_preserves_content) {
@@ -280,18 +256,14 @@ TEST(test_split_utf8_string_crlf) {
 void run_split_tests() {
   std::cout << "=== Running string_utils_2 Unit Tests ===\n\n";
 
+  RUN_TEST(test_split_utf8_string_word_boundary);
+  RUN_TEST(test_split_utf8_string_punctuation_boundary);
   RUN_TEST(test_split_utf8_string_basic);
   RUN_TEST(test_split_utf8_string_unicode);
   RUN_TEST(test_split_utf8_string_with_newline);
   RUN_TEST(test_split_utf8_string_empty);
   RUN_TEST(test_split_utf8_string_multibyte);
   RUN_TEST(test_split_utf8_string_newline_unicode);
-  RUN_TEST(test_split_utf8_string_word_boundary);
-  RUN_TEST(test_split_utf8_string_punctuation_boundary);
-  RUN_TEST(test_is_word_boundary_space);
-  RUN_TEST(test_is_word_boundary_punctuation);
-  RUN_TEST(test_is_word_boundary_alphanumeric);
-  RUN_TEST(test_is_word_boundary_unicode);
   RUN_TEST(test_split_utf8_string_preserves_content);
   RUN_TEST(test_split_utf8_string_edge_cases);
   RUN_TEST(test_split_utf8_string_crlf);

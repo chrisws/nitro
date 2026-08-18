@@ -12,6 +12,10 @@
 #include "utf8.h"
 #include "string_utils.h"
 
+static bool is_space(const char32_t cp) {
+  return std::isspace(static_cast<unsigned char>(cp));
+}
+
 namespace utils {
 
 std::string trim(const std::string_view str) {
@@ -30,25 +34,6 @@ std::string trim(const std::string_view str) {
   return std::string(str.substr(start, end - start + 1));
 }
 
-bool is_word_boundary(char32_t cp) {
-  if (std::isspace(static_cast<unsigned char>(cp))) {
-    return true;
-  }
-  if (cp >= 0x0020 && cp <= 0x002F) {
-    return true;
-  }
-  if (cp >= 0x003A && cp <= 0x0040) {
-    return true;
-  }
-  if (cp >= 0x005B && cp <= 0x0060) {
-    return true;
-  }
-  if (cp >= 0x007B && cp <= 0x007E) {
-    return true;
-  }
-  return false;
-}
-
 std::vector<std::string> split_utf8_string(const std::string &input, size_t max_chars_per_segment) {
   std::vector<std::string> result;
 
@@ -63,18 +48,28 @@ std::vector<std::string> split_utf8_string(const std::string &input, size_t max_
   std::string current;
   std::string pending;
 
-  unsigned count = 0;
+  unsigned current_count = 0;
+  unsigned pending_count = 0;
   auto it = input.begin();
   const auto end = input.end();
+
+  auto clear_pending = [&]() -> void {
+    pending.clear();
+    pending_count = 0;
+  };
+
+  auto clear_current = [&]() -> void {
+    current.clear();
+    current_count = 0;
+  };
 
   auto push_text = [&]() -> void {
     current.append(pending);
     if (!is_blank(current)) {
       result.push_back(current);
     }
-    current.clear();
-    pending.clear();
-    count = 0;
+    clear_pending();
+    clear_current();
   };
 
   while (it != end) {
@@ -84,25 +79,29 @@ std::vector<std::string> split_utf8_string(const std::string &input, size_t max_
       continue;
     }
     utf8::append(code_point, pending);
-    ++count;
-    if (count >= max_chars_per_segment) {
-      if (is_word_boundary(code_point)) {
+    ++pending_count;
+    if (pending_count + current_count >= max_chars_per_segment) {
+      if (is_space(code_point)) {
         push_text();
-      } else if (current.empty()) {
+      } else if (is_blank(current)) {
         result.push_back(pending);
-        pending.clear();
-        count = 0;
-      } else if (!is_blank(current)) {
+        clear_pending();
+      } else if (is_space(utf8::peek_next(it, end))) {
+        // both current and pending fit inside the row
+        push_text();
+      } else {
+        // wrap pending onto the next line
         result.push_back(current);
-        current.clear();
+        clear_current();
       }
-      if (is_word_boundary(utf8::peek_next(it, end))) {
+      if (is_space(utf8::peek_next(it, end))) {
         // discard leading whitespace on next line
         utf8::next(it, end);
       }
-    } else if (is_word_boundary(code_point)) {
+    } else if (is_space(code_point)) {
       current.append(pending);
-      pending.clear();
+      current_count += pending_count;
+      clear_pending();
     }
   }
   push_text();
