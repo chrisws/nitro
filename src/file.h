@@ -16,4 +16,5 @@ constexpr std::string PATCH_END      = ">>>>>>>";
 
 std::string tool_append(const std::string &path, const std::string &data);
 std::string tool_patch(const std::string& filename, const std::string& patch_str);
+std::string tool_write_validate(const std::string &path, const std::string &data);
 std::string tool_write(const std::string &path, const std::string &data);

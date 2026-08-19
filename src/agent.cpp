@@ -516,14 +516,19 @@ std::string Agent::process_tool(const std::string &cmd) {
   }
   if (op == "TOOL:WRITE") {
     tui_.show_tool("writing: " + arg1);
-    std::string p = resolve(arg1);
-    if (!path_in_sandbox(sandbox, p)) {
+    const auto path = resolve(arg1);
+    if (!path_in_sandbox(sandbox, path)) {
       return "ERROR: path outside sandbox";
     }
-    if (cfg_.permission_prompt_ && !tui_.confirm_dialog(std::format("Allow model to write {}?", p))) {
+    if (cfg_.permission_prompt_ && !tui_.confirm_dialog(std::format("Allow model to write {}?", path))) {
       return "ERROR: action prevented by user";
     }
-    return tool_write(p, strip_code_fences(arg1, arg2));
+    const auto data = strip_code_fences(arg1, arg2);
+    const auto validate = tool_write_validate(path, data);
+    if (!validate.empty() && !tui_.confirm_dialog(std::format("[{}] - Allow model to write {}?", validate, path))) {
+      return "ERROR: action prevented by user - " + validate;
+    }
+    return tool_write(path, data);
   }
   if (op == "TOOL:MKDIR") {
     std::string p = resolve(arg1);

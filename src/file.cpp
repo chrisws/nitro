@@ -226,33 +226,33 @@ std::string tool_patch(const std::string& filename, const std::string& patch_str
 }
 
 //
+// tool_write_validate
+//
+std::string tool_write_validate(const std::string &path, const std::string &data) {
+  std::string result;
+  fs::path p(path);
+
+  if (fs::exists(p)) {
+    auto old_size = fs::file_size(p);
+    if (old_size > 0 && data.size() < old_size * 0.5) {
+      result = "Warning: content shrinks by more than 50%";
+    } else if (old_size > 1000) {
+      result = "Warning: old content is > 1000 bytes";
+    }
+  }
+
+  if (isCurlyBraceLanguage(p) && !isBalanced(data)) {
+    result  = "Warning: file has unbalanced braces";
+  }
+
+  return result;
+}
+
+//
 // tool_write
 //
 std::string tool_write(const std::string &path, const std::string &data) {
   fs::path p(path);
-
-  // Validation checks
-  if (fs::exists(p)) {
-    auto old_size = fs::file_size(p);
-
-    // Check if content shrinks by more than 50%
-    if (old_size > 0 && data.size() < old_size * 0.5) {
-      return "ERROR: Content size shrunk by more than 50%";
-    }
-
-    // Check if old content is > 200 bytes
-    if (old_size > 200) {
-      return "ERROR: File is large (> 200 bytes), use TOOL:PATCH instead";
-    }
-  }
-
-  // Check if it's a curly brace language and content is unbalanced
-  if (isCurlyBraceLanguage(p)) {
-    // Assume isBalanced exists
-    if (!isBalanced(data)) {
-      return "ERROR: File appears to be a curly brace language with unbalanced braces";
-    }
-  }
 
   // Create parent directories if needed
   if (p.has_parent_path()) {
