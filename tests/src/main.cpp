@@ -1,6 +1,7 @@
 void file_test();
 void graph_test();
 void string_utils_test();
+void mcp_format_test();
 
 #include "logging.h"
 
@@ -9,5 +10,6 @@ int main() {
   file_test();
   graph_test();
   string_utils_test();
+  mcp_format_test();
   return 0;
 }

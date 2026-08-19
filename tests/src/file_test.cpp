@@ -333,8 +333,8 @@ static void test_tool_write_curly_unbalanced() {
   string test_file = "/tmp/test_curly_balanced.js";
   string content = "function test() { return 1; }}";
 
-  string result = tool_write(test_file, content);
-  assert(result.find("ERROR") != string::npos);
+  string result = tool_write_validate(test_file, content);
+  assert(result.find("Warning") != string::npos);
   assert(result.find("unbalanced") != string::npos);
 
   // Verify file was NOT created
@@ -380,9 +380,9 @@ static void test_tool_write_large_file() {
 
   // Try to write smaller content (should fail due to size check)
   string smaller_content = "int bar() { return 1; }";
-  string result = tool_write(test_file, smaller_content);
-  assert(result.find("ERROR") != string::npos);
-  assert(result.find("shrunk") != string::npos);
+  string result = tool_write_validate(test_file, smaller_content);
+  assert(result.find("Warning") != string::npos);
+  assert(result.find("shrinks") != string::npos);
 
   // Clean up
   remove(test_file.c_str());

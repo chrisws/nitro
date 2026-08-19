@@ -17,9 +17,11 @@ add_executable(nitro_tests
   ../src/graph.cpp
   ../src/logging.cpp
   ../src/string_utils.cpp
+  ../src/mcp_format.cpp
   src/file_test.cpp
   src/graph_test.cpp
   src/string_utils_test.cpp
+  src/mcp_format_test.cpp
   src/main.cpp
 )
 
