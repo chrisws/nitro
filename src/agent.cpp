@@ -197,6 +197,13 @@ static std::string strip_code_fences(const std::string &filename,
   return inner;
 }
 
+static bool hasDangerousPatterns(const std::string &command) {
+  return ((command.find('|') != std::string::npos) ||
+          (command.find('>') != std::string::npos) ||
+          (command.find('<') != std::string::npos) ||
+          (command.find("rm ") != std::string::npos));
+}
+
 static std::string tool_run(const NitroConfig &cfg, Tui &tui, const std::string &arg1, const std::string &arg2) {
   const std::vector<std::string> &run_allowed = cfg.run_allowed_;
   if (!run_allowed.empty()) {
@@ -209,7 +216,7 @@ static std::string tool_run(const NitroConfig &cfg, Tui &tui, const std::string 
     return "ERROR: prevented by user";
   }
   const std::string command = arg1 + " " + arg2 + " 2>&1";
-  if (const auto pos = command.find("rm "); pos != std::string::npos) {
+  if (hasDangerousPatterns(command)) {
     return "ERROR: prevented by user";
   }
   tui.show_tool("running: " + command);

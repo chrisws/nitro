@@ -14,11 +14,16 @@
 #include "config.h"
 #include "json.h"
 
+const std::vector<std::string> ALLOWED_TOOLS = {
+  "cat", "head", "tail", "grep", "wc", "stat", "ls", "find",
+  "awk", "sed", "tr", "cut", "sort", "uniq", "od", "xxd",
+  "file", "uname", "whoami", "pwd", "id"
+};
+
 NitroConfig::NitroConfig() {
-  run_allowed_.emplace_back("make");
-  run_allowed_.emplace_back("cmake");
-  run_allowed_.emplace_back("ls");
-  run_allowed_.emplace_back("find");
+  for (const auto &tool : ALLOWED_TOOLS) {
+    run_allowed_.emplace_back(tool);
+  }
 }
 
 //
