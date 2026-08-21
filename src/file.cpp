@@ -21,7 +21,7 @@ static const std::vector<std::string> curlyBraceExtensions = {
 };
 
 static bool isCurlyBraceLanguage(const fs::path& path) {
-  std::string ext = path.extension().string();
+  const std::string ext = path.extension().string();
   for (const auto& e : curlyBraceExtensions) {
     if (ext == e) return true;
   }

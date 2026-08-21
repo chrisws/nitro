@@ -134,7 +134,7 @@ int Input::delete_word_at_cursor() {
 // Uppercase the word under the cursor (Emacs-style Alt-L).
 // Returns the new cursor position.
 //
-int Input::uppercase_word(int pos) {
+int Input::uppercase_word(const int pos) {
   const int start = pos_of_word_start(pos);
   const int end = pos_of_word_end(pos);
   for (int i = start; i < end; ++i) {
@@ -149,7 +149,7 @@ int Input::uppercase_word(int pos) {
 // Lowercase the word under the cursor (Emacs-style Alt-d).
 // Returns the new cursor position.
 //
-int Input::lowercase_word(int pos) {
+int Input::lowercase_word(const int pos) {
   const int start = pos_of_word_start(pos);
   const int end = pos_of_word_end(pos);
   for (int i = start; i < end; ++i) {
@@ -241,7 +241,7 @@ std::string Input::readline(TuiContext &tui) {
     }
 
     if (ev.is(Key::PAGE_UP)) {
-      int term_rows = tui.get_term_rows();
+      const int term_rows = tui.get_term_rows();
       scroll_offset_ += std::max(1, term_rows - 4);
       tui.redraw_chat();
       tui.render();
@@ -249,7 +249,7 @@ std::string Input::readline(TuiContext &tui) {
     }
 
     if (ev.is(Key::PAGE_DOWN)) {
-      int term_rows = tui.get_term_rows();
+      const int term_rows = tui.get_term_rows();
       scroll_offset_ = std::max(0, scroll_offset_ - std::max(1, term_rows - 4));
       tui.redraw_chat();
       tui.render();

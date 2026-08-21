@@ -123,8 +123,8 @@ void Canvas::draw_hline(int x, int y1, int x2) {
   }
   int startX = std::max(0, x);
   int endX = std::min(width_ - 1, x2);
-  for (int x = startX; x <= endX; ++x) {
-    insert_at(y1, x, g_horz_bar);
+  for (int i = startX; i <= endX; ++i) {
+    insert_at(y1, i, g_horz_bar);
   }
 }
 
