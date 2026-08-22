@@ -13,6 +13,9 @@
 #include <cstdarg>
 #include <string>
 #include <unordered_map>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 static FILE *g_logfile = nullptr;
 static LogLevel g_level = DEBUG_LEVEL;
@@ -41,6 +44,9 @@ void log_open(const std::string& level) {
   if (g_logfile == nullptr) {
     const char *home = getenv("HOME");
     const auto path = std::string(home ? home : ".") + "/.config/nitro/nitro.log";
+    std::error_code ec;
+    fs::path dir = fs::path(path).parent_path();
+    fs::create_directories(dir, ec);
     g_logfile = fopen(path.c_str(), "a");
   }
 }
