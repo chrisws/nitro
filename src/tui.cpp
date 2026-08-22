@@ -21,6 +21,17 @@
 #include "string_utils.h"
 #include "logging.h"
 
+// max scan for NCTYPE_PRESS in kity-term or NCTYPE_UNKNOWN in gnome terminal
+#define MAX_FIND_PRESS 4
+
+InputEvent::InputEvent(notcurses *nc) {
+  notcurses_get_blocking(nc, &in_);
+  int iter = 0;
+  while (in_.evtype != NCTYPE_PRESS && in_.evtype != NCTYPE_UNKNOWN && ++iter < MAX_FIND_PRESS) {
+    notcurses_get_blocking(nc, &in_);
+  }
+}
+
 Tui::Tui()
     : nc_(nullptr)
     , stdpl_(nullptr)

@@ -72,7 +72,7 @@ enum class Key : uint32_t {
 };
 
 struct InputEvent {
-  explicit InputEvent(notcurses *nc) { notcurses_get_blocking(nc, &in_); }
+  explicit InputEvent(notcurses *nc);
   ~InputEvent() = default;
 
   Key key() const { return static_cast<Key>(in_.id); }
