@@ -36,7 +36,19 @@ set(LLAMA_BACKEND "AUTO" CACHE STRING "Select llama.cpp backend: AUTO, CPU, GPU,
 set_property(CACHE LLAMA_BACKEND PROPERTY STRINGS AUTO CPU GPU CUDA)
 #
 # sudo apt install nvidia-open cuda-toolkit   (for CUDA backend)
+# export CUDACXX=/usr/local/cuda/bin/nvcc
 #
+
+# # --- Fallback logic for CUDA compiler path ---
+if(NOT DEFINED CMAKE_CUDA_COMPILER AND NOT DEFINED ENV{CUDACXX})
+  find_program(CUDA_NVCC_EXECUTABLE nvcc
+    HINTS /usr/local/cuda/bin /usr/local/cuda/targets/x86_64-linux/bin
+    DOC "Path to the CUDA compiler"
+  )
+  if(CUDA_NVCC_EXECUTABLE)
+    set(CMAKE_CUDA_COMPILER ${CUDA_NVCC_EXECUTABLE} CACHE FILEPATH "CUDA compiler")
+  endif()
+endif()
 
 set(GGML_OPENMP OFF CACHE BOOL "" FORCE)
 set(GGML_CUDA OFF CACHE BOOL "" FORCE)
