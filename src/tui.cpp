@@ -722,13 +722,14 @@ bool Tui::confirm_dialog(const std::string &prompt) const {
 }
 
 bool Tui::is_escape() {
-  InputEvent ev = get_event();
-  if (ev.is(Key::ESCAPE)) {
+  ncinput ni{};
+  notcurses_get_nblock(nc_, &ni);
+  if (ni.id == NCKEY_ESC) {
     set_thinking(false);
     append_line(ICON_ERR + "Generation cancelled by user (Escape)");
     redraw_all();
   }
-  return ev.is(Key::ESCAPE);
+  return ni.id == NCKEY_ESC;
 }
 
 void Tui::setup_model(std::string &model_name, const LlamaMemoryInfo &mem, bool thinking) {
