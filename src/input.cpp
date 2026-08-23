@@ -395,13 +395,13 @@ std::string Input::readline(TuiContext &tui) {
     }
 
     // Alt-L: uppercase word under cursor
-    if (ev.is_alt() && ev.is(Key::l)) {
+    if (ev.is_alt() && ev.is(Key::L)) {
       cursor_pos_ = uppercase_word(cursor_pos_);
       continue;
     }
 
     // Alt-d: lowercase word under cursor
-    if (ev.is_alt() && ev.is(Key::d)) {
+    if (ev.is_alt() && ev.is(Key::D)) {
       cursor_pos_ = lowercase_word(cursor_pos_);
       continue;
     }

@@ -265,7 +265,7 @@ void Tui::redraw_chat() {
   const int visible = static_cast<int>(rows);
   const int start   = std::max(0, total - visible - input_.get_scroll_offset());
   const int end     = std::min(total, start + visible);
- 
+
   for (int i = start, row = 0; i < end; ++i, ++row) {
     ncplane_set_channels(chatpl_, visual[i].ch);
     const int result = ncplane_puttext(chatpl_, row, NCALIGN_LEFT, visual[i].text.c_str(), nullptr);
@@ -499,7 +499,7 @@ void Tui::dismiss_modal_popup() {
 // Returns the chosen path, or "" on cancel.
 //
 std::string Tui::file_picker(const std::string &start_dir,
-                                  const std::string &title_hint) const {
+                             const std::string &title_hint) const {
   std::string current_dir = start_dir;
   {
     std::error_code ec;
@@ -575,8 +575,9 @@ std::string Tui::file_picker(const std::string &start_dir,
     ncplane_putstr_yx(picker, 0, 2, title_str.c_str());
     // Current path (truncated).
     std::string path_display = current_dir;
-    if (static_cast<int>(path_display.size()) > PW - 4)
+    if (static_cast<int>(path_display.size()) > PW - 4) {
       path_display = "…" + path_display.substr(path_display.size() - (PW - 5));
+    }
     ncplane_set_channels(picker, NCCHANNELS_INITIALIZER(160, 200, 240, PBG_R, PBG_G, PBG_B));
     ncplane_putstr_yx(picker, 1, 2, path_display.c_str());
     // Hint line (bottom interior row).
@@ -586,8 +587,12 @@ std::string Tui::file_picker(const std::string &start_dir,
     ncplane_putstr_yx(picker, PH - 2, 2, hint_trunc.c_str());
     // Entry list.
     int list_rows = PH - 5;
-    if (selected < scroll) scroll = selected;
-    if (selected >= scroll + list_rows) scroll = selected - list_rows + 1;
+    if (selected < scroll) {
+      scroll = selected;
+    }
+    if (selected >= scroll + list_rows) {
+      scroll = selected - list_rows + 1;
+    }
     for (int i = 0; i < list_rows; ++i) {
       int idx = scroll + i;
       if (idx >= static_cast<int>(entries.size())) break;
@@ -614,28 +619,30 @@ std::string Tui::file_picker(const std::string &start_dir,
   draw_picker();
 
   for (;;) {
-    ncinput ni{};
-    notcurses_get_blocking(nc_, &ni);
-    if (ni.id == NCKEY_ESC) {
-      break;  // cancelled
+    InputEvent ev = get_event();
+    if (ev.is(Key::ESCAPE)) {
+      // cancelled
+      break;
     }
-    if (ni.id == NCKEY_UP) {
+    if (ev.is(Key::UP)) {
       if (selected > 0) --selected;
       draw_picker();
       continue;
     }
-    if (ni.id == NCKEY_DOWN) {
-      if (selected + 1 < static_cast<int>(entries.size())) ++selected;
+    if (ev.is(Key::DOWN)) {
+      if (selected + 1 < static_cast<int>(entries.size())) {
+        ++selected;
+      }
       draw_picker();
       continue;
     }
     // 's' — select the current directory (useful for /rag, ignored for file pickers).
-    if (ni.id == 's' || ni.id == 'S') {
+    if (ev.is(Key::S)) {
       // Select current directory for RAG indexing.
       result = current_dir;
       break;
     }
-    if (ni.id == NCKEY_BACKSPACE || ni.id == 127) {
+    if (ev.is(Key::BACKSPACE) || ev.is(Key::ESCAPE)) {
       // Go up one level.
       fs::path p(current_dir);
       if (p.has_parent_path() && p != p.root_path()) {
@@ -646,37 +653,37 @@ std::string Tui::file_picker(const std::string &start_dir,
       }
       continue;
     }
-    if (ni.id == NCKEY_ENTER || ni.id == '\r' || ni.id == '\n') {
-      if (entries.empty()) continue;
+    if (ev.is(Key::ENTER) || ev.is(Key::NL) || ev.is(Key::CR)) {
+      if (entries.empty()) {
+        continue;
+      }
       const std::string &entry = entries[selected];
       if (entry == "..") {
         fs::path p(current_dir);
         if (p.has_parent_path() && p != p.root_path()) {
           current_dir = p.parent_path().string();
           load_entries(current_dir, entries);
-          selected = 0; scroll = 0;
+          selected = 0;
+          scroll = 0;
           draw_picker();
         }
       } else if (!entry.empty() && entry.back() == '/') {
-        // Descend into directory.
         current_dir += "/" + entry.substr(0, entry.size() - 1);
-        {
-          std::error_code ec;
-          auto canon = fs::canonical(current_dir, ec);
-          if (!ec) current_dir = canon.string();
-        }
+        std::error_code ec;
+        auto canon = fs::canonical(current_dir, ec);
+        if (!ec) current_dir = canon.string();
         load_entries(current_dir, entries);
-        selected = 0; scroll = 0;
+        selected = 0;
+        scroll = 0;
         draw_picker();
       } else {
-        // Select a specific file.
-        // Select the highlighted file.
         result = current_dir + "/" + entry;
         break;
       }
       continue;
     }
   }
+
   ncplane_destroy(picker);
   notcurses_render(nc_);
   return result;
@@ -693,11 +700,15 @@ bool Tui::confirm_dialog(const std::string &prompt) const {
   notcurses_render(nc_);
   std::string answer;
   for (;;) {
-    ncinput ni{};
-    notcurses_get_blocking(nc_, &ni);
-    if (ni.id == NCKEY_ENTER || ni.id == '\r' || ni.id == '\n') break;
-    if (ni.id == NCKEY_BACKSPACE && !answer.empty()) { answer.pop_back(); }
-    else if (ni.id >= 32 && ni.id < 127) { answer += static_cast<char>(ni.id); }
+    InputEvent ev = get_event();
+    if (ev.is(Key::ENTER) || ev.is(Key::NL) || ev.is(Key::CR)) {
+      break;
+    }
+    if (ev.is(Key::BACKSPACE) && !answer.empty()) {
+      answer.pop_back();
+    } else if (ev.is_ascii()) {
+      answer += static_cast<char>(ev.key());
+    }
     ncplane_erase(inputpl_);
     ncplane_set_channels(inputpl_, inp_ch(255, 200, 80));
     ncplane_putstr_yx(inputpl_, 1, 0, (msg + answer).c_str());
@@ -711,14 +722,13 @@ bool Tui::confirm_dialog(const std::string &prompt) const {
 }
 
 bool Tui::is_escape() {
-  ncinput ni{};
-  notcurses_get_nblock(nc_, &ni);
-  if (ni.id == NCKEY_ESC) {
+  InputEvent ev = get_event();
+  if (ev.is(Key::ESCAPE)) {
     set_thinking(false);
     append_line(ICON_ERR + "Generation cancelled by user (Escape)");
     redraw_all();
   }
-  return ni.id == NCKEY_ESC;
+  return ev.is(Key::ESCAPE);
 }
 
 void Tui::setup_model(std::string &model_name, const LlamaMemoryInfo &mem, bool thinking) {

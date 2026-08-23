@@ -336,7 +336,7 @@ class Tui final: TuiContext {
   double get_kv_percent() const { return kv_percent_; }
 
   // TuiContext
-  InputEvent get_event() override { return InputEvent(nc_); }
+  InputEvent get_event() const override { return InputEvent(nc_); }
   void render() override { notcurses_render(nc_); }
   void enable_mouse(bool enable) override;
 

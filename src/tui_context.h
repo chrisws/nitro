@@ -17,7 +17,7 @@ public:
   TuiContext(const TuiContext &) = delete;
   TuiContext &operator=(const TuiContext &) = delete;
 
-  virtual InputEvent get_event() = 0;
+  virtual InputEvent get_event() const = 0;
   virtual void render() = 0;
   virtual void redraw_input() const = 0;
   virtual void enable_mouse(bool enable) = 0;
