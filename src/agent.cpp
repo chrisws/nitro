@@ -215,10 +215,10 @@ static std::string tool_run(const NitroConfig &cfg, Tui &tui, const std::string 
   } else if (cfg.permission_prompt_ && !tui.confirm_dialog(std::format("Allow {} {} to run?", arg1, arg2))) {
     return "ERROR: prevented by user";
   }
-  const std::string command = arg1 + " " + arg2 + " 2>&1";
-  if (hasDangerousPatterns(command)) {
+  if (hasDangerousPatterns(arg1 + " " + arg2)) {
     return "ERROR: prevented by user";
   }
+  const std::string command = arg1 + " " + arg2 + " 2>&1";
   tui.show_tool("running: " + command);
   FILE *fp = popen(command.c_str(), "r");
   if (!fp) {
