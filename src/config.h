@@ -44,8 +44,10 @@ struct NitroConfig {
   float top_p_          = 0.95f;
   float min_p_          = 0.0f;
   int   top_k_          = 20;
-  float penalty_repeat_ = 1.0f;
   int   penalty_last_n_ = 256;
+  float penalty_repeat_ = 1.0f;
+  float penalty_freq_   = 0.0f;
+  float penalty_present_= 0.0f;
   int   rag_top_k_      = 5;
   bool  thinking_       = true;
   bool  permission_prompt_ = false;

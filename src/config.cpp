@@ -82,6 +82,8 @@ void NitroConfig::load_settings() {
   root.get_float("top_p", top_p_);
   root.get_float("min_p", min_p_);
   root.get_float("penalty_repeat", penalty_repeat_);
+  root.get_float("penalty_freq", penalty_freq_);
+  root.get_float("penalty_present", penalty_present_);
 
   // bool fields
   root.get_bool("offload_kqv", offload_kqv_);
@@ -285,6 +287,8 @@ std::string NitroConfig::introspect() const {
     "  \"min_p\":          {},\n"
     "  \"top_k\":          {},\n"
     "  \"penalty_repeat\": {},\n"
+    "  \"penalty_freq\":   {},\n"
+    "  \"penalty_present\":{},\n"
     "  \"penalty_last_n\": {},\n"
     "  \"offload_kqv_\":   {},\n"
     "  \"rag_top_k\":      {}\n"
@@ -301,6 +305,8 @@ std::string NitroConfig::introspect() const {
                      min_p_,
                      top_k_,
                      penalty_repeat_,
+                     penalty_freq_,
+                     penalty_present_,
                      penalty_last_n_,
                      offload_kqv_,
                      rag_top_k_);

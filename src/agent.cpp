@@ -241,6 +241,8 @@ void Agent::apply_generation_params() const {
   llama_->set_top_p(cfg_.top_p_);
   llama_->set_min_p(cfg_.min_p_);
   llama_->set_penalty_repeat(cfg_.penalty_repeat_);
+  llama_->set_penalty_freq(cfg_.penalty_freq_);
+  llama_->set_penalty_present(cfg_.penalty_present_);
   llama_->set_penalty_last_n(cfg_.penalty_last_n_);
   llama_->set_log_level(cfg_.log_level_);
 }
