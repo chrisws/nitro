@@ -33,6 +33,7 @@
 #include "mcp_client.h"
 #include "string_utils.h"
 #include "ui_text.h"
+#include "webview.h"
 
 // Returns the history file path: ~/.config/nitro/history.txt
 static std::string history_path() {
@@ -321,7 +322,7 @@ int main(int argc, char **argv) {
   }
 
   // ── Auto-discover knowledge files ─────────────────────────────────
-  for (const char *kf : {"nitro.md", "persona.md", "AGENTS.md", "README.md"}) {
+  for (const char *kf : {"nitro.md", "persona.md", "AGENTS.md"}) {
     if (fs::exists(kf)) {
       cfg.knowledge_files_.emplace_back(kf);
     }
@@ -348,6 +349,12 @@ int main(int argc, char **argv) {
         tui.append_line(ICON_SYS + "MCP not enabled");
       }
       tui.append_line(ICON_SYS + "Loading context...");
+      for (const auto &kf : cfg.knowledge_files_) {
+        std::ifstream f(kf);
+        if (f) {
+          tui.append_line(ICON_SYS + kf);
+        }
+      }
       tui.redraw_all();
       std::string sysp = cfg.build_system_prompt();
       agent.reset_conversation(sysp);
