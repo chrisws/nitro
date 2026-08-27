@@ -205,20 +205,16 @@ static bool hasDangerousPatterns(const std::string &command) {
 }
 
 static std::string tool_run(const NitroConfig &cfg, Tui &tui, const std::string &arg1, const std::string &arg2) {
-  const std::vector<std::string> &run_allowed = cfg.run_allowed_;
-  if (!run_allowed.empty()) {
-    bool permitted = ranges::any_of(run_allowed, [&](const std::string &a) {return a == arg1;});
-    if (!permitted) {
-      return "ERROR: '" + arg1 + "' is not in the TOOL:RUN allowlist. "
-        "Use /set run_allowed <name> to permit it.";
+  const std::string args = arg1 + " " + arg2;
+  if (cfg.permission_prompt_ && !tui.confirm_dialog(std::format("Allow {} {} to run?", arg1, arg2))) {
+    return "ERROR: prevented by user";
+  } else {
+    bool permitted = ranges::any_of(cfg.run_allowed_, [&](const std::string &a) {return a == arg1;});
+    if ((!permitted || hasDangerousPatterns(args)) && !tui.confirm_dialog(std::format("Allow {} {} to run?", arg1, arg2))) {
+      return "ERROR: '" + arg1 + "' is not in the TOOL:RUN allowlist.";
     }
-  } else if (cfg.permission_prompt_ && !tui.confirm_dialog(std::format("Allow {} {} to run?", arg1, arg2))) {
-    return "ERROR: prevented by user";
   }
-  if (hasDangerousPatterns(arg1 + " " + arg2)) {
-    return "ERROR: prevented by user";
-  }
-  const std::string command = arg1 + " " + arg2 + " 2>&1";
+  const std::string command = args + " 2>&1";
   tui.show_tool("running: " + command);
   FILE *fp = popen(command.c_str(), "r");
   if (!fp) {
@@ -527,13 +523,14 @@ std::string Agent::process_tool(const std::string &cmd) {
     if (!path_in_sandbox(sandbox, path)) {
       return "ERROR: path outside sandbox";
     }
+    const auto data = strip_code_fences(arg1, arg2);
     if (cfg_.permission_prompt_ && !tui_.confirm_dialog(std::format("Allow model to write {}?", path))) {
       return "ERROR: action prevented by user";
-    }
-    const auto data = strip_code_fences(arg1, arg2);
-    const auto validate = tool_write_validate(path, data);
-    if (!validate.empty() && !tui_.confirm_dialog(std::format("[{}] - Allow model to write {}?", validate, path))) {
-      return "ERROR: action prevented by user - " + validate;
+    } else {
+      const auto validate = tool_write_validate(path, data);
+      if (!validate.empty() && !tui_.confirm_dialog(std::format("[{}] - Allow model to write {}?", validate, path))) {
+        return "ERROR: action prevented by user - " + validate;
+      }
     }
     return tool_write(path, data);
   }
