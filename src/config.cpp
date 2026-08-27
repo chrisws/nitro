@@ -17,7 +17,7 @@
 const std::vector<std::string> ALLOWED_TOOLS = {
   "cat", "head", "tail", "grep", "wc", "stat", "ls", "find",
   "awk", "sed", "tr", "cut", "sort", "uniq", "od", "xxd",
-  "file", "uname", "whoami", "pwd", "id"
+  "file", "uname", "whoami", "pwd", "id", "g++"
 };
 
 NitroConfig::NitroConfig() {
