@@ -22,6 +22,7 @@
 #include "string_utils.h"
 #include "file.h"
 #include "graph.h"
+#include "webview.h"
 
 //
 // handling for strip_code_fences
@@ -230,6 +231,13 @@ static std::string tool_run(const NitroConfig &cfg, Tui &tui, const std::string 
     out = out.substr(0, 4096) + "\n…(truncated)";
   }
   return out;
+}
+
+static void broadcast_reload(const NitroConfig &cfg, Tui &tui) {
+  if (cfg.web_dev_port_ != -1) {
+    tui.show_tool("browser refresh");
+    webview::broadcast_reload();
+  }
 }
 
 void Agent::apply_generation_params() const {
@@ -534,7 +542,21 @@ std::string Agent::process_tool(const std::string &cmd) {
         return "ERROR: action prevented by user - " + validate;
       }
     }
-    return tool_write(path, data);
+    const auto result = tool_write(path, data);
+    broadcast_reload(cfg_, tui_);
+    return result;
+  }
+  if (op == "TOOL:PATCH") {
+    tui_.show_tool("patch: " + arg1);
+    const auto result = tool_patch(arg1, arg2);
+    broadcast_reload(cfg_, tui_);
+    return result;
+  }
+  if (op == "TOOL:APPEND") {
+    tui_.show_tool("append: " + arg1);
+    const auto result = tool_append(arg1, arg2);
+    broadcast_reload(cfg_, tui_);
+    return result;
   }
   if (op == "TOOL:MKDIR") {
     std::string p = resolve(arg1);
@@ -572,14 +594,6 @@ std::string Agent::process_tool(const std::string &cmd) {
   if (op == "TOOL:MCP") {
     tui_.show_tool("mcp: " + arg1);
     return mcp_client_.call_tool(arg1, arg2);
-  }
-  if (op == "TOOL:PATCH") {
-    tui_.show_tool("patch: " + arg1);
-    return tool_patch(arg1, arg2);
-  }
-  if (op == "TOOL:APPEND") {
-    tui_.show_tool("append: " + arg1);
-    return tool_append(arg1, arg2);
   }
   if (op == "TOOL:GRAPH") {
     const int cols = tui_.get_term_cols() * 0.75;

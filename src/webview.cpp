@@ -18,14 +18,6 @@
 //   • A minimal SHA-1 implementation is included for the WebSocket
 //     handshake (Sec-WebSocket-Accept = Base64(SHA1(key + GUID))).
 //
-// Standalone test:
-//   g++ -std=c++20 -o web-dev-4 web-dev-4.cpp -pthread -DNITRO_WEBVIEW_STANDALONE
-//   ./web-dev-4 --web-dev-port 9080 /path/to/sandbox
-//
-// Integration (see agent.cpp):
-//   After a successful TOOL:WRITE or TOOL:PATCH, call:
-//     webview_broadcast_reload();
-//
 //
 
 #include <algorithm>
@@ -49,110 +41,13 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <poll.h>
+#include <openssl/sha.h>
 
 #include "webview.h"
+#include "logging.h"
 
 namespace fs = std::filesystem;
-
-// ────────────────────────────────────────────────────────────────────────────
-// SHA-1 (minimal, for WebSocket handshake only)
-// ────────────────────────────────────────────────────────────────────────────
-
-namespace sha1 {
-
-struct Context {
-  uint32_t h[5];
-  uint8_t  buffer[64];
-  uint64_t total_bytes;
-  size_t   buffer_len;
-};
-
-static inline uint32_t rotl(uint32_t v, int n) {
-  return (v << n) | (v >> (32 - n));
-}
-
-static void init(Context &ctx) {
-  ctx.h[0] = 0x67452301u;
-  ctx.h[1] = 0xEFCDAB89u;
-  ctx.h[2] = 0x98BADCFEu;
-  ctx.h[3] = 0x10325476u;
-  ctx.h[4] = 0xC3D2E1F0u;
-  ctx.total_bytes = 0;
-  ctx.buffer_len  = 0;
-}
-
-static void process_block(const uint8_t *block, uint32_t h[5]) {
-  uint32_t w[80];
-  for (int i = 0; i < 16; ++i) {
-    w[i] = (uint32_t(block[i * 4])     << 24)
-         | (uint32_t(block[i * 4 + 1]) << 16)
-         | (uint32_t(block[i * 4 + 2]) << 8)
-         | (uint32_t(block[i * 4 + 3]));
-  }
-  for (int i = 16; i < 80; ++i) {
-    w[i] = rotl(w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16], 1);
-  }
-  uint32_t a = h[0], b = h[1], c = h[2], d = h[3], e = h[4];
-  for (int i = 0; i < 80; ++i) {
-    uint32_t f, k;
-    if      (i < 20) { f = (b & c) | (~b & d);          k = 0x5A827999u; }
-    else if (i < 40) { f = b ^ c ^ d;                   k = 0x6ED9EBA1u; }
-    else if (i < 60) { f = (b & c) | (b & d) | (c & d); k = 0x8F1BBCDCu; }
-    else             { f = b ^ c ^ d;                   k = 0xCA62C1D6u; }
-    uint32_t temp = rotl(a, 5) + f + e + k + w[i];
-    e = d;  d = c;  c = rotl(b, 30);  b = a;  a = temp;
-  }
-  h[0] += a; h[1] += b; h[2] += c; h[3] += d; h[4] += e;
-}
-
-static void update(Context &ctx, const uint8_t *data, size_t len) {
-  ctx.total_bytes += len;
-  while (len > 0) {
-    size_t space = 64 - ctx.buffer_len;
-    size_t copy  = (len < space) ? len : space;
-    std::memcpy(ctx.buffer + ctx.buffer_len, data, copy);
-    ctx.buffer_len += copy;
-    data           += copy;
-    len            -= copy;
-    if (ctx.buffer_len == 64) {
-      process_block(ctx.buffer, ctx.h);
-      ctx.buffer_len = 0;
-    }
-  }
-}
-
-static void final(Context &ctx, uint8_t digest[20]) {
-  uint64_t bit_len = ctx.total_bytes * 8;
-  uint8_t  pad     = 0x80;
-  update(ctx, &pad, 1);
-  uint8_t zero = 0;
-  while (ctx.buffer_len != 56) {
-    update(ctx, &zero, 1);
-  }
-  uint8_t len_bytes[8];
-  for (int i = 7; i >= 0; --i) {
-    len_bytes[i] = uint8_t((bit_len >> (8 * i)) & 0xFF);
-  }
-  update(ctx, len_bytes, 8);
-
-  for (int i = 0; i < 5; ++i) {
-    digest[i * 4]     = uint8_t((ctx.h[i] >> 24) & 0xFF);
-    digest[i * 4 + 1] = uint8_t((ctx.h[i] >> 16) & 0xFF);
-    digest[i * 4 + 2] = uint8_t((ctx.h[i] >> 8)  & 0xFF);
-    digest[i * 4 + 3] = uint8_t(ctx.h[i] & 0xFF);
-  }
-}
-
-static std::array<uint8_t, 20> hash(const std::string &input) {
-  Context ctx;
-  init(ctx);
-  update(ctx, reinterpret_cast<const uint8_t *>(input.data()), input.size());
-  std::array<uint8_t, 20> digest{};
-  final(ctx, digest.data());
-  return digest;
-}
-
-} // namespace sha1
 
 // ────────────────────────────────────────────────────────────────────────────
 // Base64 encoding (for WebSocket handshake)
@@ -224,8 +119,10 @@ static const std::string RELOAD_SNIPPET =
   "    var ws = new WebSocket(proto + location.host + '"
   + std::string(WS_PATH) +
   "');\n"
-  "    ws.onmessage = function() { location.reload(); };\n"
-  "    ws.onclose   = function() { setTimeout(connect, 1000); };\n"
+  "    ws.onmessage = function()  { location.reload(); };\n"
+  "    ws.onopen    = function(e) { console.log('open'); ws.send('watch:' + navigator.userAgent); };\n"
+  "    ws.onclose   = function(e) { console.log('closed %o', e); };\n"
+  "    ws.onerror   = function(e) { console.error('[%o]', e); };\n"
   "  }\n"
   "  connect();\n"
   "})();\n"
@@ -342,20 +239,22 @@ struct WebDevServer {
     return frame;
   }
 
-  static std::string ws_accept_key(const std::string &client_key) {
-    std::string concat = client_key + WS_GUID;
-    auto digest = sha1::hash(concat);
-    return base64_encode(digest.data(), digest.size());
+  std::string ws_accept_key(const std::string &client_key) {
+    const std::string input = client_key + WS_GUID;
+    unsigned char digest[SHA_DIGEST_LENGTH];
+    SHA1(reinterpret_cast<const unsigned char*>(input.data()),  input.size(), digest);
+    return base64_encode(digest, SHA_DIGEST_LENGTH);
   }
 
   void accept_loop() {
     while (!stop_) {
       sockaddr_in client_addr{};
       socklen_t   len = sizeof(client_addr);
-      int client_fd = ::accept(listen_fd_,
-                               reinterpret_cast<sockaddr *>(&client_addr), &len);
+      int client_fd = ::accept(listen_fd_, reinterpret_cast<sockaddr *>(&client_addr), &len);
       if (client_fd < 0) {
-        if (stop_) break;
+        if (stop_) {
+          break;
+        }
         continue;
       }
       // Each connection is handled in a detached thread so the accept
@@ -502,6 +401,8 @@ struct WebDevServer {
 
   // Per-connection handler: WebSocket upgrade or static file.
   void handle_client(int fd) {
+    log_write(INFO_LEVEL, "handle request entered");
+
     std::string head;
     if (!read_request_head(fd, head)) {
       ::close(fd);
@@ -514,14 +415,15 @@ struct WebDevServer {
     if (req.path == std::string(WS_PATH)) {
       std::string key = req.header("sec-websocket-key");
       if (key.empty()) {
-        send_http_response(fd, 400, "Bad Request", "text/plain",
-                           "Expected WebSocket upgrade request");
+        log_write(INFO_LEVEL, "ws-upgrade bad request");
+        send_http_response(fd, 400, "Bad Request", "text/plain", "Expected WebSocket upgrade request");
         ::close(fd);
         return;
       }
 
       std::string accept = ws_accept_key(key);
       std::ostringstream resp;
+      log_write(INFO_LEVEL, "ws-upgrade [%s] key[%s] accept[%s]", req.path.c_str(), key.c_str(), accept.c_str());
       resp << "HTTP/1.1 101 Switching Protocols\r\n";
       resp << "Upgrade: websocket\r\n";
       resp << "Connection: Upgrade\r\n";
@@ -530,12 +432,12 @@ struct WebDevServer {
       std::string out = resp.str();
       size_t sent = 0;
       while (sent < out.size()) {
-        ssize_t n = ::send(fd, out.data() + sent, out.size() - sent,
-                           MSG_NOSIGNAL);
+        ssize_t n = ::send(fd, out.data() + sent, out.size() - sent, MSG_WAITALL);
         if (n <= 0) break;
         sent += static_cast<size_t>(n);
       }
 
+      log_write(INFO_LEVEL, "sent [%d] of [%d] bytes", sent, out.length());
       {
         std::lock_guard<std::mutex> lock(ws_mutex_);
         ws_clients_.push_back(fd);
@@ -544,10 +446,11 @@ struct WebDevServer {
       // Block until the client disconnects.  The channel is
       // server → client only; the browser has nothing to say.
       char buf[4096];
-      while (::recv(fd, buf, sizeof(buf), 0) > 0) {
+      while (::recv(fd, buf, sizeof(buf), MSG_WAITALL) > 0) {
         // discard — we never need data from the client
       }
 
+      log_write(INFO_LEVEL, "ws connection released");
       {
         std::lock_guard<std::mutex> lock(ws_mutex_);
         auto it = std::find(ws_clients_.begin(), ws_clients_.end(), fd);
@@ -565,6 +468,7 @@ struct WebDevServer {
       rel_path = rel_path.substr(1);
     }
 
+    log_write(INFO_LEVEL, "serve %s", rel_path.c_str());
     serve_file(fd, rel_path);
     ::close(fd);
   }
@@ -576,8 +480,8 @@ struct WebDevServer {
 static WebDevServer g_webview_server;
 
 namespace webview {
-  void start(const std::string &root, int port) {
-    g_webview_server.start(root, port);
+  bool start(const std::string &root, int port) {
+    return g_webview_server.start(root, port);
   }
   void stop() {
     g_webview_server.stop();
@@ -589,48 +493,3 @@ namespace webview {
     return g_webview_server.running_;
   }
 }
-
-// ────────────────────────────────────────────────────────────────────────────
-// Standalone test entry point
-// ────────────────────────────────────────────────────────────────────────────
-
-#ifdef NITRO_WEBVIEW_STANDALONE
-
-int main(int argc, char *argv[]) {
-  int         port = 8080;
-  std::string root = ".";
-
-  for (int i = 1; i < argc; ++i) {
-    std::string arg = argv[i];
-    if (arg == "--web-dev-port" && i + 1 < argc) {
-      port = std::stoi(argv[++i]);
-    } else if (!arg.empty() && arg[0] != '-') {
-      root = arg;
-    }
-  }
-
-  WebDevServer server;
-  if (!server.start(root, port)) {
-    std::fprintf(stderr, "Failed to start web dev server on port %d\n", port);
-    return 1;
-  }
-
-  std::printf("Web dev server running on http://localhost:%d  (root: %s)\n",
-              port, root.c_str());
-  std::printf("WebSocket endpoint: %s\n", std::string(WS_PATH).c_str());
-  std::printf("Live reload: on\n");
-  std::printf("Press Ctrl+C to stop.\n");
-
-  try {
-    while (!server.stop_) {
-      std::this_thread::sleep_for(std::chrono::seconds(1));
-    }
-  } catch (const std::exception &e) {
-    std::fprintf(stderr, "Error: %s\n", e.what());
-    return 1;
-  }
-
-  return 0;
-}
-
-#endif // NITRO_WEBVIEW_STANDALONE

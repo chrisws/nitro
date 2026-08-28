@@ -281,6 +281,8 @@ int main(int argc, char **argv) {
       cfg.thinking_ = false;
     } else if (a == "-p" || a == "--prompt-permission") {
       cfg.permission_prompt_ = true;
+    } else if (a == "-w" || a == "--web-dev-port") {
+      cfg.web_dev_port_ = std::stoi(take_next(a.c_str()));
     } else if (a == "-h" || a == "--help") {
       ui::usage();
       return 0;
@@ -334,6 +336,15 @@ int main(int argc, char **argv) {
   // Load persisted input history so up-arrow works across sessions.
   tui.history_load(history_path());
   ui::welcome(tui, cfg.sandbox_);
+
+  // ── Init WebDev ───────────────────────────────────────────────────
+  if (cfg.web_dev_port_ != -1) {
+    if (webview::start(cfg.sandbox_, cfg.web_dev_port_)) {
+      tui.append_line(ICON_SYS + std::format("Web development mode enabled on port: {}", cfg.web_dev_port_));
+    } else {
+      tui.append_line(ICON_SYS + "Failed to enable web development mode");
+    }
+  }
 
   // ── Init agent ────────────────────────────────────────────────────
   Agent agent(cfg, tui, mcp_client);
@@ -390,6 +401,10 @@ int main(int argc, char **argv) {
     } else {
       agent.run_turn(input);
     }
+  }
+
+  if (cfg.web_dev_port_ != -1) {
+    webview::stop();
   }
 
   log_write(INFO_LEVEL, "nitro exiting");

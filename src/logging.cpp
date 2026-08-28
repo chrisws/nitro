@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <ctime>
 #include <cstdarg>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <filesystem>
@@ -20,9 +21,10 @@ namespace fs = std::filesystem;
 static FILE *g_logfile = nullptr;
 static LogLevel g_level = DEBUG_LEVEL;
 static bool g_log_console = false;
+static std::mutex g_log_mutex;
 
 static LogLevel get_level(const std::string& level) {
-  static std::unordered_map<std::string, LogLevel> loggingMap = {
+  static const std::unordered_map<std::string, LogLevel> loggingMap = {
     {"0", DEBUG_LEVEL},
     {"1", DEBUG_LEVEL},
     {"2", INFO_LEVEL},
@@ -30,7 +32,7 @@ static LogLevel get_level(const std::string& level) {
     {"4", ERROR_LEVEL},
     {"5", ERROR_LEVEL},
   };
-  auto result = INFO_LEVEL;
+  LogLevel result = INFO_LEVEL;
   if (!level.empty()) {
     if (const auto it = loggingMap.find(level); it != loggingMap.end()) {
       result = it->second;
@@ -40,6 +42,7 @@ static LogLevel get_level(const std::string& level) {
 }
 
 void log_open(const std::string& level) {
+  std::lock_guard<std::mutex> lock(g_log_mutex);
   g_level = get_level(level);
   if (g_logfile == nullptr) {
     const char *home = getenv("HOME");
@@ -52,12 +55,14 @@ void log_open(const std::string& level) {
 }
 
 void log_open_console() {
+  std::lock_guard<std::mutex> lock(g_log_mutex);
   g_logfile = nullptr;
   g_level = ERROR_LEVEL;
   g_log_console = true;
 }
 
 void log_close() {
+  std::lock_guard<std::mutex> lock(g_log_mutex);
   if (g_logfile != nullptr) {
     fclose(g_logfile);
     g_logfile = nullptr;
@@ -65,6 +70,8 @@ void log_close() {
 }
 
 void log_write(LogLevel level, const char* format, ...) {
+  std::lock_guard<std::mutex> lock(g_log_mutex);
+
   if (g_log_console) {
     fprintf(stderr, "LOG: ");
     va_list args;

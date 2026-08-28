@@ -8,7 +8,7 @@
 #pragma once
 
 namespace webview {
-  void start(const std::string &root, int port);
+  bool start(const std::string &root, int port);
   void stop();
   void broadcast_reload();
   bool is_running();
