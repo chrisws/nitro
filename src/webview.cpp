@@ -21,13 +21,9 @@
 //
 
 #include <algorithm>
-#include <array>
 #include <atomic>
 #include <cassert>
 #include <chrono>
-#include <cstdint>
-#include <cstdio>
-#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -41,7 +37,6 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <poll.h>
 #include <openssl/sha.h>
 
 #include "webview.h"
@@ -54,7 +49,7 @@ namespace fs = std::filesystem;
 // ────────────────────────────────────────────────────────────────────────────
 
 static std::string base64_encode(const uint8_t *data, size_t len) {
-  static const char TABLE[] =
+  static constexpr char TABLE[] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
   std::string out;
   out.reserve((len + 2) / 3 * 4);
@@ -233,13 +228,13 @@ struct WebDevServer {
   static std::string ws_encode_frame(const std::string &payload) {
     // RFC 6455: server → client text frame, unmasked, payload < 126 bytes.
     std::string frame;
-    frame += char(0x81); // FIN=1, opcode=1 (text)
-    frame += char(payload.size());
+    frame += static_cast<char>(0x81); // FIN=1, opcode=1 (text)
+    frame += static_cast<char>(payload.size());
     frame += payload;
     return frame;
   }
 
-  std::string ws_accept_key(const std::string &client_key) {
+  static std::string ws_accept_key(const std::string &client_key) {
     const std::string input = client_key + WS_GUID;
     unsigned char digest[SHA_DIGEST_LENGTH];
     SHA1(reinterpret_cast<const unsigned char*>(input.data()),  input.size(), digest);
@@ -354,7 +349,7 @@ struct WebDevServer {
   }
 
   // Serve a static file, injecting the reload snippet into .html files.
-  void serve_file(int fd, const std::string &rel_path) {
+  void serve_file(int fd, const std::string &rel_path) const {
     // Prevent path traversal.
     if (rel_path.find("..") != std::string::npos) {
       send_http_response(fd, 403, "Forbidden", "text/plain", "Forbidden");
@@ -453,7 +448,7 @@ struct WebDevServer {
       log_write(INFO_LEVEL, "ws connection released");
       {
         std::lock_guard<std::mutex> lock(ws_mutex_);
-        auto it = std::find(ws_clients_.begin(), ws_clients_.end(), fd);
+        auto it = std::ranges::find(ws_clients_, fd);
         if (it != ws_clients_.end()) ws_clients_.erase(it);
       }
       ::close(fd);
