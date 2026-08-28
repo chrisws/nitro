@@ -16,6 +16,10 @@
 
 namespace fs = std::filesystem;
 
+constexpr std::string PATCH_BEGIN    = "<<<<<<<";
+constexpr std::string PATCH_BOUNDARY = "=======";
+constexpr std::string PATCH_END      = ">>>>>>>";
+
 static const std::vector<std::string> curlyBraceExtensions = {
   ".js", ".jsx", ".ts", ".tsx", ".java", ".c", ".cpp", ".h", ".hpp"
 };
