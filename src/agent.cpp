@@ -534,7 +534,7 @@ std::string Agent::process_tool(const std::string &cmd) {
       return "ERROR: path outside sandbox";
     }
     const auto data = strip_code_fences(arg1, arg2);
-    if (!is_blank(cfg_.backup_path_)) {
+    if (!utils::is_blank(cfg_.backup_path_)) {
       const auto confirm = tool_write_backup(cfg_.backup_path_, path);
       if (!utils::starts_with(confirm, "OK")) {
         return confirm;
