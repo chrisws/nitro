@@ -32,6 +32,7 @@ struct NitroConfig {
 
   std::string model_path_;
   std::string embed_path_;
+  std::string backup_path_;
   std::string sandbox_;
   std::string config_ = "nitro.config.json";
 
