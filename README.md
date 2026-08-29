@@ -2,7 +2,7 @@
 
 **A standalone, agentic LLM shell for your terminal.**
 
-Nitro is a local-first agentic coding/chat shell built on [llama.cpp](https://github.com/ggml-org/llama.cpp), rendered with [notcurses](https://github.com/dankamongmen/notcurses). No server, no browser tab, no cloud dependency — just a fast terminal UI driving a local model with tool use, RAG, MCP, and careful context management.
+Nitro is a local-first agentic coding/chat shell built on [llama.cpp](https://github.com/ggml-org/llama.cpp), rendered with [notcurses](https://github.com/dankamongmen/notcurses). No server, no browser tab, no cloud dependency — just a fast terminal UI driving a local model with tool use, RAG, MCP, Web development server and careful context management.
 
 <img width="1007" height="898" alt="Screenshot From 2026-08-29 21-57-44" src="https://github.com/user-attachments/assets/6012a9c4-7f32-4dda-93e1-54a4f1d57d0c" />
 
@@ -93,6 +93,8 @@ nitro [sandbox-dir] [options]
   -l, --log <path>          write logs to a file
   -t, --think               disable model "thinking" output
   -p, --prompt-permission   require explicit confirmation before destructive tool calls
+  -w, --web-dev-port        enables web development mode, web server with reload when the model changes a html file
+  -b, --backup-path         create file backups prior to invoking TOOL::WRITE
   -h, --help                show this help
 ```
 
