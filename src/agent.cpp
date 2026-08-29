@@ -534,7 +534,13 @@ std::string Agent::process_tool(const std::string &cmd) {
       return "ERROR: path outside sandbox";
     }
     const auto data = strip_code_fences(arg1, arg2);
-    if (cfg_.permission_prompt_ && !tui_.confirm_dialog(std::format("Allow model to write {}?", path))) {
+    if (!is_blank(cfg_.backup_path_)) {
+      const auto confirm = tool_write_backup(cfg_.backup_path_, path);
+      if (!utils::starts_with(confirm, "OK")) {
+        return confirm;
+      }
+      tui_.show_tool("backup: " + confirm);
+    } else if (cfg_.permission_prompt_ && !tui_.confirm_dialog(std::format("Allow model to write {}?", path))) {
       return "ERROR: action prevented by user";
     } else {
       const auto validate = tool_write_validate(path, data);
@@ -770,6 +776,7 @@ bool Agent::run_turn(const std::string &user_message) {
     end_think("<channel|>");
 
     if (think_mode == t_think) {
+      tui_.set_tokens_per_sec(tokens_per_sec());
       tui_.tick_spinner();
     }
     auto tool_start = buffer.find("TOOL:");

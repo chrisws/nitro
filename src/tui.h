@@ -302,6 +302,7 @@ class Tui final: TuiContext {
   void tick_spinner();
   void set_thinking(bool on);
   void update_usage(float tokens_sec, const LlamaMemoryInfo &mem);
+  void set_tokens_per_sec(float tokens_per_sec) { tokens_per_sec_ = tokens_per_sec; }
   void show_tool(const std::string &tool);
   int get_term_rows() const { return term_rows_; }
   int get_term_cols() const { return term_cols_; }
