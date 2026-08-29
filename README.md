@@ -4,17 +4,7 @@
 
 Nitro is a local-first agentic coding/chat shell built on [llama.cpp](https://github.com/ggml-org/llama.cpp), rendered with [notcurses](https://github.com/dankamongmen/notcurses). No server, no browser tab, no cloud dependency — just a fast terminal UI driving a local model with tool use, RAG, MCP, and careful context management.
 
-```
-┌─ nitro ──────────────────────────────────────────────────────┐
-│ > summarize the diff in src/kv_cache.cpp                     │
-│                                                              │
-│ [TOOL:CURL] ...                                              │
-│ The change replaces per-sequence llama_memory_seq_rm calls   │
-│ with a full_flush_except_system() recovery path to avoid...  │
-│                                                              │
-│ >                                                            │
-└──────────────────────────────────────────────────────────────┘
-```
+<img width="1007" height="898" alt="Screenshot From 2026-08-29 21-57-44" src="https://github.com/user-attachments/assets/6012a9c4-7f32-4dda-93e1-54a4f1d57d0c" />
 
 ## Why
 
