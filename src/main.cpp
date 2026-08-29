@@ -283,7 +283,7 @@ int main(int argc, char **argv) {
       cfg.permission_prompt_ = true;
     } else if (a == "-w" || a == "--web-dev-port") {
       cfg.web_dev_port_ = std::stoi(take_next(a.c_str()));
-    } else if (a == "-b" || a == "--backup_path") {
+    } else if (a == "-b" || a == "--backup-path") {
       cfg.backup_path_ = take_next(a.c_str());
     } else if (a == "-h" || a == "--help") {
       ui::usage();
