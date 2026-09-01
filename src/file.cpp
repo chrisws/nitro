@@ -8,11 +8,15 @@
 
 #include <string>
 #include <fstream>
-#include <sstream>
 #include <regex>
 #include <filesystem>
+#include <array>
+#include <memory>
+#include <cstdio>
+#include <unistd.h>
 
 #include "file.h"
+#include "string_utils.h"
 
 namespace fs = std::filesystem;
 
@@ -20,12 +24,66 @@ static const std::vector<std::string> curlyBraceExtensions = {
   ".js", ".jsx", ".ts", ".tsx", ".java", ".c", ".cpp", ".h", ".hpp"
 };
 
-static bool isCurlyBraceLanguage(const fs::path& path) {
+static const std::vector<std::string> cLangExtensions = {
+  ".c", ".cpp", ".h", ".hpp"
+};
+
+static bool isCurlyBraceLanguage(const fs::path &path) {
   const std::string ext = path.extension().string();
-  for (const auto& e : curlyBraceExtensions) {
+  for (const auto &e : curlyBraceExtensions) {
     if (ext == e) return true;
   }
   return false;
+}
+
+static bool isCLangExtension(const fs::path &path) {
+  const std::string ext = path.extension().string();
+  for (const auto &e : cLangExtensions) {
+    if (ext == e) return true;
+  }
+  return false;
+}
+
+static std::string check_syntax(const std::string &source_code) {
+  char tmpl[] = "/tmp/nitro_syntax_XXXXXX.cpp";
+  // 4 = length of ".cpp" suffix
+  const int fd = mkstemps(tmpl, 4);
+  if (fd == -1) {
+    return "Harness Error: Failed to create temp file for syntax check.";
+  }
+
+  ssize_t written = write(fd, source_code.data(), source_code.size());
+  close(fd);
+  if (written < 0 || static_cast<size_t>(written) != source_code.size()) {
+    unlink(tmpl);
+    return "Harness Error: Failed to write source to temp file.";
+  }
+
+  // timeout guards against pathological compiles hanging the harness
+  const std::string command = "timeout 10s g++ -std=c++20 -fsyntax-only -w -x c++ \"" + std::string(tmpl) + "\" 2>&1";
+
+  std::unique_ptr<FILE, int(*)(FILE*)> pipe(popen(command.c_str(), "r"), pclose);
+  if (!pipe) {
+    unlink(tmpl);
+    return "Harness Error: Failed to open g++ compiler pipeline.";
+  }
+
+  std::string compiler_output;
+  std::array<char, 256> buffer;
+  while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+    compiler_output += buffer.data();
+  }
+
+  const int status = pclose(pipe.release());
+  unlink(tmpl);
+
+  if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+    return "";
+  }
+  if (WIFSIGNALED(status)) {
+    return "Harness Error: syntax check killed (possibly timed out) — signal " + std::to_string(WTERMSIG(status));
+  }
+  return compiler_output;
 }
 
 //
@@ -141,9 +199,13 @@ static std::string replaceAll(std::string text, const std::string& old_block, co
 std::string tool_append(const std::string &path, const std::string &data) {
   fs::path p(path);
 
-  // Validation checks for curly brace languages
-  // Check if it's a curly brace language and content is unbalanced
-  if (isCurlyBraceLanguage(p) && !isBalanced(data)) {
+  if (isCLangExtension(p)) {
+    if (const auto result = check_syntax(data); !utils::is_blank(result)) {
+      return result;
+    }
+  } else if (isCurlyBraceLanguage(p) && !isBalanced(data)) {
+    // Validation checks for curly brace languages
+    // Check if it's a curly brace language and content is unbalanced
     return "ERROR: File appears to be a curly brace language with unbalanced braces";
   }
 
@@ -241,8 +303,12 @@ std::string tool_write_validate(const std::string &path, const std::string &data
     }
   }
 
-  if (isCurlyBraceLanguage(p) && !isBalanced(data)) {
-    result  = "Warning: file has unbalanced braces";
+  if (utils::is_blank(result)) {
+    if (isCLangExtension(p)) {
+      result = check_syntax(data);
+    } else if (isCurlyBraceLanguage(p) && !isBalanced(data)) {
+      result  = "Warning: file has unbalanced braces";
+    }
   }
 
   return result;

@@ -525,7 +525,7 @@ static void test_tool_append_existing_file() {
 
 // Test tool_append with multiple appends
 static void test_tool_append_multiple() {
-  string test_file = "/tmp/test_append_multiple.cpp";
+  string test_file = "/tmp/test_append_multiple.txt";
 
   // First append
   tool_append(test_file, "line 1\n");
