@@ -175,9 +175,20 @@ bool Llama::load_model(LlamaLoad &load) {
     cparams.attention_type = LLAMA_ATTENTION_TYPE_UNSPECIFIED;
     cparams.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_ENABLED;
 
-    // or Q4_0 for more aggressive saving
-    cparams.type_k = GGML_TYPE_Q4_0;
-    cparams.type_v = GGML_TYPE_Q4_0;
+    switch (load.kv_cache_preset) {
+      case KVCachePreset::F16:
+        cparams.type_k = GGML_TYPE_F16;
+        cparams.type_v = GGML_TYPE_F16;
+        break;
+      case KVCachePreset::Balanced:
+        cparams.type_k = GGML_TYPE_Q8_0;
+        cparams.type_v = GGML_TYPE_Q8_0;
+        break;
+      case KVCachePreset::Compact:
+        cparams.type_k = GGML_TYPE_Q4_0;
+        cparams.type_v = GGML_TYPE_Q4_0;
+        break;
+    }
 
     // keep KV cache on GPU
     cparams.offload_kqv = load.offload_kqv;

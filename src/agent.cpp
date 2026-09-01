@@ -283,6 +283,7 @@ bool Agent::setup_model() {
   load.n_gpu_layers = cfg_.n_gpu_layers_;
   load.log_level = cfg_.log_level_;
   load.offload_kqv = cfg_.offload_kqv_;
+  load.kv_cache_preset = cfg_.kv_preset_;
 
   if (!llama_->load_model(load)) {
     tui_.dismiss_modal_popup();

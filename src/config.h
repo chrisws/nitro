@@ -12,6 +12,7 @@
 #include <vector>
 #include <filesystem>
 #include "llama.h"
+#include "llama_sb.h"
 #include "config.h"
 
 namespace fs = std::filesystem;
@@ -53,6 +54,7 @@ struct NitroConfig {
   bool  thinking_       = true;
   bool  permission_prompt_ = false;
   int   web_dev_port_   = -1;
+  KVCachePreset kv_preset_ = KVCachePreset::Compact;
 
   // TOOL:RUN allowlist - if non-empty, only these program base names may run.
   // Empty means "allow anything inside the sandbox" (original behaviour).

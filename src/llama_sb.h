@@ -19,6 +19,12 @@ struct Llama;
 struct RagDB;
 struct RagSession;
 
+enum class KVCachePreset {
+  F16,       // ggml_type F16/F16, flash attn on - max quality, most VRAM
+  Balanced,  // type Q8_0/Q8_0, flash attn on - good middle ground
+  Compact,   // type Q4_0/Q4_0, flash attn on - max memory savings
+};
+
 struct LlamaMemoryInfo {
   // KV cache
   int     kv_used;        // slots currently used
@@ -66,6 +72,7 @@ struct LlamaLoad {
   int n_gpu_layers;
   int log_level;
   bool offload_kqv;
+  KVCachePreset kv_cache_preset;
 };
 
 struct Llama {

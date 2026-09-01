@@ -26,6 +26,24 @@ NitroConfig::NitroConfig() {
   }
 }
 
+const char *kv_preset_to_string(KVCachePreset p) {
+  switch (p) {
+    case KVCachePreset::F16:      return "f16";
+    case KVCachePreset::Balanced: return "balanced";
+    case KVCachePreset::Compact:  return "compact";
+  }
+  return "compact";
+}
+
+const KVCachePreset to_kv_preset(const std::string &str) {
+  if (str == "f16") {
+    return KVCachePreset::F16;
+  } else if (str == "balanced") {
+    return KVCachePreset::Balanced;
+  }
+  return KVCachePreset::Compact;
+}
+
 //
 // Settings persistence  (~/.config/nitro/nitro.settings.json)
 // Returns the canonical settings path: ~/.config/nitro/settings.json
@@ -68,6 +86,10 @@ void NitroConfig::load_settings() {
   root.get_str("model_path", model_path_);
   root.get_str("embed_path", embed_path_);
   root.get_str("sandbox", sandbox_);
+
+  std::string kv_preset;
+  root.get_str("kv_preset", kv_preset);
+  kv_preset_ = to_kv_preset(kv_preset);
 
   // Integer fields
   root.get_int("n_ctx", n_ctx_);
@@ -290,7 +312,8 @@ std::string NitroConfig::introspect() const {
     "  \"penalty_freq\":   {},\n"
     "  \"penalty_present\":{},\n"
     "  \"penalty_last_n\": {},\n"
-    "  \"offload_kqv_\":   {},\n"
+    "  \"offload_kqv\":    {},\n"
+    "  \"kv_cache_preset\":{},\n"
     "  \"rag_top_k\":      {}\n"
     "}}\n";
   return std::format(tmpl,
@@ -309,6 +332,7 @@ std::string NitroConfig::introspect() const {
                      penalty_present_,
                      penalty_last_n_,
                      offload_kqv_,
+                     kv_preset_to_string(kv_preset_),
                      rag_top_k_);
 }
 
