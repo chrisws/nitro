@@ -31,17 +31,22 @@ void help(Tui &tui) {
 
 void settings(Tui &tui, NitroConfig &cfg) {
   tui.append_line(ICON_SYS + "Current settings:");
-  tui.append_line(ICON_SYS + "  model_path    : " + cfg.model_path_);
-  tui.append_line(ICON_SYS + "  embed_path    : " + cfg.embed_path_);
-  tui.append_line(ICON_SYS + "  sandbox       : " + cfg.sandbox_);
-  tui.append_line(ICON_SYS + "  n_ctx         : " + std::to_string(cfg.n_ctx_));
-  tui.append_line(ICON_SYS + "  n_gpu_layers  : " + std::to_string(cfg.n_gpu_layers_));
-  tui.append_line(ICON_SYS + "  temperature   : " + std::to_string(cfg.temperature_));
-  tui.append_line(ICON_SYS + "  top_p         : " + std::to_string(cfg.top_p_));
-  tui.append_line(ICON_SYS + "  top_k         : " + std::to_string(cfg.top_k_));
-  tui.append_line(ICON_SYS + "  penalty_repeat: " + std::to_string(cfg.penalty_repeat_));
-  tui.append_line(ICON_SYS + "  rag_top_k     : " + std::to_string(cfg.rag_top_k_));
-  tui.append_line(ICON_SYS + "  saved to      : " + cfg.settings_path());
+  tui.append_line(ICON_SYS + "  model_path      : " + cfg.model_path_);
+  tui.append_line(ICON_SYS + "  embed_path      : " + cfg.embed_path_);
+  tui.append_line(ICON_SYS + "  sandbox         : " + cfg.sandbox_);
+  tui.append_line(ICON_SYS + "  n_ctx           : " + std::to_string(cfg.n_ctx_));
+  tui.append_line(ICON_SYS + "  n_gpu_layers    : " + std::to_string(cfg.n_gpu_layers_));
+  tui.append_line(ICON_SYS + "  temperature     : " + std::to_string(cfg.temperature_));
+  tui.append_line(ICON_SYS + "  top_p           : " + std::to_string(cfg.top_p_));
+  tui.append_line(ICON_SYS + "  top_k           : " + std::to_string(cfg.top_k_));
+  tui.append_line(ICON_SYS + "  penalty_repeat  : " + std::to_string(cfg.penalty_repeat_));
+  tui.append_line(ICON_SYS + "  penalty_freq    : " + std::to_string(cfg.penalty_freq_));
+  tui.append_line(ICON_SYS + "  penalty_present : " + std::to_string(cfg.penalty_present_));
+  tui.append_line(ICON_SYS + "  penalty_last_n  : " + std::to_string(cfg.penalty_last_n_));
+  tui.append_line(ICON_SYS + "  offload_kqv     : " + std::format("{}", cfg.offload_kqv_));
+  tui.append_line(ICON_SYS + "  kv_cache_preset : " + cfg.kv_preset_to_string());
+  tui.append_line(ICON_SYS + "  rag_top_k       : " + std::to_string(cfg.rag_top_k_));
+  tui.append_line(ICON_SYS + "  saved to        : " + cfg.settings_path());
   tui.redraw_all();
 }
 
