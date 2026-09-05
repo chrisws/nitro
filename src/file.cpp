@@ -20,21 +20,13 @@
 
 namespace fs = std::filesystem;
 
-static const std::vector<std::string> curlyBraceExtensions = {
-  ".js", ".jsx", ".ts", ".tsx", ".java", ".c", ".cpp", ".h", ".hpp"
-};
-
 static const std::vector<std::string> cLangExtensions = {
   ".c", ".cpp", ".h", ".hpp"
 };
 
-static bool isCurlyBraceLanguage(const fs::path &path) {
-  const std::string ext = path.extension().string();
-  for (const auto &e : curlyBraceExtensions) {
-    if (ext == e) return true;
-  }
-  return false;
-}
+static const std::vector<std::string> curlyBraceExtensions = {
+  ".js", ".jsx", ".ts", ".tsx", ".java"
+};
 
 static bool isCLangExtension(const fs::path &path) {
   const std::string ext = path.extension().string();
@@ -44,7 +36,15 @@ static bool isCLangExtension(const fs::path &path) {
   return false;
 }
 
-static std::string check_syntax(const std::string &source_code) {
+static bool isCurlyBraceLanguage(const fs::path &path) {
+  const std::string ext = path.extension().string();
+  for (const auto &e : curlyBraceExtensions) {
+    if (ext == e) return true;
+  }
+  return false;
+}
+
+static std::string cLangCheckSyntax(const std::string &source_code) {
   char tmpl[] = "/tmp/nitro_syntax_XXXXXX.cpp";
   // 4 = length of ".cpp" suffix
   const int fd = mkstemps(tmpl, 4);
@@ -200,7 +200,7 @@ std::string tool_append(const std::string &path, const std::string &data) {
   fs::path p(path);
 
   if (isCLangExtension(p)) {
-    if (const auto result = check_syntax(data); !utils::is_blank(result)) {
+    if (const auto result = cLangCheckSyntax(data); !utils::is_blank(result)) {
       return result;
     }
   } else if (isCurlyBraceLanguage(p) && !isBalanced(data)) {
@@ -305,12 +305,20 @@ std::string tool_write_validate(const std::string &path, const std::string &data
 
   if (utils::is_blank(result)) {
     if (isCLangExtension(p)) {
-      result = check_syntax(data);
+      result = cLangCheckSyntax(data);
     } else if (isCurlyBraceLanguage(p) && !isBalanced(data)) {
       result  = "Warning: file has unbalanced braces";
     }
   }
 
+  if (utils::is_blank(result)) {
+    if (data.find(PATCH_BEGIN) != std::string::npos ||
+        data.find(PATCH_BOUNDARY) != std::string::npos ||
+        data.find(PATCH_END) != std::string::npos) {
+      return "Warning: data contains patch conflict markers.";
+    }
+  }
+ 
   return result;
 }
 
