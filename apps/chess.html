@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Refined Chess</title>
+  <style>
+  :root {
+    --bg: #f0f4f8;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-muted: #555;
+    --accent: #007bff;
+    --accent-2: #0056b3;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", "Inter", system-ui, sans-serif;
+    margin: 0;
+    padding: 2rem;
+  }
+
+  #board {
+    display: grid;
+    grid-template-columns: repeat(8, 64px);
+    grid-template-rows: repeat(8, 64px);
+    gap: 2px;
+    margin: 0 auto;
+    max-width: 512px;
+  }
+
+  .square {
+    width: 64px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    cursor: grab;
+  }
+
+  .light {
+    background: #f0d9b5;
+  }
+
+  .dark {
+    background: #b58863;
+  }
+
+  .piece {
+    width: 56px;
+    height: 56px;
+    cursor: grab;
+  }
+
+  #move-log {
+    margin-top: 2rem;
+    max-width: 512px;
+    background: var(--surface);
+    padding: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+
+  .move {
+    margin-bottom: 0.5rem;
+    font-family: monospace;
+    font-size: 0.9rem;
+  }
+  </style>
+</head>
+
+<body>
+  <svg style="position:absolute;width:0;height:0" aria-hidden="true">
+    <defs>
+      <linearGradient id="wBody" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#faf6ee"/>
+        <stop offset="50%" stop-color="#f0ebe0"/>
+        <stop offset="100%" stop-color="#d8d2c4"/>
+      </linearGradient>
+      <linearGradient id="bBody" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#555"/>
+        <stop offset="50%" stop-color="#3b3b3b"/>
+        <stop offset="100%" stop-color="#1a1a1a"/>
+      </linearGradient>
+    </defs>
+  </svg>
+  <div id="board"></div>
+  <div id="move-log">
+    <h3>Move Log</h3>
+  </div>
+  <script>
+  // Refined Staunton-style chess piece SVGs
+  const pieceSVGs = {
+    // === WHITE ===
+    wP:
+    `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="22" r="9" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
+        <rect x="42" y="33" width="16" height="4" rx="2" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
+        <path d="M44 37 L36 82 L64 82 L56 37 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
+        <rect x="30" y="82" width="40" height="10" rx="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
+      </svg>`,
+    wR:
+    `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <path d="M32 28 L32 12 L42 12 L42 20 L47 20 L47 12 L57 12 L57 20 L62 20 L62 12 L68 12 L68 28 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
+        <rect x="30" y="28" width="40" height="6" rx="2" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
+        <path d="M38 34 L36 82 L64 82 L62 34 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
+        <rect x="30" y="82" width="40" height="10" rx="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
+      </svg>`,
+    wN:
+    `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <path d="M40 82 C40 72 42 62 44 54 C46 46 50 38 54 28 C56 22 58 14 60 8 L63 6 L65 12 C65 18 64 24 63 28 C65 32 69 36 73 38 C75 40 75 44 73 46 C69 48 64 50 60 54 C56 58 52 66 52 72 C52 78 52 82 52 82 Z"
+              fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
+        <circle cx="61" cy="30" r="2" fill="#2a2a2a"/>
+        <rect x="34" y="82" width="40" height="10" rx="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
+      </svg>`,
+    wB:
+    `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="10" r="4" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
+        <path d="M50 14 L42 38 L58 38 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
+        <line x1="55" y1="18" x2="46" y2="34" stroke="#2a2a2a" stroke-width="1.5" opacity="0.5"/>
+        <rect x="42" y="38" width="16" height="4" rx="2" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
+        <path d="M44 42 L36 82 L64 82 L56 42 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
+        <rect x="30" y="82" width="40" height="10" rx="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
+      </svg>`,
+    wQ:
+    `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <path d="M32 28 L32 16 L38 24 L44 10 L50 22 L56 10 L62 24 L68 16 L68 28 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
+        <circle cx="32" cy="14" r="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1"/>
+        <circle cx="44" cy="8" r="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1"/>
+        <circle cx="50" cy="20" r="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1"/>
+        <circle cx="56" cy="8" r="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1"/>
+        <circle cx="68" cy="14" r="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1"/>
+        <rect x="30" y="28" width="40" height="6" rx="2" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
+        <path d="M40 34 L36 82 L64 82 L60 34 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
+        <rect x="30" y="82" width="40" height="10" rx="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
+      </svg>`,
+    wK:
+    `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <line x1="50" y1="2" x2="50" y2="18" stroke="#2a2a2a" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="44" y1="8" x2="56" y2="8" stroke="#2a2a2a" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M30 30 L30 18 L37 24 L44 14 L50 22 L56 14 L63 24 L70 18 L70 30 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
+        <circle cx="30" cy="16" r="2.5" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1"/>
+        <circle cx="44" cy="12" r="2.5" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1"/>
+        <circle cx="56" cy="12" r="2.5" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1"/>
+        <circle cx="70" cy="16" r="2.5" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1"/>
+        <rect x="28" y="30" width="44" height="6" rx="2" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
+        <path d="M38 36 L34 82 L66 82 L62 36 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
+        <rect x="28" y="82" width="44" height="10" rx="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
+      </svg>`,
+    // === BLACK ===
+    bP:
+    `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="22" r="9" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
+        <rect x="42" y="33" width="16" height="4" rx="2" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
+        <path d="M44 37 L36 82 L64 82 L56 37 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
+        <rect x="30" y="82" width="40" height="10" rx="3" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
+      </svg>`,
+    bR:
+    `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <path d="M32 28 L32 12 L42 12 L42 20 L47 20 L47 12 L57 12 L57 20 L62 20 L62 12 L68 12 L68 28 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
+        <rect x="30" y="28" width="40" height="6" rx="2" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
+        <path d="M38 34 L36 82 L64 82 L62 34 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
+        <rect x="30" y="82" width="40" height="10" rx="3" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
+      </svg>`,
+    bN:
+    `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <path d="M60 82 C60 72 58 62 56 54 C54 46 50 38 46 28 C44 22 42 14 40 8 L37 6 L35 12 C35 18 36 24 37 28 C35 32 31 36 27 38 C25 40 25 44 27 46 C31 48 36 50 40 54 C44 58 48 66 48 72 C48 78 48 82 48 82 Z"
+              fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
+        <circle cx="39" cy="30" r="2" fill="#ccc"/>
+        <rect x="36" y="82" width="40" height="10" rx="3" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
+      </svg>`,
+    bB:
+    `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="10" r="4" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
+        <circle cx="50" cy="10" r="4" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
+        <path d="M50 14 L42 38 L58 38 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
+        <line x1="45" y1="18" x2="54" y2="34" stroke="#111" stroke-width="1.5" opacity="0.5"/>
+        <rect x="42" y="38" width="16" height="4" rx="2" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
+        <path d="M44 42 L36 82 L64 82 L56 42 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
+        <rect x="30" y="82" width="40" height="10" rx="3" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
+      </svg>`,
+    bQ:
+    `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <path d="M32 28 L32 16 L38 24 L44 10 L50 22 L56 10 L62 24 L68 16 L68 28 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
+        <circle cx="32" cy="14" r="3" fill="url(#bBody)" stroke="#111" stroke-width="1"/>
+        <circle cx="44" cy="8" r="3" fill="url(#bBody)" stroke="#111" stroke-width="1"/>
+        <circle cx="50" cy="20" r="3" fill="url(#bBody)" stroke="#111" stroke-width="1"/>
+        <circle cx="56" cy="8" r="3" fill="url(#bBody)" stroke="#111" stroke-width="1"/>
+        <circle cx="68" cy="14" r="3" fill="url(#bBody)" stroke="#111" stroke-width="1"/>
+        <rect x="30" y="28" width="40" height="6" rx="2" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
+        <path d="M40 34 L36 82 L64 82 L60 34 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
+        <rect x="30" y="82" width="40" height="10" rx="3" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
+      </svg>`,
+    bK:
+    `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <line x1="50" y1="2" x2="50" y2="18" stroke="#ccc" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="44" y1="8" x2="56" y2="8" stroke="#ccc" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M30 30 L30 18 L37 24 L44 14 L50 22 L56 14 L63 24 L70 18 L70 30 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
+        <circle cx="30" cy="16" r="2.5" fill="url(#bBody)" stroke="#111" stroke-width="1"/>
+        <circle cx="44" cy="12" r="2.5" fill="url(#bBody)" stroke="#111" stroke-width="1"/>
+        <circle cx="56" cy="12" r="2.5" fill="url(#bBody)" stroke="#111" stroke-width="1"/>
+        <circle cx="70" cy="16" r="2.5" fill="url(#bBody)" stroke="#111" stroke-width="1"/>
+        <rect x="28" y="30" width="44" height="6" rx="2" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
+        <path d="M38 36 L34 82 L66 82 L62 36 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
+        <rect x="28" y="82" width="44" height="10" rx="3" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
+      </svg>`
+  };
+  
+  // Initialize board
+  const board = document.getElementById('board');
+  const log = document.getElementById('move-log');
+  
+  // Create board
+  for (let row = 0; row < 8; row++) {
+    for (let col = 0; col < 8; col++) {
+      const square = document.createElement('div');
+      square.classList.add('square', row % 2 === col % 2 ? 'light' : 'dark');
+      square.dataset.row = row;
+      square.dataset.col = col;
+      board.appendChild(square);
+    }
+  }
+  
+  // Add pieces
+  const pieces = [
+    ['wR', 'wN', 'wB', 'wQ', 'wK', 'wB', 'wN', 'wR'],
+    ['wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP'],
+    ['', '', '', '', '', '', '', ''],
+    ['', '', '', '', '', '', '', ''],
+    ['', '', '', '', '', '', '', ''],
+    ['', '', '', '', '', '', '', ''],
+    ['bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP'],
+    ['bR', 'bN', 'bB', 'bQ', 'bK', 'bB', 'bN', 'bR']
+  ];
+  
+  for (let row = 0; row < 8; row++) {
+    for (let col = 0; col < 8; col++) {
+      const piece = pieces[row][col];
+      if (piece) {
+        const svg = document.createElement('div');
+        svg.className = 'piece';
+        svg.innerHTML = pieceSVGs[piece];
+        svg.draggable = true;
+        svg.addEventListener('dragstart', handleDragStart);
+        document.querySelector(`[data-row="${row}"][data-col="${col}"]`).appendChild(svg);
+      }
+    }
+  }
+  
+  // Drag and drop handlers
+  let draggedPiece = null;
+  
+  function handleDragStart(e) {
+    draggedPiece = e.target;
+    e.dataTransfer.setData('text/plain', e.target.innerHTML);
+    e.dataTransfer.effectAllowed = 'move';
+  }
+  
+  function handleDragOver(e) {
+    e.preventDefault();
+  }
+  
+  function handleDrop(e) {
+    e.preventDefault();
+    if (!draggedPiece) return;
+  
+    const target = e.target;
+    const targetRow = parseInt(target.dataset.row);
+    const targetCol = parseInt(target.dataset.col);
+  
+    // Get source position from dataTransfer
+    const sourceRow = parseInt(draggedPiece.closest('.square').dataset.row);
+    const sourceCol = parseInt(draggedPiece.closest('.square').dataset.col);
+  
+    // Record move
+    const move = `${String.fromCharCode(97 + sourceCol)}${8 - sourceRow}${String.fromCharCode(97 + targetCol)}${8 - targetRow}`;
+    const logEntry = document.createElement('div');
+    logEntry.className = 'move';
+    logEntry.textContent = move;
+    log.appendChild(logEntry);
+  
+    // Move piece
+    target.appendChild(draggedPiece);
+    draggedPiece = null;
+  }
+  
+  // Attach event listeners
+  document.querySelectorAll('.square').forEach(square => {
+    square.addEventListener('dragover', handleDragOver);
+    square.addEventListener('drop', handleDrop);
+  });
+  </script>
+</body>
+</html>
+
