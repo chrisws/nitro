@@ -27,6 +27,7 @@ struct NitroConfig {
   std::string build_system_prompt() const;
   std::string introspect() const;
   std::string settings_path() const;
+  std::string kv_preset_to_string() const;
   bool save_settings() const;
   void load_settings();
   void set_config(std::string config);

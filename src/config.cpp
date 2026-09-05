@@ -14,11 +14,20 @@
 #include "config.h"
 #include "json.h"
 
-const std::vector<std::string> ALLOWED_TOOLS = {
+static const std::vector<std::string> ALLOWED_TOOLS = {
   "cat", "head", "tail", "grep", "wc", "stat", "ls", "find",
   "awk", "sed", "tr", "cut", "sort", "uniq", "od", "xxd",
   "file", "uname", "whoami", "pwd", "id", "g++"
 };
+
+static const KVCachePreset to_kv_preset(const std::string &str) {
+  if (str == "f16") {
+    return KVCachePreset::F16;
+  } else if (str == "balanced") {
+    return KVCachePreset::Balanced;
+  }
+  return KVCachePreset::Compact;
+}
 
 NitroConfig::NitroConfig() {
   for (const auto &tool : ALLOWED_TOOLS) {
@@ -26,22 +35,13 @@ NitroConfig::NitroConfig() {
   }
 }
 
-const char *kv_preset_to_string(KVCachePreset p) {
-  switch (p) {
+std::string NitroConfig::kv_preset_to_string() const {
+  switch (kv_preset_) {
     case KVCachePreset::F16:      return "f16";
     case KVCachePreset::Balanced: return "balanced";
     case KVCachePreset::Compact:  return "compact";
   }
   return "compact";
-}
-
-const KVCachePreset to_kv_preset(const std::string &str) {
-  if (str == "f16") {
-    return KVCachePreset::F16;
-  } else if (str == "balanced") {
-    return KVCachePreset::Balanced;
-  }
-  return KVCachePreset::Compact;
 }
 
 //
@@ -332,7 +332,7 @@ std::string NitroConfig::introspect() const {
                      penalty_present_,
                      penalty_last_n_,
                      offload_kqv_,
-                     kv_preset_to_string(kv_preset_),
+                     kv_preset_to_string(),
                      rag_top_k_);
 }
 
