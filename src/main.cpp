@@ -152,6 +152,12 @@ static void handle_slash(const std::string &input, NitroConfig &cfg, Agent &agen
     return;
   }
 
+  if (verb == "/save") {
+    tui.append_line(ICON_TOOL + tui.save_chat(rest));
+    tui.redraw_all();
+    return;
+  }
+
   if (verb == "/settings") {
     ui::settings(tui, cfg);
     return;
@@ -271,7 +277,7 @@ int main(int argc, char **argv) {
       mcp_client.enable();
     } else if (a == "--mcp-test") {
       do_mcp_test = true;
-    } else if (a == "--skill") {
+    } else if (a == "-s" || a == "--skill") {
       cfg.knowledge_files_.emplace_back(take_next(a.c_str()));
     } else if (a == "-c" || a == "--config") {
       cfg.set_config(take_next(a.c_str()));

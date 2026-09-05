@@ -754,3 +754,42 @@ void Tui::show_tool(const std::string &tool) {
   redraw_all();
 };
 
+std::string Tui::save_chat(const std::string &file) const {
+  // Check if file exists
+  std::error_code ec;
+  if (fs::exists(file, ec) && !ec) {
+    return std::format("Cannot save, file exists");
+  }
+
+  // Filter lines to remove icons at the start
+  std::vector<std::string> filtered;
+  filtered.reserve(chat_lines_.size());
+
+  for (const std::string &line : chat_lines_) {
+    if (line.empty() == false &&
+        line.rfind(ICON_ERR,   0) != 0 &&
+        line.rfind(ICON_THINK, 0) != 0 &&
+        line.rfind(ICON_TOOL,  0) != 0 &&
+        line.rfind(ICON_SYS,   0) != 0 &&
+        line.rfind("[logo_",   0) != 0) {
+      const auto text = utils::trim(line);
+      if (!utils::is_blank(text)) {
+        filtered.push_back(text);
+      }
+    }
+  }
+
+  // Save to file
+  std::ofstream ofs(file);
+  if (!ofs) {
+    return std::format("Failed to save chat to {}", file);
+  }
+
+  for (const std::string &line : filtered) {
+    ofs << line << "\n";
+  }
+
+  ofs.close();
+  return std::format("Chat saved to {}", file);
+}
+

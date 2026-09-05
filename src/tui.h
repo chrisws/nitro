@@ -321,6 +321,7 @@ class Tui final: TuiContext {
   // ── interaction ───────────────────────────────────────────────────
   bool confirm_dialog(const std::string &prompt) const;
   std::string readline() { return input_.readline(*this); }
+  std::string save_chat(const std::string &file) const;
 
   // Modal popup overlay while a long operation runs.
   void show_modal_popup(const std::string &message);
