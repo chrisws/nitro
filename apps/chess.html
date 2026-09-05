@@ -2,76 +2,187 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Refined Chess</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chess — Human vs AI</title>
   <style>
-  :root {
-    --bg: #f0f4f8;
-    --surface: #ffffff;
-    --text: #1a1a1a;
-    --text-muted: #555;
-    --accent: #007bff;
-    --accent-2: #0056b3;
-  }
+    :root {
+      --bg: #f0f4f8;
+      --surface: #ffffff;
+      --text: #1a1a1a;
+      --text-muted: #555;
+      --accent: #007bff;
+      --accent-2: #0056b3;
+      --sq-light: #f0d9b5;
+      --sq-dark: #b58863;
+      --sq-highlight: #7fc97f;
+      --sq-selected: #ffff99;
+      --sq-last-move: #c8e6c9;
+    }
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, "Segoe UI", "Inter", system-ui, sans-serif;
-    margin: 0;
-    padding: 2rem;
-  }
+    * { box-sizing: border-box; }
 
-  #board {
-    display: grid;
-    grid-template-columns: repeat(8, 64px);
-    grid-template-rows: repeat(8, 64px);
-    gap: 2px;
-    margin: 0 auto;
-    max-width: 512px;
-  }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, "Segoe UI", "Inter", system-ui, sans-serif;
+      margin: 0;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
 
-  .square {
-    width: 64px;
-    height: 64px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    cursor: grab;
-  }
+    h1 { font-size: 1.4rem; margin: 0 0 1rem; }
 
-  .light {
-    background: #f0d9b5;
-  }
+    /* ── Side selection overlay ── */
+    #side-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100;
+    }
+    #side-overlay.hidden { display: none; }
+    .side-panel {
+      background: var(--surface); border-radius: 12px;
+      padding: 2rem 2.5rem; text-align: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    .side-panel h2 { margin: 0 0 1rem; font-size: 1.3rem; }
+    .side-panel button {
+      font-size: 1.1rem; padding: 0.7rem 1.8rem;
+      margin: 0 0.5rem; border: 2px solid var(--accent);
+      border-radius: 8px; background: var(--surface);
+      color: var(--accent-2); cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .side-panel button:hover { background: var(--accent); color: #fff; }
 
-  .dark {
-    background: #b58863;
-  }
+    /* ── Game over overlay ── */
+    #gameover-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100;
+    }
+    #gameover-overlay.hidden { display: none; }
+    .gameover-panel {
+      background: var(--surface); border-radius: 12px;
+      padding: 2rem 2.5rem; text-align: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    .gameover-panel h2 { margin: 0 0 0.5rem; font-size: 1.5rem; }
+    .gameover-panel p { margin: 0 0 1rem; color: var(--text-muted); }
+    .gameover-panel button {
+      font-size: 1rem; padding: 0.6rem 1.5rem;
+      border: 2px solid var(--accent); border-radius: 8px;
+      background: var(--surface); color: var(--accent-2);
+      cursor: pointer;
+    }
+    .gameover-panel button:hover { background: var(--accent); color: #fff; }
 
-  .piece {
-    width: 56px;
-    height: 56px;
-    cursor: grab;
-  }
+    /* ── Board ── */
+    #game-area { display: none; }
+    #game-area.visible { display: block; }
 
-  #move-log {
-    margin-top: 2rem;
-    max-width: 512px;
-    background: var(--surface);
-    padding: 1rem;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  }
+    #board-wrap {
+      display: inline-block;
+      position: relative;
+    }
 
-  .move {
-    margin-bottom: 0.5rem;
-    font-family: monospace;
-    font-size: 0.9rem;
-  }
+    #board {
+      display: grid;
+      grid-template-columns: repeat(8, 64px);
+      grid-template-rows: repeat(8, 64px);
+      gap: 0;
+      border: 3px solid #333;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .square {
+      width: 64px; height: 64px;
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+    .square.light { background: var(--sq-light); }
+    .square.dark  { background: var(--sq-dark); }
+    .square.selected { background: var(--sq-selected) !important; }
+    .square.last-move { box-shadow: inset 0 0 0 3px var(--accent); }
+    .square.valid-target { box-shadow: inset 0 0 0 3px var(--sq-highlight); }
+
+    .piece {
+      width: 56px; height: 56px;
+      cursor: grab;
+      user-select: none;
+      -webkit-user-drag: element;
+    }
+    .piece:active { cursor: grabbing; }
+
+    /* ── Info bar ── */
+    #info-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      max-width: 512px;
+      margin: 0.5rem 0;
+      font-size: 0.95rem;
+    }
+    #turn-indicator { font-weight: 600; }
+    #turn-indicator.ai-turn { color: #c0392b; }
+
+    #resign-btn {
+      font-size: 0.85rem; padding: 0.3rem 0.8rem;
+      border: 1px solid #c0392b; border-radius: 6px;
+      background: none; color: #c0392b; cursor: pointer;
+    }
+    #resign-btn:hover { background: #c0392b; color: #fff; }
+    #resign-btn:disabled { opacity: 0.4; cursor: default; }
+
+    /* ── Captured pieces ── */
+    #captured-row {
+      max-width: 512px; margin-top: 0.3rem;
+      display: flex; justify-content: space-between;
+      font-size: 0.85rem; color: var(--text-muted);
+    }
+    .captured-box {
+      display: flex; gap: 2px; flex-wrap: wrap;
+      min-height: 24px;
+    }
+    .captured-box svg { width: 20px; height: 20px; }
+
+    /* ── Move log ── */
+    #move-log {
+      margin-top: 1rem; max-width: 512px; width: 100%;
+      background: var(--surface); padding: 0.8rem 1rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      max-height: 200px; overflow-y: auto;
+    }
+    #move-log h3 { margin: 0 0 0.5rem; font-size: 0.95rem; }
+    .move-row {
+      display: flex; gap: 0.5rem;
+      font-family: "SF Mono", "Consolas", monospace;
+      font-size: 0.88rem;
+      margin-bottom: 0.2rem;
+    }
+    .move-row .num { width: 28px; color: var(--text-muted); }
+    .move-row .wm, .move-row .bm { min-width: 50px; }
+
+    /* ── Coaching panel ── */
+    #coach-panel {
+      max-width: 512px; width: 100%;
+      background: #fff9c4; padding: 0.6rem 1rem;
+      border-radius: 8px; margin-top: 0.5rem;
+      font-size: 0.9rem;
+      display: none;
+    }
+    #coach-panel.visible { display: block; }
+    #coach-panel .tip { font-style: italic; color: #555; }
   </style>
 </head>
-
 <body>
+
+  <!-- SVG gradients (shared) -->
   <svg style="position:absolute;width:0;height:0" aria-hidden="true">
     <defs>
       <linearGradient id="wBody" x1="0" y1="0" x2="0" y2="1">
@@ -86,212 +197,506 @@
       </linearGradient>
     </defs>
   </svg>
-  <div id="board"></div>
-  <div id="move-log">
-    <h3>Move Log</h3>
+
+  <!-- Side selection overlay -->
+  <div id="side-overlay">
+    <div class="side-panel">
+      <h2>Play Chess</h2>
+      <p>Choose your side</p>
+      <button id="btn-white" onclick="selectSide('w')">♔ White</button>
+      <button id="btn-black" onclick="selectSide('b')">♚ Black</button>
+    </div>
   </div>
+
+  <!-- Game over overlay -->
+  <div id="gameover-overlay" class="hidden">
+    <div class="gameover-panel">
+      <h2 id="gameover-title">Game Over</h2>
+      <p id="gameover-msg"></p>
+      <button onclick="location.reload()">Play Again</button>
+    </div>
+  </div>
+
+  <!-- Main game area -->
+  <div id="game-area">
+    <h1>Chess</h1>
+
+    <div id="info-bar">
+      <span id="turn-indicator">Your turn</span>
+      <button id="resign-btn" onclick="resign()">Resign</button>
+    </div>
+
+    <div id="board-wrap">
+      <div id="board"></div>
+    </div>
+
+    <div id="captured-row">
+      <span>Captured by AI: </span>
+      <div class="captured-box" id="cap-by-ai"></div>
+    </div>
+    <div id="captured-row" style="margin-top:0.2rem">
+      <span>Captured by You: </span>
+      <div class="captured-box" id="cap-by-you"></div>
+    </div>
+
+    <div id="coach-panel"></div>
+
+    <div id="move-log">
+      <h3>Move Log</h3>
+      <div id="move-list"></div>
+    </div>
+  </div>
+
   <script>
-  // Refined Staunton-style chess piece SVGs
+  /* ═══════════════════════════════════════════
+     SVG PIECES  (carried over from original)
+     ═══════════════════════════════════════════ */
   const pieceSVGs = {
-    // === WHITE ===
-    wP:
-    `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="50" cy="22" r="9" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
-        <rect x="42" y="33" width="16" height="4" rx="2" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
-        <path d="M44 37 L36 82 L64 82 L56 37 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
-        <rect x="30" y="82" width="40" height="10" rx="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
-      </svg>`,
-    wR:
-    `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-        <path d="M32 28 L32 12 L42 12 L42 20 L47 20 L47 12 L57 12 L57 20 L62 20 L62 12 L68 12 L68 28 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
-        <rect x="30" y="28" width="40" height="6" rx="2" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
-        <path d="M38 34 L36 82 L64 82 L62 34 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
-        <rect x="30" y="82" width="40" height="10" rx="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
-      </svg>`,
-    wN:
-    `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-        <path d="M40 82 C40 72 42 62 44 54 C46 46 50 38 54 28 C56 22 58 14 60 8 L63 6 L65 12 C65 18 64 24 63 28 C65 32 69 36 73 38 C75 40 75 44 73 46 C69 48 64 50 60 54 C56 58 52 66 52 72 C52 78 52 82 52 82 Z"
-              fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
-        <circle cx="61" cy="30" r="2" fill="#2a2a2a"/>
-        <rect x="34" y="82" width="40" height="10" rx="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
-      </svg>`,
-    wB:
-    `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="50" cy="10" r="4" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
-        <path d="M50 14 L42 38 L58 38 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
-        <line x1="55" y1="18" x2="46" y2="34" stroke="#2a2a2a" stroke-width="1.5" opacity="0.5"/>
-        <rect x="42" y="38" width="16" height="4" rx="2" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
-        <path d="M44 42 L36 82 L64 82 L56 42 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
-        <rect x="30" y="82" width="40" height="10" rx="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
-      </svg>`,
-    wQ:
-    `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-        <path d="M32 28 L32 16 L38 24 L44 10 L50 22 L56 10 L62 24 L68 16 L68 28 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
-        <circle cx="32" cy="14" r="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1"/>
-        <circle cx="44" cy="8" r="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1"/>
-        <circle cx="50" cy="20" r="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1"/>
-        <circle cx="56" cy="8" r="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1"/>
-        <circle cx="68" cy="14" r="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1"/>
-        <rect x="30" y="28" width="40" height="6" rx="2" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
-        <path d="M40 34 L36 82 L64 82 L60 34 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
-        <rect x="30" y="82" width="40" height="10" rx="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
-      </svg>`,
-    wK:
-    `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-        <line x1="50" y1="2" x2="50" y2="18" stroke="#2a2a2a" stroke-width="2.5" stroke-linecap="round"/>
-        <line x1="44" y1="8" x2="56" y2="8" stroke="#2a2a2a" stroke-width="2.5" stroke-linecap="round"/>
-        <path d="M30 30 L30 18 L37 24 L44 14 L50 22 L56 14 L63 24 L70 18 L70 30 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
-        <circle cx="30" cy="16" r="2.5" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1"/>
-        <circle cx="44" cy="12" r="2.5" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1"/>
-        <circle cx="56" cy="12" r="2.5" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1"/>
-        <circle cx="70" cy="16" r="2.5" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1"/>
-        <rect x="28" y="30" width="44" height="6" rx="2" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
-        <path d="M38 36 L34 82 L66 82 L62 36 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
-        <rect x="28" y="82" width="44" height="10" rx="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/>
-      </svg>`,
-    // === BLACK ===
-    bP:
-    `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="50" cy="22" r="9" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
-        <rect x="42" y="33" width="16" height="4" rx="2" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
-        <path d="M44 37 L36 82 L64 82 L56 37 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
-        <rect x="30" y="82" width="40" height="10" rx="3" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
-      </svg>`,
-    bR:
-    `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-        <path d="M32 28 L32 12 L42 12 L42 20 L47 20 L47 12 L57 12 L57 20 L62 20 L62 12 L68 12 L68 28 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
-        <rect x="30" y="28" width="40" height="6" rx="2" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
-        <path d="M38 34 L36 82 L64 82 L62 34 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
-        <rect x="30" y="82" width="40" height="10" rx="3" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
-      </svg>`,
-    bN:
-    `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-        <path d="M60 82 C60 72 58 62 56 54 C54 46 50 38 46 28 C44 22 42 14 40 8 L37 6 L35 12 C35 18 36 24 37 28 C35 32 31 36 27 38 C25 40 25 44 27 46 C31 48 36 50 40 54 C44 58 48 66 48 72 C48 78 48 82 48 82 Z"
-              fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
-        <circle cx="39" cy="30" r="2" fill="#ccc"/>
-        <rect x="36" y="82" width="40" height="10" rx="3" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
-      </svg>`,
-    bB:
-    `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="50" cy="10" r="4" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
-        <circle cx="50" cy="10" r="4" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
-        <path d="M50 14 L42 38 L58 38 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
-        <line x1="45" y1="18" x2="54" y2="34" stroke="#111" stroke-width="1.5" opacity="0.5"/>
-        <rect x="42" y="38" width="16" height="4" rx="2" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
-        <path d="M44 42 L36 82 L64 82 L56 42 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
-        <rect x="30" y="82" width="40" height="10" rx="3" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
-      </svg>`,
-    bQ:
-    `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-        <path d="M32 28 L32 16 L38 24 L44 10 L50 22 L56 10 L62 24 L68 16 L68 28 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
-        <circle cx="32" cy="14" r="3" fill="url(#bBody)" stroke="#111" stroke-width="1"/>
-        <circle cx="44" cy="8" r="3" fill="url(#bBody)" stroke="#111" stroke-width="1"/>
-        <circle cx="50" cy="20" r="3" fill="url(#bBody)" stroke="#111" stroke-width="1"/>
-        <circle cx="56" cy="8" r="3" fill="url(#bBody)" stroke="#111" stroke-width="1"/>
-        <circle cx="68" cy="14" r="3" fill="url(#bBody)" stroke="#111" stroke-width="1"/>
-        <rect x="30" y="28" width="40" height="6" rx="2" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
-        <path d="M40 34 L36 82 L64 82 L60 34 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
-        <rect x="30" y="82" width="40" height="10" rx="3" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
-      </svg>`,
-    bK:
-    `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-        <line x1="50" y1="2" x2="50" y2="18" stroke="#ccc" stroke-width="2.5" stroke-linecap="round"/>
-        <line x1="44" y1="8" x2="56" y2="8" stroke="#ccc" stroke-width="2.5" stroke-linecap="round"/>
-        <path d="M30 30 L30 18 L37 24 L44 14 L50 22 L56 14 L63 24 L70 18 L70 30 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
-        <circle cx="30" cy="16" r="2.5" fill="url(#bBody)" stroke="#111" stroke-width="1"/>
-        <circle cx="44" cy="12" r="2.5" fill="url(#bBody)" stroke="#111" stroke-width="1"/>
-        <circle cx="56" cy="12" r="2.5" fill="url(#bBody)" stroke="#111" stroke-width="1"/>
-        <circle cx="70" cy="16" r="2.5" fill="url(#bBody)" stroke="#111" stroke-width="1"/>
-        <rect x="28" y="30" width="44" height="6" rx="2" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
-        <path d="M38 36 L34 82 L66 82 L62 36 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
-        <rect x="28" y="82" width="44" height="10" rx="3" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/>
-      </svg>`
+    wP:`<svg viewBox="0 0 100 100"><circle cx="50" cy="22" r="9" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/><rect x="42" y="33" width="16" height="4" rx="2" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/><path d="M44 37 L36 82 L64 82 L56 37 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/><rect x="30" y="82" width="40" height="10" rx="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/></svg>`,
+    wR:`<svg viewBox="0 0 100 100"><path d="M32 28 L32 12 L42 12 L42 20 L47 20 L47 12 L57 12 L57 20 L62 20 L62 12 L68 12 L68 28 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/><rect x="30" y="28" width="40" height="6" rx="2" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/><path d="M38 34 L36 82 L64 82 L62 34 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/><rect x="30" y="82" width="40" height="10" rx="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/></svg>`,
+    wN:`<svg viewBox="0 0 100 100"><path d="M40 82 C40 72 42 62 44 54 C46 46 50 38 54 28 C56 22 58 14 60 8 L63 6 L65 12 C65 18 64 24 63 28 C65 32 69 36 73 38 C75 40 75 44 73 46 C69 48 64 50 60 54 C56 58 52 66 52 72 C52 78 52 82 52 82 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/><circle cx="61" cy="30" r="2" fill="#2a2a2a"/><rect x="34" y="82" width="40" height="10" rx="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/></svg>`,
+    wB:`<svg viewBox="0 0 100 100"><circle cx="50" cy="10" r="4" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/><path d="M50 14 L42 38 L58 38 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/><line x1="55" y1="18" x2="46" y2="34" stroke="#2a2a2a" stroke-width="1.5" opacity="0.5"/><rect x="42" y="38" width="16" height="4" rx="2" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/><path d="M44 42 L36 82 L64 82 L56 42 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/><rect x="30" y="82" width="40" height="10" rx="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/></svg>`,
+    wQ:`<svg viewBox="0 0 100 100"><path d="M32 28 L32 16 L38 24 L44 10 L50 22 L56 10 L62 24 L68 16 L68 28 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/><circle cx="32" cy="14" r="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1"/><circle cx="44" cy="8" r="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1"/><circle cx="50" cy="20" r="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1"/><circle cx="56" cy="8" r="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1"/><circle cx="68" cy="14" r="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1"/><rect x="30" y="28" width="40" height="6" rx="2" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/><path d="M40 34 L36 82 L64 82 L60 34 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/><rect x="30" y="82" width="40" height="10" rx="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/></svg>`,
+    wK:`<svg viewBox="0 0 100 100"><line x1="50" y1="2" x2="50" y2="18" stroke="#2a2a2a" stroke-width="2.5" stroke-linecap="round"/><line x1="44" y1="8" x2="56" y2="8" stroke="#2a2a2a" stroke-width="2.5" stroke-linecap="round"/><path d="M30 30 L30 18 L37 24 L44 14 L50 22 L56 14 L63 24 L70 18 L70 30 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/><circle cx="30" cy="16" r="2.5" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1"/><circle cx="44" cy="12" r="2.5" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1"/><circle cx="56" cy="12" r="2.5" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1"/><circle cx="70" cy="16" r="2.5" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1"/><rect x="28" y="30" width="44" height="6" rx="2" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/><path d="M38 36 L34 82 L66 82 L62 36 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/><rect x="28" y="82" width="44" height="10" rx="3" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/></svg>`,
+    bP:`<svg viewBox="0 0 100 100"><circle cx="50" cy="22" r="9" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/><rect x="42" y="33" width="16" height="4" rx="2" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/><path d="M44 37 L36 82 L64 82 L56 37 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/><rect x="30" y="82" width="40" height="10" rx="3" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/></svg>`,
+    bR:`<svg viewBox="0 0 100 100"><path d="M32 28 L32 12 L42 12 L42 20 L47 20 L47 12 L57 12 L57 20 L62 20 L62 12 L68 12 L68 28 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/><rect x="30" y="28" width="40" height="6" rx="2" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/><path d="M38 34 L36 82 L64 82 L62 34 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/><rect x="30" y="82" width="40" height="10" rx="3" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/></svg>`,
+    bN:`<svg viewBox="0 0 100 100"><path d="M60 82 C60 72 58 62 56 54 C54 46 50 38 46 28 C44 22 42 14 40 8 L37 6 L35 12 C35 18 36 24 37 28 C35 32 31 36 27 38 C25 40 25 44 27 46 C31 48 36 50 40 54 C44 58 48 66 48 72 C48 78 48 82 48 82 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/><circle cx="39" cy="30" r="2" fill="#ccc"/><rect x="36" y="82" width="40" height="10" rx="3" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/></svg>`,
+    bB:`<svg viewBox="0 0 100 100"><circle cx="50" cy="10" r="4" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/><path d="M50 14 L42 38 L58 38 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/><line x1="45" y1="18" x2="54" y2="34" stroke="#111" stroke-width="1.5" opacity="0.5"/><rect x="42" y="38" width="16" height="4" rx="2" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/><path d="M44 42 L36 82 L64 82 L56 42 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/><rect x="30" y="82" width="40" height="10" rx="3" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/></svg>`,
+    bQ:`<svg viewBox="0 0 100 100"><path d="M32 28 L32 16 L38 24 L44 10 L50 22 L56 10 L62 24 L68 16 L68 28 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/><circle cx="32" cy="14" r="3" fill="url(#bBody)" stroke="#111" stroke-width="1"/><circle cx="44" cy="8" r="3" fill="url(#bBody)" stroke="#111" stroke-width="1"/><circle cx="50" cy="20" r="3" fill="url(#bBody)" stroke="#111" stroke-width="1"/><circle cx="56" cy="8" r="3" fill="url(#bBody)" stroke="#111" stroke-width="1"/><circle cx="68" cy="14" r="3" fill="url(#bBody)" stroke="#111" stroke-width="1"/><rect x="30" y="28" width="40" height="6" rx="2" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/><path d="M40 34 L36 82 L64 82 L60 34 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/><rect x="30" y="82" width="40" height="10" rx="3" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/></svg>`,
+    bK:`<svg viewBox="0 0 100 100"><line x1="50" y1="2" x2="50" y2="18" stroke="#ccc" stroke-width="2.5" stroke-linecap="round"/><line x1="44" y1="8" x2="56" y2="8" stroke="#ccc" stroke-width="2.5" stroke-linecap="round"/><path d="M30 30 L30 18 L37 24 L44 14 L50 22 L56 14 L63 24 L70 18 L70 30 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/><circle cx="30" cy="16" r="2.5" fill="url(#bBody)" stroke="#111" stroke-width="1"/><circle cx="44" cy="12" r="2.5" fill="url(#bBody)" stroke="#111" stroke-width="1"/><circle cx="56" cy="12" r="2.5" fill="url(#bBody)" stroke="#111" stroke-width="1"/><circle cx="70" cy="16" r="2.5" fill="url(#bBody)" stroke="#111" stroke-width="1"/><rect x="28" y="30" width="44" height="6" rx="2" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/><path d="M38 36 L34 82 L66 82 L62 36 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/><rect x="28" y="82" width="44" height="10" rx="3" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/></svg>`
   };
-  
-  // Initialize board
-  const board = document.getElementById('board');
-  const log = document.getElementById('move-log');
-  
-  // Create board
-  for (let row = 0; row < 8; row++) {
-    for (let col = 0; col < 8; col++) {
-      const square = document.createElement('div');
-      square.classList.add('square', row % 2 === col % 2 ? 'light' : 'dark');
-      square.dataset.row = row;
-      square.dataset.col = col;
-      board.appendChild(square);
-    }
-  }
-  
-  // Add pieces
-  const pieces = [
-    ['wR', 'wN', 'wB', 'wQ', 'wK', 'wB', 'wN', 'wR'],
-    ['wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP'],
-    ['', '', '', '', '', '', '', ''],
-    ['', '', '', '', '', '', '', ''],
-    ['', '', '', '', '', '', '', ''],
-    ['', '', '', '', '', '', '', ''],
-    ['bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP'],
-    ['bR', 'bN', 'bB', 'bQ', 'bK', 'bB', 'bN', 'bR']
+
+  /* ═══════════════════════════════════════════
+     STATE
+     ═══════════════════════════════════════════ */
+  let gameState     = "IDLE";
+  let humanColour   = null;   // 'w' | 'b'
+  let aiColour      = null;
+  let orientation   = null;   // 'white' | 'black' (which colour is at bottom)
+  let currentTurn   = 1;      // 1-based; incremented after each full round
+  let ws            = null;
+  let capturedByAI  = [];     // pieces captured by the AI (human's lost pieces)
+  let capturedByYou = [];
+  let lastMove      = null;   // { fromRow, fromCol, toRow, toCol }
+
+  // Logical board: boardState[row][col]
+  // row 0 = rank 8, col 0 = file 'a'
+  // Values: 'wP','wR',... or null
+  let boardState = [];
+
+  // Track which squares have been moved from (for pawn double-move)
+  let movedPieces = new Set();
+
+  const INITIAL = [
+    ['wR','wN','wB','wQ','wK','wB','wN','wR'],
+    ['wP','wP','wP','wP','wP','wP','wP','wP'],
+    [null,null,null,null,null,null,null,null],
+    [null,null,null,null,null,null,null,null],
+    [null,null,null,null,null,null,null,null],
+    [null,null,null,null,null,null,null,null],
+    ['bP','bP','bP','bP','bP','bP','bP','bP'],
+    ['bR','bN','bB','bQ','bK','bB','bN','bR']
   ];
-  
-  for (let row = 0; row < 8; row++) {
-    for (let col = 0; col < 8; col++) {
-      const piece = pieces[row][col];
-      if (piece) {
-        const svg = document.createElement('div');
-        svg.className = 'piece';
-        svg.innerHTML = pieceSVGs[piece];
-        svg.draggable = true;
-        svg.addEventListener('dragstart', handleDragStart);
-        document.querySelector(`[data-row="${row}"][data-col="${col}"]`).appendChild(svg);
+
+  /* ═══════════════════════════════════════════
+     COORDINATE HELPERS
+     ═══════════════════════════════════════════ */
+  function rowColToAlgebraic(row, col) {
+    return String.fromCharCode(97 + col) + (8 - row);
+  }
+  function algebraicToRowCol(sq) {
+    return { row: 8 - parseInt(sq[1]), col: sq.charCodeAt(0) - 97 };
+  }
+  // logical → display grid position
+  function logicalToDisplay(row, col) {
+    if (orientation === 'white') return { gr: row, gc: col };
+    else return { gr: 7 - row, gc: 7 - col };
+  }
+  // display grid → logical
+  function displayToLogical(gr, gc) {
+    if (orientation === 'white') return { row: gr, col: gc };
+    else return { row: 7 - gr, col: 7 - gc };
+  }
+
+  /* ═══════════════════════════════════════════
+     BOARD SETUP & RENDER
+     ═══════════════════════════════════════════ */
+  function resetBoard() {
+    boardState = INITIAL.map(r => [...r]);
+    movedPieces = new Set();
+    capturedByAI = [];
+    capturedByYou = [];
+    lastMove = null;
+    currentTurn = 1;
+  }
+
+  function buildBoardDOM() {
+    const board = document.getElementById("board");
+    board.innerHTML = "";
+    for (let gr = 0; gr < 8; gr++) {
+      for (let gc = 0; gc < 8; gc++) {
+        const sq = document.createElement("div");
+        // determine light/dark from logical coords
+        const { row, col } = displayToLogical(gr, gc);
+        const isLight = (row + col) % 2 === 0;
+        sq.classList.add("square", isLight ? "light" : "dark");
+        sq.dataset.gr = gr;
+        sq.dataset.gc = gc;
+        sq.addEventListener("dragover", e => e.preventDefault());
+        sq.addEventListener("drop", handleDrop);
+        board.appendChild(sq);
       }
     }
   }
-  
-  // Drag and drop handlers
-  let draggedPiece = null;
-  
+
+  function renderBoard() {
+    // Clear all pieces
+    document.querySelectorAll(".piece").forEach(p => p.remove());
+    // Clear highlights
+    document.querySelectorAll(".square.selected, .square.valid-target, .square.last-move")
+      .forEach(s => s.classList.remove("selected", "valid-target", "last-move"));
+
+    for (let gr = 0; gr < 8; gr++) {
+      for (let gc = 0; gc < 8; gc++) {
+        const { row, col } = displayToLogical(gr, gc);
+        const pieceId = boardState[row][col];
+        const sqEl = document.querySelector(`.square[data-gr="${gr}"][data-gc="${gc}"]`);
+        if (pieceId) {
+          const div = document.createElement("div");
+          div.className = "piece";
+          div.innerHTML = pieceSVGs[pieceId];
+          div.draggable = true;
+          div.dataset.piece = pieceId;
+          div.addEventListener("dragstart", handleDragStart);
+          sqEl.appendChild(div);
+        }
+        // last move highlight
+        if (lastMove) {
+          if ((row === lastMove.fromRow && col === lastMove.fromCol) ||
+              (row === lastMove.toRow   && col === lastMove.toCol)) {
+            sqEl.classList.add("last-move");
+          }
+        }
+      }
+    }
+  }
+
+  /* ═══════════════════════════════════════════
+     STATE MACHINE
+     ═══════════════════════════════════════════ */
+  function setGameState(s) {
+    gameState = s;
+    updateTurnIndicator();
+    document.getElementById("resign-btn").disabled = (s !== "PLAYER_TURN");
+  }
+
+  function updateTurnIndicator() {
+    const el = document.getElementById("turn-indicator");
+    el.classList.remove("ai-turn");
+    switch (gameState) {
+      case "PLAYER_TURN":
+        el.textContent = "Your turn";
+        break;
+      case "AI_THINKING":
+        el.textContent = "AI thinking\u2026";
+        el.classList.add("ai-turn");
+        break;
+      case "GAME_OVER":
+        el.textContent = "Game over";
+        break;
+      default:
+        el.textContent = "";
+    }
+  }
+
+  /* ═══════════════════════════════════════════
+     SIDE SELECTION
+     ═══════════════════════════════════════════ */
+  function selectSide(colour) {
+    humanColour = colour;
+    aiColour    = colour === 'w' ? 'b' : 'w';
+    orientation = colour; // human colour at bottom
+    document.getElementById("side-overlay").classList.add("hidden");
+    document.getElementById("game-area").classList.add("visible");
+    resetBoard();
+    buildBoardDOM();
+    renderBoard();
+    updateCaptured();
+    setGameState("PLAYER_TURN");
+    connectWS();
+  }
+
+  /* ═══════════════════════════════════════════
+     DRAG & DROP
+     ═══════════════════════════════════════════ */
+  let draggedFrom = null; // { row, col }
+
   function handleDragStart(e) {
-    draggedPiece = e.target;
-    e.dataTransfer.setData('text/plain', e.target.innerHTML);
-    e.dataTransfer.effectAllowed = 'move';
+    if (gameState !== "PLAYER_TURN") { e.preventDefault(); return; }
+    const pieceId = e.target.dataset.piece;
+    if (!pieceId || pieceId[0] !== humanColour) { e.preventDefault(); return; }
+    // find the square this piece is on
+    const sq = e.target.closest(".square");
+    const gr = parseInt(sq.dataset.gr), gc = parseInt(sq.dataset.gc);
+    const { row, col } = displayToLogical(gr, gc);
+    draggedFrom = { row, col, pieceId };
+    // highlight
+    sq.classList.add("selected");
+    // highlight valid targets
+    const valid = getValidMoves(row, col);
+    valid.forEach(({ row: vr, col: vc }) => {
+      const d = logicalToDisplay(vr, vc);
+      const tEl = document.querySelector(`.square[data-gr="${d.gr}"][data-gc="${d.gc}"]`);
+      if (tEl) tEl.classList.add("valid-target");
+    });
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", pieceId);
   }
-  
-  function handleDragOver(e) {
-    e.preventDefault();
-  }
-  
+
   function handleDrop(e) {
     e.preventDefault();
-    if (!draggedPiece) return;
-  
-    const target = e.target;
-    const targetRow = parseInt(target.dataset.row);
-    const targetCol = parseInt(target.dataset.col);
-  
-    // Get source position from dataTransfer
-    const sourceRow = parseInt(draggedPiece.closest('.square').dataset.row);
-    const sourceCol = parseInt(draggedPiece.closest('.square').dataset.col);
-  
-    // Record move
-    const move = `${String.fromCharCode(97 + sourceCol)}${8 - sourceRow}${String.fromCharCode(97 + targetCol)}${8 - targetRow}`;
-    const logEntry = document.createElement('div');
-    logEntry.className = 'move';
-    logEntry.textContent = move;
-    log.appendChild(logEntry);
-  
-    // Move piece
-    target.appendChild(draggedPiece);
-    draggedPiece = null;
+    if (gameState !== "PLAYER_TURN" || !draggedFrom) return;
+
+    const targetSq = e.target.closest(".square");
+    if (!targetSq) return;
+    const gr = parseInt(targetSq.dataset.gr), gc = parseInt(targetSq.dataset.gc);
+    const { row: toRow, col: toCol } = displayToLogical(gr, gc);
+
+    // Validate
+    if (!isLegalMove(draggedFrom.row, draggedFrom.col, toRow, toCol)) {
+      clearHighlights();
+      draggedFrom = null;
+      return;
+    }
+
+    // Apply move
+    executeMove(draggedFrom.row, draggedFrom.col, toRow, toCol, draggedFrom.pieceId, humanColour);
+    clearHighlights();
+    draggedFrom = null;
+    renderBoard();
+
+    // Send to AI
+    const fromSq = rowColToAlgebraic(draggedFrom.row, draggedFrom.col);
+    const toSq   = rowColToAlgebraic(toRow, toCol);
+    sendToAI({ type: "move", from: fromSq, to: toSq, piece: draggedFrom.pieceId, turn: currentTurn, timestamp: Math.floor(Date.now()/1000) });
+    setGameState("AI_THINKING");
   }
-  
-  // Attach event listeners
-  document.querySelectorAll('.square').forEach(square => {
-    square.addEventListener('dragover', handleDragOver);
-    square.addEventListener('drop', handleDrop);
-  });
+
+  function clearHighlights() {
+    document.querySelectorAll(".square.selected, .square.valid-target")
+      .forEach(s => s.classList.remove("selected", "valid-target"));
+  }
+
+  /* ═══════════════════════════════════════════
+     MOVE EXECUTION
+     ═══════════════════════════════════════════ */
+  function executeMove(fromR, fromC, toR, toC, pieceId, player) {
+    const captured = boardState[toR][toC];
+    if (captured) {
+      if (player === humanColour) capturedByYou.push(captured);
+      else capturedByAI.push(captured);
+      updateCaptured();
+    }
+    boardState[toR][toC] = pieceId;
+    boardState[fromR][fromC] = null;
+    movedPieces.add(pieceId + rowColToAlgebraic(fromR, fromC));
+    lastMove = { fromRow: fromR, fromCol: fromC, toRow: toR, toCol: toC };
+    appendMoveLog(player, rowColToAlgebraic(fromR, fromC) + rowColToAlgebraic(toR, toC), pieceId);
+  }
+
+  /* ═══════════════════════════════════════════
+     MOVE VALIDATION (basic, per-piece)
+     ═══════════════════════════════════════════ */
+  function isLegalMove(fromR, fromC, toR, toC) {
+    const piece = boardState[fromR][fromC];
+    if (!piece) return false;
+    if (piece[0] !== humanColour) return false;
+    const target = boardState[toR][toC];
+    if (target && target[0] === humanColour) return false; // can't capture own
+    const type = piece[1]; // P, R, N, B, Q, K
+    const dr = toR - fromR, dc = toC - fromC;
+    const adr = Math.abs(dr), adc = Math.abs(dc);
+
+    switch (type) {
+      case "P": {
+        const dir = piece[0] === 'w' ? -1 : 1; // white moves up (toward row 0)
+        // single forward
+        if (dr === dir && dc === 0 && !target) return true;
+        // double forward
+        const startRow = piece[0] === 'w' ? 6 : 1;
+        if (dr === 2 * dir && dc === 0 && fromR === startRow && !boardState[fromR + dir][fromC] && !target) return true;
+        // diagonal capture
+        if (adr === 1 && adc === 1 && target && target[0] !== humanColour) return true;
+        return false;
+      }
+      case "N":
+        return (adr === 2 && adc === 1) || (adr === 1 && adc === 2);
+      case "B":
+        if (adr !== adc || adr === 0) return false;
+        return isPathClear(fromR, fromC, toR, toC);
+      case "R":
+        if (adr > 0 && adc > 0) return false; // must be straight
+        if (adr === 0 && adc === 0) return false;
+        return isPathClear(fromR, fromC, toR, toC);
+      case "Q":
+        if (adr === 0 && adc === 0) return false;
+        if (dr !== 0 && dc !== 0 && adr !== adc) return false; // diagonal or straight only
+        return isPathClear(fromR, fromC, toR, toC);
+      case "K":
+        return adr <= 1 && adc <= 1;
+      default:
+        return false;
+    }
+  }
+
+  function isPathClear(fromR, fromC, toR, toC) {
+    const stepR = Math.sign(toR - fromR);
+    const stepC = Math.sign(toC - fromC);
+    let r = fromR + stepR, c = fromC + stepC;
+    while (r !== toR || c !== toC) {
+      if (boardState[r][c]) return false;
+      r += stepR; c += stepC;
+    }
+    return true;
+  }
+
+  function getValidMoves(row, col) {
+    const piece = boardState[row][col];
+    if (!piece || piece[0] !== humanColour) return [];
+    const moves = [];
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        if (r === row && c === col) continue;
+        if (isLegalMove(row, col, r, c)) moves.push({ row: r, col: c });
+      }
+    }
+    return moves;
+  }
+
+  /* ═══════════════════════════════════════════
+     WEBSOCKET
+     ═══════════════════════════════════════════ */
+  function connectWS() {
+    const url = "ws://localhost:8000";
+    console.log("[chess] connecting to", url);
+    ws = new WebSocket(url);
+    ws.onopen = () => console.log("[chess] WS connected");
+    ws.onmessage = (e) => handleWSMessage(e.data);
+    ws.onclose = () => { console.warn("[chess] WS closed"); };
+    ws.onerror = (e) => { console.error("[chess] WS error", e); };
+  }
+
+  function sendToAI(msg) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(msg));
+      console.log("[chess] sent:", JSON.stringify(msg));
+    } else {
+      console.warn("[chess] WS not open, cannot send");
+    }
+  }
+
+  function handleWSMessage(raw) {
+    let msg;
+    try { msg = JSON.parse(raw); } catch { console.warn("[chess] bad WS JSON"); return; }
+    console.log("[chess] received:", JSON.stringify(msg));
+
+    if (msg.type === "move") {
+      if (gameState !== "AI_THINKING") return;
+      const f = algebraicToRowCol(msg.from);
+      const t = algebraicToRowCol(msg.to);
+      executeMove(f.row, f.col, t.row, t.col, msg.piece, aiColour);
+      renderBoard();
+      setGameState("PLAYER_TURN");
+    }
+    else if (msg.type === "game_over") {
+      showGameOver(msg);
+    }
+    else if (msg.type === "suggestion") {
+      showCoaching(msg);
+    }
+  }
+
+  /* ═══════════════════════════════════════════
+     GAME OVER
+     ═══════════════════════════════════════════ */
+  function showGameOver(msg) {
+    setGameState("GAME_OVER");
+    const titleEl = document.getElementById("gameover-title");
+    const msgEl   = document.getElementById("gameover-msg");
+    const winLabel = msg.winner === 'w' ? "White" : msg.winner === 'b' ? "Black" : "Draw";
+    titleEl.textContent = msg.result === "draw" || msg.winner === "draw" ? "Draw" : winLabel + " Wins";
+    msgEl.textContent = msg.message || "Game over.";
+    document.getElementById("gameover-overlay").classList.remove("hidden");
+  }
+
+  function resign() {
+    if (gameState !== "PLAYER_TURN") return;
+    sendToAI({ type: "resign", player: humanColour, turn: currentTurn, timestamp: Math.floor(Date.now()/1000) });
+  }
+
+  /* ═══════════════════════════════════════════
+     COACHING (suggestion display)
+     ═══════════════════════════════════════════ */
+  function showCoaching(msg) {
+    const panel = document.getElementById("coach-panel");
+    let html = "";
+    if (msg.suggested_move) {
+      html += `<div>Suggested: <strong>${msg.suggested_move.from} → ${msg.suggested_move.to}</strong></div>`;
+    }
+    if (msg.tip) {
+      html += `<div class="tip">${msg.tip}</div>`;
+    }
+    panel.innerHTML = html;
+    panel.classList.add("visible");
+    // auto-hide after 6 s
+    setTimeout(() => panel.classList.remove("visible"), 6000);
+  }
+
+  /* ═══════════════════════════════════════════
+     MOVE LOG
+     ═══════════════════════════════════════════ */
+  const moveLogEntries = []; // { turn, white: "...", black: "..." }
+
+  function appendMoveLog(player, notation, pieceId) {
+    // Convert to simple piece letter notation
+    const letter = pieceId ? pieceId[1] : "";
+    const display = letter + notation; // e.g. "Pe2e4"
+
+    if (moveLogEntries.length === 0 || moveLogEntries[moveLogEntries.length-1].turn !== currentTurn) {
+      moveLogEntries.push({ turn: currentTurn, w: "", b: "" });
+    }
+    const entry = moveLogEntries[moveLogEntries.length - 1];
+    if (player === 'w') entry.w = display;
+    else entry.b = display;
+
+    // Increment turn after both have moved
+    if (entry.w && entry.b) {
+      currentTurn++;
+    }
+
+    // Render
+    const list = document.getElementById("move-list");
+    list.innerHTML = moveLogEntries.map(e =>
+      `<div class="move-row"><span class="num">${e.turn}.</span><span class="wm">${e.w || "\u00a0"}</span><span class="bm">${e.b || "\u00a0"}</span></div>`
+    ).join("");
+    list.scrollTop = list.scrollHeight;
+  }
+
+  /* ═══════════════════════════════════════════
+     CAPTURED PIECES
+     ═══════════════════════════════════════════ */
+  function updateCaptured() {
+    const renderBox = (arr, el) => {
+      el.innerHTML = arr.map(id => pieceSVGs[id]).join("");
+    };
+    renderBox(capturedByAI,  document.getElementById("cap-by-ai"));
+    renderBox(capturedByYou, document.getElementById("cap-by-you"));
+  }
+
+  /* ═══════════════════════════════════════════
+     INIT
+     ═══════════════════════════════════════════ */
+  // Nothing runs on load — waiting for side selection
   </script>
 </body>
 </html>
-

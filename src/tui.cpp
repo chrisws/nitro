@@ -790,6 +790,6 @@ std::string Tui::save_chat(const std::string &file) const {
   }
 
   ofs.close();
-  return std::format("Chat saved to {}", file);
+  return std::format("Transcript saved to {}", file);
 }
 
