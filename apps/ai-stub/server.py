@@ -18,11 +18,11 @@ GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 
 # ── Preset moves (Black) ──────────────────────────────────────────
 PRESET_MOVES = [
-    {"from": "e7", "to": "e5", "piece": "bP"},   # 1... e5
-    {"from": "g8", "to": "f6", "piece": "bN"},   # 2... Nf6
-    {"from": "b8", "to": "c6", "piece": "bN"},   # 3... Nc6
-    {"from": "f8", "to": "e7", "piece": "bB"},   # 4... Be7
-    {"from": "e8", "to": "g8", "piece": "bK"},   # 5... O-O
+    {"from": "e7", "to": "e5", "piece": "bP", "type": "move"},   # 1... e5
+    {"from": "g8", "to": "f6", "piece": "bN", "type": "move"},   # 2... Nf6
+    {"from": "b8", "to": "c6", "piece": "bN", "type": "move"},   # 3... Nc6
+    {"from": "f8", "to": "e7", "piece": "bB", "type": "move"},   # 4... Be7
+    {"from": "e8", "to": "g8", "piece": "bK", "type": "move"},   # 5... O-O
 ]
 GAME_OVER = {
     "type": "game_over",

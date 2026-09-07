@@ -304,18 +304,20 @@
   function rowColToAlgebraic(row, col) {
     return String.fromCharCode(97 + col) + (8 - row);
   }
-  function algebraicToRowCol(sq) {
-    return { row: 8 - parseInt(sq[1]), col: sq.charCodeAt(0) - 97 };
+  function algebraicToLogical(sq) {
+    const row = 8 - parseInt(sq[1]);
+    const col = sq.charCodeAt(0) - 97;
+    return displayToLogical(row, col);
   }
   // logical → display grid position
   function logicalToDisplay(row, col) {
-    if (orientation === 'white') return { gr: row, gc: col };
-    else return { gr: 7 - row, gc: 7 - col };
+    if (orientation === 'b') return { gr: row, gc: col };
+    else return { gr: 7 - row, gc: col };
   }
   // display grid → logical
   function displayToLogical(gr, gc) {
-    if (orientation === 'white') return { row: gr, col: gc };
-    else return { row: 7 - gr, col: 7 - gc };
+    if (orientation === 'b') return { row: gr, col: gc };
+    else return { row: 7 - gr, col: gc };
   }
 
   /* ═══════════════════════════════════════════
@@ -437,7 +439,8 @@
     if (!pieceId || pieceId[0] !== humanColour) { e.preventDefault(); return; }
     // find the square this piece is on
     const sq = e.target.closest(".square");
-    const gr = parseInt(sq.dataset.gr), gc = parseInt(sq.dataset.gc);
+    const gr = parseInt(sq.dataset.gr);
+    const gc = parseInt(sq.dataset.gc);
     const { row, col } = displayToLogical(gr, gc);
     draggedFrom = { row, col, pieceId };
     // highlight
@@ -459,7 +462,8 @@
 
     const targetSq = e.target.closest(".square");
     if (!targetSq) return;
-    const gr = parseInt(targetSq.dataset.gr), gc = parseInt(targetSq.dataset.gc);
+    const gr = parseInt(targetSq.dataset.gr);
+    const gc = parseInt(targetSq.dataset.gc);
     const { row: toRow, col: toCol } = displayToLogical(gr, gc);
 
     // Validate
@@ -472,7 +476,6 @@
     // Apply move
     executeMove(draggedFrom.row, draggedFrom.col, toRow, toCol, draggedFrom.pieceId, humanColour);
     clearHighlights();
-    draggedFrom = null;
     renderBoard();
 
     // Send to AI
@@ -480,6 +483,7 @@
     const toSq   = rowColToAlgebraic(toRow, toCol);
     sendToAI({ type: "move", from: fromSq, to: toSq, piece: draggedFrom.pieceId, turn: currentTurn, timestamp: Math.floor(Date.now()/1000) });
     setGameState("AI_THINKING");
+    draggedFrom = null;
   }
 
   function clearHighlights() {
@@ -509,43 +513,54 @@
      ═══════════════════════════════════════════ */
   function isLegalMove(fromR, fromC, toR, toC) {
     const piece = boardState[fromR][fromC];
-    if (!piece) return false;
+    if (!piece) {
+      return false;
+    }
     if (piece[0] !== humanColour) return false;
     const target = boardState[toR][toC];
     if (target && target[0] === humanColour) return false; // can't capture own
     const type = piece[1]; // P, R, N, B, Q, K
-    const dr = toR - fromR, dc = toC - fromC;
-    const adr = Math.abs(dr), adc = Math.abs(dc);
+    const dr = Math.abs(toR - fromR);
+    const dc = Math.abs(toC - fromC);
+    const adr = Math.abs(dr);
+    const adc = Math.abs(dc);
 
     switch (type) {
-      case "P": {
-        const dir = piece[0] === 'w' ? -1 : 1; // white moves up (toward row 0)
-        // single forward
-        if (dr === dir && dc === 0 && !target) return true;
-        // double forward
-        const startRow = piece[0] === 'w' ? 6 : 1;
-        if (dr === 2 * dir && dc === 0 && fromR === startRow && !boardState[fromR + dir][fromC] && !target) return true;
-        // diagonal capture
-        if (adr === 1 && adc === 1 && target && target[0] !== humanColour) return true;
-        return false;
+    case "P": {
+      const dir = piece[0] === 'b' ? -1 : 1; // white moves up (toward row 0)
+      // single forward
+      if (dr === 1 && dc === 0 && !target) {
+        return true;
       }
-      case "N":
-        return (adr === 2 && adc === 1) || (adr === 1 && adc === 2);
-      case "B":
-        if (adr !== adc || adr === 0) return false;
-        return isPathClear(fromR, fromC, toR, toC);
-      case "R":
-        if (adr > 0 && adc > 0) return false; // must be straight
-        if (adr === 0 && adc === 0) return false;
-        return isPathClear(fromR, fromC, toR, toC);
-      case "Q":
-        if (adr === 0 && adc === 0) return false;
-        if (dr !== 0 && dc !== 0 && adr !== adc) return false; // diagonal or straight only
-        return isPathClear(fromR, fromC, toR, toC);
-      case "K":
-        return adr <= 1 && adc <= 1;
-      default:
-        return false;
+      // double forward
+      const startRow = piece[0] === 'b' ? 6 : 1;
+      if (dr === 2 && dc === 0 && fromR === startRow && !boardState[fromR + dir][fromC] && !target) {
+        return true;
+      }
+
+      // diagonal capture
+      if (adr === 1 && adc === 1 && target && target[0] !== humanColour) {
+        return true;
+      }
+      return false;
+    }
+    case "N":
+      return (adr === 2 && adc === 1) || (adr === 1 && adc === 2);
+    case "B":
+      if (adr !== adc || adr === 0) return false;
+      return isPathClear(fromR, fromC, toR, toC);
+    case "R":
+      if (adr > 0 && adc > 0) return false; // must be straight
+      if (adr === 0 && adc === 0) return false;
+      return isPathClear(fromR, fromC, toR, toC);
+    case "Q":
+      if (adr === 0 && adc === 0) return false;
+      if (dr !== 0 && dc !== 0 && adr !== adc) return false; // diagonal or straight only
+      return isPathClear(fromR, fromC, toR, toC);
+    case "K":
+      return adr <= 1 && adc <= 1;
+    default:
+      return false;
     }
   }
 
@@ -566,8 +581,12 @@
     const moves = [];
     for (let r = 0; r < 8; r++) {
       for (let c = 0; c < 8; c++) {
-        if (r === row && c === col) continue;
-        if (isLegalMove(row, col, r, c)) moves.push({ row: r, col: c });
+        if (r === row && c === col) {
+          continue;
+        }
+        if (isLegalMove(row, col, r, c)) {
+          moves.push({ row: r, col: c });
+        }
       }
     }
     return moves;
@@ -602,8 +621,8 @@
 
     if (msg.type === "move") {
       if (gameState !== "AI_THINKING") return;
-      const f = algebraicToRowCol(msg.from);
-      const t = algebraicToRowCol(msg.to);
+      const f = algebraicToLogical(msg.from);
+      const t = algebraicToLogical(msg.to);
       executeMove(f.row, f.col, t.row, t.col, msg.piece, aiColour);
       renderBoard();
       setGameState("PLAYER_TURN");
