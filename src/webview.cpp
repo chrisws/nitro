@@ -32,6 +32,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <cstring>
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -109,22 +110,24 @@ static std::string mime_type(const std::string &path) {
 static const std::string RELOAD_SNIPPET =
   "\n<script>\n"
   "(function() {\n"
-  "  function connect() {\n"
-  "    var proto = location.protocol === 'https:' ? 'wss://' : 'ws://';\n"
-  "    var ws = new WebSocket(proto + location.host + '"
+  "  var proto = location.protocol === 'https:' ? 'wss://' : 'ws://';\n"
+  "  var ws = new WebSocket(proto + location.host + '"
   + std::string(WS_PATH) +
   "');\n"
-  "    ws.onmessage = function()  { location.reload(); };\n"
-  "    ws.onopen    = function(e) { console.log('open'); ws.send('watch:' + navigator.userAgent); };\n"
-  "    ws.onclose   = function(e) { console.log('closed %o', e); };\n"
-  "    ws.onerror   = function(e) { console.error('[%o]', e); };\n"
-  "  }\n"
-  "  connect();\n"
+  "  ws.onmessage = function(evt) {\n"
+  "    if (evt.data === 'reload') location.reload();\n"
+  "  };\n"
+  "  ws.onopen = function() {\n"
+  "    window.sendMessage = function(msg) {\n"
+  "      if (ws.readyState === WebSocket.OPEN) ws.send(msg);\n"
+  "    };\n"
+  "  };\n"
+  "  ws.onclose   = function(e) { console.log('closed %o', e); };\n"
+  "  ws.onerror   = function(e) { console.error('[%o]', e); };\n"
   "})();\n"
   "</script>\n";
-
 // ────────────────────────────────────────────────────────────────────────────
-// WebDevServer
+// WebServer
 // ────────────────────────────────────────────────────────────────────────────
 //
 // A lightweight HTTP + WebSocket server for local web development.
@@ -137,7 +140,7 @@ static const std::string RELOAD_SNIPPET =
 //   • No file-system watching — the caller is responsible for invoking
 //     broadcast_reload() at the right moment.
 //
-struct WebDevServer {
+struct WebServer {
   int         port_        = 9080;
   std::string root_;
   int         listen_fd_   = -1;
@@ -149,6 +152,9 @@ struct WebDevServer {
   std::atomic<bool> stop_{false};
   std::thread      accept_thread_;
 
+  // Client → server message queue (thread-safe).
+  std::vector<std::string> msg_queue_;
+  std::mutex               msg_mutex_;
   // ── Lifecycle ─────────────────────────────────────────────────────
 
   bool start(const std::string &root, int port) {
@@ -204,7 +210,7 @@ struct WebDevServer {
     }
   }
 
-  ~WebDevServer() { stop(); }
+  ~WebServer() { stop(); }
 
   // ── Public: call after TOOL:WRITE / TOOL:PATCH ────────────────────
 
@@ -234,6 +240,51 @@ struct WebDevServer {
     return frame;
   }
 
+  // Decode a single WebSocket frame from a byte buffer (RFC 6455).
+  // Returns the number of bytes consumed, or 0 if the buffer does
+  // not yet contain a complete frame.
+  static size_t ws_decode_frame(const char *data, size_t len, std::string &out) {
+    if (len < 2) return 0;
+    uint8_t b1 = static_cast<uint8_t>(data[1]);
+    bool   masked  = (b1 & 0x80) != 0;
+    size_t p_len   = b1 & 0x7F;
+    size_t pos     = 2;
+
+    if (p_len == 126) {
+      if (len < 4) return 0;
+      p_len = (static_cast<uint16_t>(
+        (static_cast<unsigned char>(data[2]) << 8) |
+        static_cast<unsigned char>(data[3])));
+      pos = 4;
+    } else if (p_len == 127) {
+      if (len < 10) return 0;
+      uint64_t long_len = 0;
+      for (int i = 0; i < 8; ++i) {
+        long_len = (long_len << 8) | static_cast<unsigned char>(data[2 + i]);
+      }
+      p_len = static_cast<size_t>(long_len);
+      pos = 10;
+    }
+
+    uint8_t mask[4];
+    
+    if (masked) {
+      if (len < pos + 4) return 0;
+      std::memcpy(mask, data + pos, 4);
+      pos += 4;
+    }
+
+    if (len < pos + p_len) return 0;
+
+    out.assign(data + pos, p_len);
+    if (masked) {
+      for (size_t i = 0; i < p_len; ++i) {
+        out[i] = static_cast<char>(static_cast<unsigned char>(out[i]) ^ mask[i % 4]);
+      }
+    }
+
+    return pos + p_len;
+  }
   static std::string ws_accept_key(const std::string &client_key) {
     const std::string input = client_key + WS_GUID;
     unsigned char digest[SHA_DIGEST_LENGTH];
@@ -438,13 +489,31 @@ struct WebDevServer {
         ws_clients_.push_back(fd);
       }
 
-      // Block until the client disconnects.  The channel is
-      // server → client only; the browser has nothing to say.
-      char buf[4096];
-      while (::recv(fd, buf, sizeof(buf), MSG_WAITALL) > 0) {
-        // discard — we never need data from the client
+      // Pump the client → server channel until the browser
+      // disconnects.  Each text frame is pushed onto the
+      // message queue for the agent to consume.
+      std::string rx;  // leftover bytes that do not yet form a
+                        // complete frame
+      char chunk[4096];
+      while (true) {
+        ssize_t n = ::recv(fd, chunk, sizeof(chunk), 0);
+        if (n <= 0) break;
+        rx.append(chunk, static_cast<size_t>(n));
+        // Decode every complete frame in rx.
+        size_t pos = 0;
+        while (true) {
+          std::string text;
+          size_t consumed = ws_decode_frame(
+            rx.data() + pos, rx.size() - pos, text);
+          if (consumed == 0) break;  // incomplete — wait for more.
+          {
+            std::lock_guard<std::mutex> lock(msg_mutex_);
+            msg_queue_.push_back(std::move(text));
+          }
+          pos += consumed;
+        }
+        rx.erase(0, pos);
       }
-
       log_write(INFO_LEVEL, "ws connection released");
       {
         std::lock_guard<std::mutex> lock(ws_mutex_);
@@ -467,24 +536,35 @@ struct WebDevServer {
     serve_file(fd, rel_path);
     ::close(fd);
   }
-}; // struct WebDevServer
+}; // struct WebServer
 
 // ────────────────────────────────────────────────────────────────────────────
 // Global instance + public API for Nitro agent integration
 // ────────────────────────────────────────────────────────────────────────────
-static WebDevServer g_webview_server;
+static WebServer g_webserver;
 
 namespace webview {
   bool start(const std::string &root, int port) {
-    return g_webview_server.start(root, port);
+    return g_webserver.start(root, port);
   }
   void stop() {
-    g_webview_server.stop();
+    g_webserver.stop();
   }
   void broadcast_reload() {
-    g_webview_server.broadcast_reload();
+    g_webserver.broadcast_reload();
   }
   bool is_running() {
-    return g_webview_server.running_;
+    return g_webserver.running_;
+  }
+  bool has_message() {
+    std::lock_guard<std::mutex> lock(g_webserver.msg_mutex_);
+    return !g_webserver.msg_queue_.empty();
+  }
+  std::string get_message() {
+    std::lock_guard<std::mutex> lock(g_webserver.msg_mutex_);
+    if (g_webserver.msg_queue_.empty()) return "";
+    std::string msg = std::move(g_webserver.msg_queue_.front());
+    g_webserver.msg_queue_.erase(g_webserver.msg_queue_.begin());
+    return msg;
   }
 }

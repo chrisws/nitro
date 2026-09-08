@@ -7,9 +7,13 @@
 
 #pragma once
 
+#include <string>
+
 namespace webview {
   bool start(const std::string &root, int port);
   void stop();
   void broadcast_reload();
   bool is_running();
+  bool has_message();
+  std::string get_message();
 }
