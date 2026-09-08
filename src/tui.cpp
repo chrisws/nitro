@@ -767,9 +767,6 @@ std::string Tui::save_chat(const std::string &file) const {
 
   for (const std::string &line : chat_lines_) {
     if (line.empty() == false &&
-        line.rfind(ICON_ERR,   0) != 0 &&
-        line.rfind(ICON_THINK, 0) != 0 &&
-        line.rfind(ICON_TOOL,  0) != 0 &&
         line.rfind(ICON_SYS,   0) != 0 &&
         line.rfind("[logo_",   0) != 0) {
       const auto text = utils::trim(line);
