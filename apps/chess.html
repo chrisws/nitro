@@ -596,19 +596,26 @@
      WEBSOCKET
      ═══════════════════════════════════════════ */
   function connectWS() {
-    const url = "ws://localhost:8000";
-    console.log("[chess] connecting to", url);
-    ws = new WebSocket(url);
-    ws.onopen = () => console.log("[chess] WS connected");
-    ws.onmessage = (e) => handleWSMessage(e.data);
-    ws.onclose = () => { console.warn("[chess] WS closed"); };
-    ws.onerror = (e) => { console.error("[chess] WS error", e); };
+    if (typeof window._ws_sendMessage !== 'function') {
+      // debugging mode
+      const url = "ws://localhost:8000";
+      console.log("[chess] connecting to", url);
+      ws = new WebSocket(url);
+      ws.onopen = () => window._ws_onOpen();
+      ws.onmessage = (e) => window._ws_onMessage(e.data);
+      ws.onclose = () => { console.warn("[chess] WS closed"); };
+      ws.onerror = (e) => { console.error("[chess] WS error", e); };
+    }
   }
 
   function sendToAI(msg) {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(msg));
-      console.log("[chess] sent:", JSON.stringify(msg));
+    const json = JSON.stringify(msg);
+    if (typeof window._ws_sendMessage === 'function') {
+      window._ws_sendMessage(json);
+      console.log('[chess] sent via sendMessage:', json);
+    } else if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(json);
+      console.log('[chess] sent via WS:', json);
     } else {
       console.warn("[chess] WS not open, cannot send");
     }
@@ -715,7 +722,59 @@
   /* ═══════════════════════════════════════════
      INIT
      ═══════════════════════════════════════════ */
-  // Nothing runs on load — waiting for side selection
+  function sendGameContext() {
+    const context = {
+      type: "init",
+      your_colour: aiColour,
+      human_colour: humanColour,
+      board_orientation: "row 0 = rank 8 (top from White's view), col 0 = file a (left)",
+      initial_board: INITIAL,  // 8x8 array
+      timestamp: Math.floor(Date.now() / 1000),
+      instructions: `
+You are playing chess against a human player. You play as ${aiColour === 'w' ? 'White' : 'Black'} (${aiColour}).
+BOARD:
+- 8x8 grid, files a-h (columns 0-7), ranks 1-8 (rows 7-0 in the array)
+- Array index: board[row][col], row 0 = rank 8, col 0 = file a
+- Square notation: file letter + rank number, e.g. "e4", "a1"
+PIECE IDS:
+- White: wP, wR, wN, wB, wQ, wK
+- Black: bP, bR, bN, bB, bQ, bK
+YOUR TURN:
+- You move when it is your colour's turn
+- White moves on turns 1, 3, 5...  Black moves on turns 2, 4, 6...
+- The "turn" field in incoming messages tells you the current turn number
+RECEIVING MESSAGES (from human):
+ECEIVING MESSAGES (from human):
+- {"type":"move","from":"e2","to":"e4","piece":"wP","turn":3,"timestamp":...} — human made a move
+- {"type":"resign","player":"w","turn":7,"timestamp":...} — human resigned
+SENDING MESSAGES (you respond with):
+- {"type":"move","from":"e7","to":"e5","piece":"bP","turn":3,"timestamp":...} — your move
+- {"type":"game_over","result":"checkmate|resignation|agreement|stalemate","winner":"w|b|draw","message":"...","turn":12,"timestamp":...} — end game
+- {"type":"suggestion","suggested_move":{"from":"d4","to":"e5"},"tip":"...","turn":5,"timestamp":...} — optional coaching tip
+RULES:
+- Standard chess rules. White moves first.
+- Make legal moves only. Track the board state as moves progress.
+- Detect checkmate and stalemate. Send game_over when applicable.
+- If the human resigns, send game_over with result "resignation".
+- Aim to win. Think about strategy.
+- After each human move, respond with your own move (or game_over if the game is over).
+IMPORTANT:
+- Always include all fields in every message you send.
+- The "piece" field in your move messages should be the piece you are moving (e.g. "bP" for a Black pawn).
+- Use current Unix epoch seconds for "timestamp".
+- Respond to every "move" message from the human with exactly one "move" or "game_over" message.
+`.trim()
+    };
+    sendToAI(context);
+  }
+
+  window._ws_onMessage = function(e) {
+    handleWSMessage(e.data);
+  }
+  window._ws_onOpen = function() {
+    console.log("[chess] WS connected");
+    sendGameContext();
+  }
   </script>
 </body>
 </html>
