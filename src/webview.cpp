@@ -114,13 +114,15 @@ static const std::string RELOAD_SNIPPET =
   "  var ws = new WebSocket(proto + location.host + '"
   + std::string(WS_PATH) +
   "');\n"
-  "  ws.onmessage = function(evt) {\n"
-  "    if (evt.data === 'reload') location.reload();\n"
+  "  ws.onmessage = function(e) {\n"
+  "    if (typeof window._ws_onMessage === 'function') window._ws_onMessage(e);\n"
+  "    if (e.data === 'reload') location.reload();\n"
   "  };\n"
   "  ws.onopen = function() {\n"
-  "    window.sendMessage = function(msg) {\n"
+  "    window._ws_sendMessage = function(msg) {\n"
   "      if (ws.readyState === WebSocket.OPEN) ws.send(msg);\n"
   "    };\n"
+  "    if (typeof window._ws_onOpen === 'function') window._ws_onOpen();\n"
   "  };\n"
   "  ws.onclose   = function(e) { console.log('closed %o', e); };\n"
   "  ws.onerror   = function(e) { console.error('[%o]', e); };\n"
@@ -267,7 +269,7 @@ struct WebServer {
     }
 
     uint8_t mask[4];
-    
+
     if (masked) {
       if (len < pos + 4) return 0;
       std::memcpy(mask, data + pos, 4);
