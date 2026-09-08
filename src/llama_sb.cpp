@@ -14,6 +14,7 @@
 #include "llama.h"
 
 #include "llama_sb.h"
+#include "logging.h"
 
 constexpr int MAX_REPEAT = 50;
 
@@ -248,7 +249,7 @@ bool Llama::add_message(LlamaIter &iter, const string &role, const string &conte
   int32_t n = 0;
 
   if (_template.empty()) {
-    set_last_error("No chat template available");
+    set_last_error("Chat template availability test");
     return false;
   }
 
@@ -267,7 +268,8 @@ bool Llama::add_message(LlamaIter &iter, const string &role, const string &conte
     bool add_ass = (role == "user" || role == "tool" || role == "tool_result");
     n = llama_chat_apply_template(_template.c_str(), &message, 1, add_ass, buf.data(), buf_size);
     if (n < 0) {
-      set_last_error("No chat template no supported");
+      log_write(INFO_LEVEL, "unsupported template: %s", _template.c_str());
+      set_last_error("Chat template support test");
       return false;
     } else if (n > (int32_t)buf.size()) {
       buf.resize(n);
