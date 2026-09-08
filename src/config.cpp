@@ -228,6 +228,10 @@ std::string NitroConfig::build_system_prompt() const {
     "- Use TOOL:PERMISSION before overwriting an existing file\n"
     "- Format: TOOL:WRITE <filename> <complete file content>\n\n"
 
+    "## Code style Rules\n"
+    "- Format: Strict K&R. 2-space indents, no tabs.\n"
+    "- Always use explicit curly braces {} for all control statements, even single-line blocks.\n\n"
+
     "## File Patching Rules\n"
     "Use TOOL:PATCH to modify an existing file.\n"
     "- **Scope patches at function/block granularity**, not line-diffs\n"
