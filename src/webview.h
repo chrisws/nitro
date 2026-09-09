@@ -11,8 +11,9 @@
 
 namespace webview {
   bool start(const std::string &root, int port);
-  void stop();
+  void broadcast_message(const std::string &message);
   void broadcast_reload();
+  void stop();
   bool is_running();
   bool has_message();
   std::string get_message();

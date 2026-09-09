@@ -235,8 +235,15 @@ static std::string tool_run(const NitroConfig &cfg, Tui &tui, const std::string 
 
 static void broadcast_reload(const NitroConfig &cfg, Tui &tui) {
   if (cfg.web_dev_port_ != -1) {
-    tui.show_tool("browser refresh");
+    tui.show_tool("reload browser");
     webview::broadcast_reload();
+  }
+}
+
+static void broadcast_message(const NitroConfig &cfg, Tui &tui, const std::string &message) {
+  if (cfg.web_dev_port_ != -1) {
+    tui.show_tool("update browser");
+    webview::broadcast_message(message);
   }
 }
 
@@ -795,7 +802,9 @@ bool Agent::run_turn(const std::string &user_message) {
           tui_.append_token(ICON_THINK + thought);
         }
       } else {
-        tui_.append_token(buffer.substr(0, pos + 1));
+        auto token = buffer.substr(0, pos + 1);
+        tui_.append_token(token);
+        broadcast_message(cfg_, tui_, token);
       }
       buffer = buffer.substr(pos + 1);
     }
@@ -803,6 +812,7 @@ bool Agent::run_turn(const std::string &user_message) {
 
   if (!buffer.empty()) {
     tui_.append_token(buffer + "\n");
+    broadcast_message(cfg_, tui_, buffer);
   }
 
   tui_.set_thinking(false);
@@ -819,4 +829,3 @@ bool Agent::run_turn(const std::string &user_message) {
   tui_.redraw_all();
   return true;
 }
-

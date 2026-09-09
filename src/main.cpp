@@ -391,23 +391,30 @@ int main(int argc, char **argv) {
   log_write(INFO_LEVEL, "nitro starting");
   for (;;) {
     tui.resize();
-    std::string input = tui.readline();
-    input.erase(0, input.find_first_not_of(" \t"));
-    if (!input.empty()) {
-      input.erase(input.find_last_not_of(" \t\r\n") + 1);
-    }
-    if (input.empty()) {
-      continue;
-    }
-    if (input == "exit" || input == "quit") {
-      break;
-    }
-    tui.append_line("You: " + input);
-    tui.redraw_all();
-    if (input[0] == '/') {
-      handle_slash(input, cfg, agent, tui);
-    } else {
+    if (cfg.web_dev_port_ != -1 && webview::has_message()) {
+      std::string input = webview::get_message();
+      tui.append_line("Web: " + input);
+      tui.redraw_all();
       agent.run_turn(input);
+    } else {
+      std::string input = tui.readline();
+      input.erase(0, input.find_first_not_of(" \t"));
+      if (!input.empty()) {
+        input.erase(input.find_last_not_of(" \t\r\n") + 1);
+      }
+      if (input.empty()) {
+        continue;
+      }
+      if (input == "exit" || input == "quit") {
+        break;
+      }
+      tui.append_line("You: " + input);
+      tui.redraw_all();
+      if (input[0] == '/') {
+        handle_slash(input, cfg, agent, tui);
+      } else {
+        agent.run_turn(input);
+      }
     }
   }
 

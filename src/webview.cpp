@@ -15,9 +15,6 @@
 //   • HTTP server uses POSIX sockets (libcurl is a client library and
 //     cannot listen).  The protocol handling follows the same RFC 7230 /
 //     RFC 6455 patterns that libcurl uses internally.
-//   • A minimal SHA-1 implementation is included for the WebSocket
-//     handshake (Sec-WebSocket-Accept = Base64(SHA1(key + GUID))).
-//
 //
 
 #include <algorithm>
@@ -116,7 +113,7 @@ static const std::string RELOAD_SNIPPET =
   "');\n"
   "  ws.onmessage = function(e) {\n"
   "    if (typeof window._ws_onMessage === 'function') window._ws_onMessage(e);\n"
-  "    if (e.data === 'reload') location.reload();\n"
+  "    else if (e.data === 'reload') location.reload();\n"
   "  };\n"
   "  ws.onopen = function() {\n"
   "    window._ws_sendMessage = function(msg) {\n"
@@ -157,8 +154,8 @@ struct WebServer {
   // Client → server message queue (thread-safe).
   std::vector<std::string> msg_queue_;
   std::mutex               msg_mutex_;
-  // ── Lifecycle ─────────────────────────────────────────────────────
 
+  // ── Lifecycle ─────────────────────────────────────────────────────
   bool start(const std::string &root, int port) {
     root_  = root;
     port_  = port;
@@ -214,11 +211,10 @@ struct WebServer {
 
   ~WebServer() { stop(); }
 
-  // ── Public: call after TOOL:WRITE / TOOL:PATCH ────────────────────
-
-  void broadcast_reload() {
+  // ── Public ────────────────────────────────────────────────────────
+  void broadcast_message(const std::string &message) {
     if (!live_reload_) return;
-    std::string frame = ws_encode_frame("reload");
+    std::string frame = ws_encode_frame(message);
     std::lock_guard<std::mutex> lock(ws_mutex_);
     for (auto it = ws_clients_.begin(); it != ws_clients_.end(); ) {
       ssize_t n = ::send(*it, frame.data(), frame.size(), MSG_NOSIGNAL);
@@ -232,7 +228,6 @@ struct WebServer {
   }
 
   // ── Internals ─────────────────────────────────────────────────────
-
   static std::string ws_encode_frame(const std::string &payload) {
     // RFC 6455: server → client text frame, unmasked, payload < 126 bytes.
     std::string frame;
@@ -553,10 +548,13 @@ namespace webview {
     g_webserver.stop();
   }
   void broadcast_reload() {
-    g_webserver.broadcast_reload();
+    g_webserver.broadcast_message("reload");
   }
   bool is_running() {
     return g_webserver.running_;
+  }
+  void broadcast_message(const std::string &message) {
+    g_webserver.broadcast_message(message);
   }
   bool has_message() {
     std::lock_guard<std::mutex> lock(g_webserver.msg_mutex_);
