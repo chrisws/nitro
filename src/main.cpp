@@ -287,8 +287,8 @@ int main(int argc, char **argv) {
       cfg.thinking_ = false;
     } else if (a == "-p" || a == "--prompt-permission") {
       cfg.permission_prompt_ = true;
-    } else if (a == "-w" || a == "--web-dev-port") {
-      cfg.web_dev_port_ = std::stoi(take_next(a.c_str()));
+    } else if (a == "-w" || a == "--web-port") {
+      cfg.web_port_ = std::stoi(take_next(a.c_str()));
     } else if (a == "-b" || a == "--backup-path") {
       cfg.backup_path_ = take_next(a.c_str());
     } else if (a == "-h" || a == "--help") {
@@ -346,11 +346,11 @@ int main(int argc, char **argv) {
   ui::welcome(tui, cfg.sandbox_);
 
   // ── Init WebDev ───────────────────────────────────────────────────
-  if (cfg.web_dev_port_ != -1) {
-    if (webview::start(cfg.sandbox_, cfg.web_dev_port_)) {
-      tui.append_line(ICON_SYS + std::format("Web development mode enabled on port: {}", cfg.web_dev_port_));
+  if (cfg.web_port_ != -1) {
+    if (webview::start(cfg.sandbox_, cfg.web_port_)) {
+      tui.append_line(ICON_SYS + std::format("Web mode enabled on port: {}", cfg.web_port_));
     } else {
-      tui.append_line(ICON_SYS + "Failed to enable web development mode");
+      tui.append_line(ICON_SYS + "Failed to enable web mode");
     }
   }
 
@@ -391,7 +391,7 @@ int main(int argc, char **argv) {
   log_write(INFO_LEVEL, "nitro starting");
   for (;;) {
     tui.resize();
-    if (cfg.web_dev_port_ != -1 && webview::has_message()) {
+    if (cfg.web_port_ != -1 && webview::has_message()) {
       std::string input = webview::get_message();
       tui.append_line("Web: " + input);
       tui.redraw_all();
@@ -418,7 +418,7 @@ int main(int argc, char **argv) {
     }
   }
 
-  if (cfg.web_dev_port_ != -1) {
+  if (cfg.web_port_ != -1) {
     webview::stop();
   }
 

@@ -234,14 +234,14 @@ static std::string tool_run(const NitroConfig &cfg, Tui &tui, const std::string 
 }
 
 static void broadcast_reload(const NitroConfig &cfg, Tui &tui) {
-  if (cfg.web_dev_port_ != -1) {
+  if (cfg.web_port_ != -1) {
     tui.show_tool("reload browser");
     webview::broadcast_reload();
   }
 }
 
 static void broadcast_message(const NitroConfig &cfg, Tui &tui, const std::string &message) {
-  if (cfg.web_dev_port_ != -1) {
+  if (cfg.web_port_ != -1) {
     tui.show_tool("update browser");
     webview::broadcast_message(message);
   }

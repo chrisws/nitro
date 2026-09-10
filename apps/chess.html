@@ -181,7 +181,6 @@
   </style>
 </head>
 <body>
-
   <!-- SVG gradients (shared) -->
   <svg style="position:absolute;width:0;height:0" aria-hidden="true">
     <defs>
@@ -302,18 +301,22 @@
      COORDINATE HELPERS
      ═══════════════════════════════════════════ */
   function rowColToAlgebraic(row, col) {
-    return String.fromCharCode(97 + col) + (8 - row);
+    const aRow = orientation === 'b' ? (8 - row) : (1 + row)
+    return String.fromCharCode(97 + col) + aRow;
   }
+
   function algebraicToLogical(sq) {
     const row = 8 - parseInt(sq[1]);
     const col = sq.charCodeAt(0) - 97;
     return displayToLogical(row, col);
   }
+
   // logical → display grid position
   function logicalToDisplay(row, col) {
     if (orientation === 'b') return { gr: row, gc: col };
     else return { gr: 7 - row, gc: col };
   }
+
   // display grid → logical
   function displayToLogical(gr, gc) {
     if (orientation === 'b') return { row: gr, col: gc };
@@ -623,7 +626,15 @@
 
   function handleWSMessage(raw) {
     let msg;
-    try { msg = JSON.parse(raw); } catch { console.warn("[chess] bad WS JSON"); return; }
+    try {
+      msg = JSON.parse(raw);
+    } catch {
+      // handle as conversational text
+      if (raw) {
+        showCoaching({tip: raw})
+      }
+      return;
+    }
     console.log("[chess] received:", JSON.stringify(msg));
 
     if (msg.type === "move") {
@@ -674,8 +685,8 @@
     }
     panel.innerHTML = html;
     panel.classList.add("visible");
-    // auto-hide after 6 s
-    setTimeout(() => panel.classList.remove("visible"), 6000);
+    // auto-hide after 12 s
+    setTimeout(() => panel.classList.remove("visible"), 12000);
   }
 
   /* ═══════════════════════════════════════════
@@ -744,7 +755,7 @@ YOUR TURN:
 - White moves on turns 1, 3, 5...  Black moves on turns 2, 4, 6...
 - The "turn" field in incoming messages tells you the current turn number
 RECEIVING MESSAGES (from human):
-ECEIVING MESSAGES (from human):
+RECEIVING MESSAGES (from human):
 - {"type":"move","from":"e2","to":"e4","piece":"wP","turn":3,"timestamp":...} — human made a move
 - {"type":"resign","player":"w","turn":7,"timestamp":...} — human resigned
 SENDING MESSAGES (you respond with):
@@ -756,7 +767,7 @@ RULES:
 - Make legal moves only. Track the board state as moves progress.
 - Detect checkmate and stalemate. Send game_over when applicable.
 - If the human resigns, send game_over with result "resignation".
-- Aim to win. Think about strategy.
+- If human plays well then aim to win. If they make poor moves offer them guidance.
 - After each human move, respond with your own move (or game_over if the game is over).
 IMPORTANT:
 - Always include all fields in every message you send.
