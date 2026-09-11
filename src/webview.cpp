@@ -557,8 +557,14 @@ namespace webview {
     g_webserver.broadcast_message(message);
   }
   bool has_message() {
-    std::lock_guard<std::mutex> lock(g_webserver.msg_mutex_);
-    return !g_webserver.msg_queue_.empty();
+    bool result;
+    if (!g_webserver.running_) {
+      result  = false;
+    } else {
+      std::lock_guard<std::mutex> lock(g_webserver.msg_mutex_);
+      result = !g_webserver.msg_queue_.empty();
+    }
+    return result;
   }
   std::string get_message() {
     std::lock_guard<std::mutex> lock(g_webserver.msg_mutex_);

@@ -285,9 +285,9 @@ int main(int argc, char **argv) {
       log_open(take_next(a.c_str()));
     } else if (a == "-t" || a == "--think") {
       cfg.thinking_ = false;
-    } else if (a == "-p" || a == "--prompt-permission") {
+    } else if (a == "-n" || a == "--prompt-permission") {
       cfg.permission_prompt_ = true;
-    } else if (a == "-w" || a == "--web-port") {
+    } else if (a == "-p" || a == "--web-port") {
       cfg.web_port_ = std::stoi(take_next(a.c_str()));
     } else if (a == "-b" || a == "--backup-path") {
       cfg.backup_path_ = take_next(a.c_str());
@@ -390,31 +390,36 @@ int main(int argc, char **argv) {
   // ── Main loop ─────────────────────────────────────────────────────
   log_write(INFO_LEVEL, "nitro starting");
   for (;;) {
-    tui.resize();
-    if (cfg.web_port_ != -1 && webview::has_message()) {
-      std::string input = webview::get_message();
-      tui.append_line("Web: " + input);
-      tui.redraw_all();
-      agent.run_turn(input);
-    } else {
-      std::string input = tui.readline();
-      input.erase(0, input.find_first_not_of(" \t"));
-      if (!input.empty()) {
-        input.erase(input.find_last_not_of(" \t\r\n") + 1);
-      }
-      if (input.empty()) {
+    if (cfg.web_port_ != -1) {
+      if (webview::has_message()) {
+        std::string input = webview::get_message();
+        tui.append_line("Web: " + input);
+        tui.redraw_all();
+        agent.run_turn(input);
         continue;
       }
-      if (input == "exit" || input == "quit") {
-        break;
+      if (!tui.has_input()) {
+        continue;
       }
-      tui.append_line("You: " + input);
-      tui.redraw_all();
-      if (input[0] == '/') {
-        handle_slash(input, cfg, agent, tui);
-      } else {
-        agent.run_turn(input);
-      }
+    }
+    tui.resize();
+    std::string input = tui.readline();
+    input.erase(0, input.find_first_not_of(" \t"));
+    if (!input.empty()) {
+      input.erase(input.find_last_not_of(" \t\r\n") + 1);
+    }
+    if (input.empty()) {
+      continue;
+    }
+    if (input == "exit" || input == "quit") {
+      break;
+    }
+    tui.append_line("You: " + input);
+    tui.redraw_all();
+    if (input[0] == '/') {
+      handle_slash(input, cfg, agent, tui);
+    } else {
+      agent.run_turn(input);
     }
   }
 

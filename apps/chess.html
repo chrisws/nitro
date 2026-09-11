@@ -604,10 +604,13 @@
       const url = "ws://localhost:8000";
       console.log("[chess] connecting to", url);
       ws = new WebSocket(url);
-      ws.onopen = () => window._ws_onOpen();
+      ws.onopen = () =>  sendGameContext();
       ws.onmessage = (e) => window._ws_onMessage(e.data);
       ws.onclose = () => { console.warn("[chess] WS closed"); };
       ws.onerror = (e) => { console.error("[chess] WS error", e); };
+    } else {
+      // already connected in live mode
+      sendGameContext();
     }
   }
 
@@ -685,8 +688,6 @@
     }
     panel.innerHTML = html;
     panel.classList.add("visible");
-    // auto-hide after 12 s
-    setTimeout(() => panel.classList.remove("visible"), 12000);
   }
 
   /* ═══════════════════════════════════════════
@@ -774,6 +775,7 @@ IMPORTANT:
 - The "piece" field in your move messages should be the piece you are moving (e.g. "bP" for a Black pawn).
 - Use current Unix epoch seconds for "timestamp".
 - Respond to every "move" message from the human with exactly one "move" or "game_over" message.
+- Always respond directly without using a tool.
 `.trim()
     };
     sendToAI(context);
@@ -784,7 +786,6 @@ IMPORTANT:
   }
   window._ws_onOpen = function() {
     console.log("[chess] WS connected");
-    sendGameContext();
   }
   </script>
 </body>

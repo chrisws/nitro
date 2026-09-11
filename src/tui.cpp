@@ -721,6 +721,13 @@ bool Tui::confirm_dialog(const std::string &prompt) const {
   return (lo == "y" || lo == "yes" || lo == "sure" || lo == "k");
 }
 
+bool Tui::has_input() {
+  // 10ms block
+  int fd = notcurses_inputready_fd(nc_);
+  struct pollfd pfd = { .fd = fd, .events = POLLIN };
+  return poll(&pfd, 1, 10) > 0 && (pfd.revents & POLLIN);
+}
+
 bool Tui::is_escape() {
   ncinput ni{};
   notcurses_get_nblock(nc_, &ni);
