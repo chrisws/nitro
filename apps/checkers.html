@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checkers — Human vs AI</title>
+  <style>
+    :root {
+      --bg: #f0f4f8;
+      --surface: #ffffff;
+      --text: #1a1a1a;
+      --text-muted: #555;
+      --accent: #007bff;
+      --accent-2: #0056b3;
+      --sq-light: #f0d9b5;
+      --sq-dark: #b58863;
+      --sq-highlight: #7fc97f;
+      --sq-selected: #ffff99;
+      --sq-last-move: #c8e6c9;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, "Segoe UI", "Inter", system-ui, sans-serif;
+      margin: 0;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 { font-size: 1.4rem; margin: 0 0 1rem; }
+
+    /* ── Side selection overlay ── */
+    #side-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100;
+    }
+    #side-overlay.hidden { display: none; }
+    .side-panel {
+      background: var(--surface); border-radius: 12px;
+      padding: 2rem 2.5rem; text-align: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    .side-panel h2 { margin: 0 0 1rem; font-size: 1.3rem; }
+    .side-panel button {
+      font-size: 1.1rem; padding: 0.7rem 1.8rem;
+      margin: 0 0.5rem; border: 2px solid var(--accent);
+      border-radius: 8px; background: var(--surface);
+      color: var(--accent-2); cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .side-panel button:hover { background: var(--accent); color: #fff; }
+
+    /* ── Game over overlay ── */
+    #gameover-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100;
+    }
+    #gameover-overlay.hidden { display: none; }
+    .gameover-panel {
+      background: var(--surface); border-radius: 12px;
+      padding: 2rem 2.5rem; text-align: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    .gameover-panel h2 { margin: 0 0 0.5rem; font-size: 1.5rem; }
+    .gameover-panel p { margin: 0 0 1rem; color: var(--text-muted); }
+    .gameover-panel button {
+      font-size: 1rem; padding: 0.6rem 1.5rem;
+      border: 2px solid var(--accent); border-radius: 8px;
+      background: var(--surface); color: var(--accent-2);
+      cursor: pointer;
+    }
+    .gameover-panel button:hover { background: var(--accent); color: #fff; }
+
+    /* ── Board ── */
+    #game-area { display: none; }
+    #game-area.visible { display: block; }
+
+    #board-wrap {
+      display: inline-block;
+      position: relative;
+    }
+
+    #board {
+      display: grid;
+      grid-template-columns: repeat(8, 64px);
+      grid-template-rows: repeat(8, 64px);
+      gap: 0;
+      border: 3px solid #333;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .square {
+      width: 64px; height: 64px;
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+    .square.light { background: var(--sq-light); pointer-events: none; }
+    .square.dark  { background: var(--sq-dark); }
+    .square.selected { background: var(--sq-selected) !important; }
+    .square.last-move { box-shadow: inset 0 0 0 3px var(--accent); }
+    .square.valid-target { box-shadow: inset 0 0 0 3px var(--sq-highlight); }
+
+    .piece {
+      width: 56px; height: 56px;
+      cursor: grab;
+      user-select: none;
+      -webkit-user-drag: element;
+    }
+    .piece:active { cursor: grabbing; }
+
+    /* ── Info bar ── */
+    #info-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      max-width: 512px;
+      margin: 0.5rem 0;
+      font-size: 0.95rem;
+    }
+    #turn-indicator { font-weight: 600; }
+    #turn-indicator.ai-turn { color: #c0392b; }
+
+    #resign-btn {
+      font-size: 0.85rem; padding: 0.3rem 0.8rem;
+      border: 1px solid #c0392b; border-radius: 6px;
+      background: none; color: #c0392b; cursor: pointer;
+    }
+    #resign-btn:hover { background: #c0392b; color: #fff; }
+    #resign-btn:disabled { opacity: 0.4; cursor: default; }
+
+    /* ── Captured pieces ── */
+    #captured-row {
+      max-width: 512px; margin-top: 0.3rem;
+      display: flex; justify-content: space-between;
+      font-size: 0.85rem; color: var(--text-muted);
+    }
+    .captured-box {
+      display: flex; gap: 2px; flex-wrap: wrap;
+      min-height: 24px;
+    }
+    .captured-box svg { width: 20px; height: 20px; }
+
+    /* ── Move log ── */
+    #move-log {
+      margin-top: 1rem; max-width: 512px; width: 100%;
+      background: var(--surface); padding: 0.8rem 1rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      max-height: 200px; overflow-y: auto;
+    }
+    #move-log h3 { margin: 0 0 0.5rem; font-size: 0.95rem; }
+    .move-row {
+      display: flex; gap: 0.5rem;
+      font-family: "SF Mono", "Consolas", monospace;
+      font-size: 0.88rem;
+      margin-bottom: 0.2rem;
+    }
+    .move-row .num { width: 28px; color: var(--text-muted); }
+    .move-row .wm, .move-row .bm { min-width: 50px; }
+
+    /* ── Coaching panel ── */
+    #coach-panel {
+      max-width: 512px; width: 100%;
+      background: #fff9c4; padding: 0.6rem 1rem;
+      border-radius: 8px; margin-top: 0.5rem;
+      font-size: 0.9rem;
+      display: none;
+    }
+    #coach-panel.visible { display: block; }
+    #coach-panel .tip { font-style: italic; color: #555; }
+  </style>
+</head>
+<body>
+  <!-- SVG gradients (shared) -->
+  <svg style="position:absolute;width:0;height:0" aria-hidden="true">
+    <defs>
+      <linearGradient id="wBody" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#faf6ee"/>
+        <stop offset="50%" stop-color="#f0ebe0"/>
+        <stop offset="100%" stop-color="#d8d2c4"/>
+      </linearGradient>
+      <linearGradient id="bBody" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#555"/>
+        <stop offset="50%" stop-color="#3b3b3b"/>
+        <stop offset="100%" stop-color="#1a1a1a"/>
+      </linearGradient>
+    </defs>
+  </svg>
+
+  <!-- Side selection overlay -->
+  <div id="side-overlay">
+    <div class="side-panel">
+      <h2>Play Checkers</h2>
+      <p>Choose your side</p>
+      <button id="btn-white" onclick="selectSide('w')">White</button>
+      <button id="btn-black" onclick="selectSide('b')">Black</button>
+    </div>
+  </div>
+
+  <!-- Game over overlay -->
+  <div id="gameover-overlay" class="hidden">
+    <div class="gameover-panel">
+      <h2 id="gameover-title">Game Over</h2>
+      <p id="gameover-msg"></p>
+      <button onclick="location.reload()">Play Again</button>
+    </div>
+  </div>
+
+  <!-- Main game area -->
+  <div id="game-area">
+    <h1>Checkers</h1>
+
+    <div id="info-bar">
+      <span id="turn-indicator">Your turn</span>
+      <button id="resign-btn" onclick="resign()">Resign</button>
+    </div>
+
+    <div id="board-wrap">
+      <div id="board"></div>
+    </div>
+
+    <div id="captured-row">
+      <span>Captured by AI: </span>
+      <div class="captured-box" id="cap-by-ai"></div>
+    </div>
+    <div id="captured-row" style="margin-top:0.2rem">
+      <span>Captured by You: </span>
+      <div class="captured-box" id="cap-by-you"></div>
+    </div>
+
+    <div id="coach-panel"></div>
+
+    <div id="move-log">
+      <h3>Move Log</h3>
+      <div id="move-list"></div>
+    </div>
+  </div>
+
+  <script>
+  /* ═══════════════════════════════════════════
+     SVG PIECES (Checkers manacles)
+     ═══════════════════════════════════════════ */
+  const pieceSVGs = {
+    wPiece: `<svg viewBox="0 0 100 100"><circle cx="50" cy="30" r="14" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/><path d="M50 44 L50 78 L35 78 L30 68 L42 68 L42 56 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/><path d="M30 56 L30 78 L42 78 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/></svg>`,
+    bPiece: `<svg viewBox="0 0 100 100"><circle cx="50" cy="30" r="14" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/><path d="M50 44 L50 78 L35 78 L30 68 L42 68 L42 56 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/><path d="M30 56 L30 78 L42 78 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/></svg>`,
+    wKing: `<svg viewBox="0 0 100 100"><circle cx="50" cy="28" r="14" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/><path d="M50 42 L50 78 L35 78 L30 68 L42 68 L42 56 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/><path d="M30 56 L30 78 L42 78 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1.5"/><path d="M38 42 L30 54 L38 60 L42 48 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1"/><path d="M62 42 L70 54 L62 60 L58 48 Z" fill="url(#wBody)" stroke="#2a2a2a" stroke-width="1"/></svg>`,
+    bKing: `<svg viewBox="0 0 100 100"><circle cx="50" cy="28" r="14" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/><path d="M50 42 L50 78 L35 78 L30 68 L42 68 L42 56 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/><path d="M30 56 L30 78 L42 78 Z" fill="url(#bBody)" stroke="#111" stroke-width="1.5"/><path d="M38 42 L30 54 L38 60 L42 48 Z" fill="url(#bBody)" stroke="#111" stroke-width="1"/><path d="M62 42 L70 54 L62 60 L58 48 Z" fill="url(#bBody)" stroke="#111" stroke-width="1"/></svg>`
+  };
+
+  /* ═══════════════════════════════════════════
+     STATE
+     ═══════════════════════════════════════════ */
+  let gameState     = "IDLE";
+  let humanColour   = null;   // 'w' | 'b'
+  let aiColour      = null;
+  let orientation   = null;   // 'white' | 'black' (which colour is at bottom)
+  let currentTurn   = 1;
+  let capturedByAI  = [];
+  let capturedByYou = [];
+  let lastMove      = null;
+
+  // Board: 8x8, only dark squares are playable
+  // row 0 = top, col 0 = left
+  // Dark squares: (row + col) % 2 === 1
+  let boardState = [];
+
+  // Track which pieces have been moved (for kings promotion check)
+  let movedPieces = new Set();
+
+  const INITIAL = [];
+  for (let r = 0; r < 8; r++) {
+    INITIAL[r] = [];
+    for (let c = 0; c < 8; c++) {
+      if ((r + c) % 2 === 1) {
+        if (r < 3) INITIAL[r][c] = 'bPiece';
+        else if (r > 4) INITIAL[r][c] = 'wPiece';
+        else INITIAL[r][c] = null;
+      } else {
+        INITIAL[r][c] = null;
+      }
+    }
+  }
+
+  /* ═══════════════════════════════════════════
+     COORDINATE HELPERS
+     ═══════════════════════════════════════════ */
+  function rowColToAlgebraic(row, col) {
+    return String.fromCharCode(97 + col) + (1 + row);
+  }
+
+  function algebraicToLogical(sq) {
+    const row = 1 + (sq.charCodeAt(0) - 97);
+    const col = sq.charCodeAt(0) - 97;
+    return { row, col };
+  }
+
+  function logicalToDisplay(row, col) {
+    if (orientation === 'b') return { gr: row, gc: col };
+    else return { gr: 7 - row, gc: col };
+  }
+
+  function displayToLogical(gr, gc) {
+    if (orientation === 'b') return { row: gr, col: gc };
+    else return { row: 7 - gr, col: gc };
+  }
+
+  /* ═══════════════════════════════════════════
+     BOARD SETUP & RENDER
+     ═══════════════════════════════════════════ */
+  function resetBoard() {
+    boardState = INITIAL.map(r => [...r]);
+    movedPieces = new Set();
+    capturedByAI = [];
+    capturedByYou = [];
+    lastMove = null;
+    currentTurn = 1;
+  }
+
+  function buildBoardDOM() {
+    const board = document.getElementById("board");
+    board.innerHTML = "";
+    for (let gr = 0; gr < 8; gr++) {
+      for (let gc = 0; gc < 8; gc++) {
+        const sq = document.createElement("div");
+        const { row, col } = displayToLogical(gr, gc);
+        const isLight = (row + col) % 2 === 0;
+        sq.classList.add("square", isLight ? "light" : "dark");
+        sq.dataset.gr = gr;
+        sq.dataset.gc = gc;
+        sq.addEventListener("dragover", e => e.preventDefault());
+        sq.addEventListener("drop", handleDrop);
+        board.appendChild(sq);
+      }
+    }
+  }
+
+  function renderBoard() {
+    document.querySelectorAll(".piece").forEach(p => p.remove());
+    document.querySelectorAll(".square.selected, .square.valid-target, .square.last-move")
+      .forEach(s => s.classList.remove("selected", "valid-target", "last-move"));
+
+    for (let gr = 0; gr < 8; gr++) {
+      for (let gc = 0; gc < 8; gc++) {
+        const { row, col } = displayToLogical(gr, gc);
+        const pieceId = boardState[row][col];
+        const sqEl = document.querySelector(`.square[data-gr="${gr}"][data-gc="${gc}"]`);
+        if (pieceId) {
+          const div = document.createElement("div");
+          div.className = "piece";
+          div.innerHTML = pieceSVGs[pieceId];
+          div.draggable = true;
+          div.dataset.piece = pieceId;
+          div.addEventListener("dragstart", handleDragStart);
+          sqEl.appendChild(div);
+        }
+        if (lastMove) {
+          if ((row === lastMove.fromRow && col === lastMove.fromCol) ||
+              (row === lastMove.toRow   && col === lastMove.toCol)) {
+            sqEl.classList.add("last-move");
+          }
+        }
+      }
+    }
+  }
+
+  /* ═══════════════════════════════════════════
+     STATE MACHINE
+     ═══════════════════════════════════════════ */
+  function setGameState(s) {
+    gameState = s;
+    updateTurnIndicator();
+    document.getElementById("resign-btn").disabled = (s !== "PLAYER_TURN");
+  }
+
+  function updateTurnIndicator() {
+    const el = document.getElementById("turn-indicator");
+    el.classList.remove("ai-turn");
+    switch (gameState) {
+      case "PLAYER_TURN":
+        el.textContent = "Your turn";
+        break;
+      case "AI_THINKING":
+        el.textContent = "AI thinking\u2026";
+        el.classList.add("ai-turn");
+        break;
+      case "GAME_OVER":
+        el.textContent = "Game over";
+        break;
+      default:
+        el.textContent = "";
+    }
+  }
+
+  /* ═══════════════════════════════════════════
+     SIDE SELECTION
+     ═══════════════════════════════════════════ */
+  function selectSide(colour) {
+    humanColour = colour;
+    aiColour    = colour === 'w' ? 'b' : 'w';
+    orientation = colour;
+    document.getElementById("side-overlay").classList.add("hidden");
+    document.getElementById("game-area").classList.add("visible");
+    resetBoard();
+    buildBoardDOM();
+    renderBoard();
+    updateCaptured();
+    setGameState("PLAYER_TURN");
+  }
+
+  /* ═══════════════════════════════════════════
+     DRAG & DROP
+     ═══════════════════════════════════════════ */
+  let draggedFrom = null;
+
+  function handleDragStart(e) {
+    if (gameState !== "PLAYER_TURN") { e.preventDefault(); return; }
+    const pieceId = e.target.dataset.piece;
+    if (!pieceId) return;
+    // Check it's human's piece
+    if (pieceId[0] !== humanColour) { e.preventDefault(); return; }
+    const sq = e.target.closest(".square");
+    const gr = parseInt(sq.dataset.gr);
+    const gc = parseInt(sq.dataset.gc);
+    const { row, col } = displayToLogical(gr, gc);
+    draggedFrom = { row, col, pieceId };
+    sq.classList.add("selected");
+    // Highlight valid targets
+    const valid = getValidMoves(row, col);
+    valid.forEach(({ row: vr, col: vc }) => {
+      const d = logicalToDisplay(vr, vc);
+      const tEl = document.querySelector(`.square[data-gr="${d.gr}"][data-gc="${d.gc}"]`);
+      if (tEl) tEl.classList.add("valid-target");
+    });
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    if (gameState !== "PLAYER_TURN" || !draggedFrom) return;
+    const targetSq = e.target.closest(".square");
+    if (!targetSq) return;
+    const gr = parseInt(targetSq.dataset.gr);
+    const gc = parseInt(targetSq.dataset.gc);
+    const { row: toRow, col: toCol } = displayToLogical(gr, gc);
+    if (!isLegalMove(draggedFrom.row, draggedFrom.col, toRow, toCol)) {
+      clearHighlights();
+      draggedFrom = null;
+      return;
+    }
+    // Execute move
+    executeMove(draggedFrom.row, draggedFrom.col, toRow, toCol, draggedFrom.pieceId, humanColour);
+    clearHighlights();
+    renderBoard();
+    const fromSq = rowColToAlgebraic(draggedFrom.row, draggedFrom.col);
+    const toSq   = rowColToAlgebraic(toRow, toCol);
+    setGameState("AI_THINKING");
+    draggedFrom = null;
+  }
+
+  function clearHighlights() {
+    document.querySelectorAll(".square.selected, .square.valid-target")
+      .forEach(s => s.classList.remove("selected", "valid-target"));
+  }
+
+  /* ═══════════════════════════════════════════
+     MOVE EXECUTION
+     ═══════════════════════════════════════════ */
+  function executeMove(fromR, fromC, toR, toC, pieceId, player) {
+    const captured = boardState[toR][toC];
+    if (captured) {
+      if (player === humanColour) capturedByYou.push(captured);
+      else capturedByAI.push(captured);
+      updateCaptured();
+    }
+    boardState[toR][toC] = pieceId;
+    boardState[fromR][fromC] = null;
+    movedPieces.add(pieceId + rowColToAlgebraic(fromR, fromC));
+    lastMove = { fromRow: fromR, fromCol: fromC, toRow: toR, toCol: toC };
+    appendMoveLog(player, rowColToAlgebraic(fromR, fromC) + rowColToAlgebraic(toR, toC), pieceId);
+  }
+
+  /* ═══════════════════════════════════════════
+     CHECKERS RULES
+     ═══════════════════════════════════════════ */
+  function isLegalMove(fromR, fromC, toR, toC) {
+    const piece = boardState[fromR][fromC];
+    if (!piece) return false;
+    if (piece[0] !== humanColour) return false;
+    const target = boardState[toR][toC];
+    if (target && target[0] === humanColour) return false;
+
+    const dr = toR - fromR;
+    const dc = toC - fromC;
+    // Checkers: diagonal only
+    if (Math.abs(dr) !== 1 || Math.abs(dc) !== 1) return false;
+    // Direction check: white moves "up" (toward row 0), black moves "down" (toward row 7)
+    const whiteMovesUp = piece[0] === 'w';
+    // White: dr should be negative (toward row 0)
+    // Black: dr should be positive (toward row 7)
+    if (whiteMovesUp) {
+      if (dr >= 0) return false;
+    } else {
+      if (dr <= 0) return false;
+    }
+    return true;
+  }
+
+  function getValidMoves(row, col) {
+    const piece = boardState[row][col];
+    if (!piece || piece[0] !== humanColour) return [];
+    const moves = [];
+    // Checkers: 4 diagonal directions
+    const dirs = [[-1,-1],[-1,1],[1,-1],[1,1]];
+    for (const [dr, dc] of dirs) {
+      const toR = row + dr;
+      const toC = col + dc;
+      if (toR < 0 || toR >= 8 || toC < 0 || toC >= 8) continue;
+      if (isLegalMove(row, col, toR, toC)) {
+        moves.push({ row: toR, col: toC });
+      }
+    }
+    return moves;
+  }
+
+  /* ═══════════════════════════════════════════
+     WEBSOCKET
+     ═══════════════════════════════════════════ */
+  function connectWS() {
+    // Placeholder - WebSocket connection
+  }
+
+  function sendToAI(msg) {
+    const json = JSON.stringify(msg);
+    if (typeof window._ws_sendMessage === 'function') {
+      window._ws_sendMessage(json);
+    }
+  }
+
+  /* ═══════════════════════════════════════════
+     GAME OVER
+     ═══════════════════════════════════════════ */
+  function showGameOver(msg) {
+    setGameState("GAME_OVER");
+    const titleEl = document.getElementById("gameover-title");
+    const msgEl   = document.getElementById("gameover-msg");
+    const winLabel = msg.winner === 'w' ? "White" : msg.winner === 'b' ? "Black" : "Draw";
+    titleEl.textContent = msg.result === "draw" || msg.winner === "draw" ? "Draw" : winLabel + " Wins";
+    msgEl.textContent = msg.message || "Game over.";
+    document.getElementById("gameover-overlay").classList.remove("hidden");
+  }
+
+  function resign() {
+    if (gameState !== "PLAYER_TURN") return;
+    sendToAI({ type: "resign", player: humanColour, turn: currentTurn, timestamp: Math.floor(Date.now()/1000) });
+  }
+
+  /* ═══════════════════════════════════════════
+     COACHING (suggestion display)
+     ═══════════════════════════════════════════ */
+  function showCoaching(msg) {
+    const panel = document.getElementById("coach-panel");
+    let html = "";
+    if (msg.suggested_move) {
+      html += `<div>Suggested: <strong>${msg.suggested_move.from} → ${msg.suggested_move.to}</strong></div>`;
+    }
+    if (msg.tip) {
+      html += `<div class="tip">${msg.tip}</div>`;
+    }
+    panel.innerHTML = html;
+    panel.classList.add("visible");
+  }
+
+  /* ═══════════════════════════════════════════
+     MOVE LOG
+     ═══════════════════════════════════════════ */
+  const moveLogEntries = [];
+
+  function appendMoveLog(player, notation, pieceId) {
+    const letter = pieceId ? (pieceId[0].toUpperCase()) : "";
+    const display = letter + notation;
+    if (moveLogEntries.length === 0 || moveLogEntries[moveLogEntries.length-1].turn !== currentTurn) {
+      moveLogEntries.push({ turn: currentTurn, w: "", b: "" });
+    }
+    const entry = moveLogEntries[moveLogEntries.length - 1];
+    if (player === 'w') entry.w = display;
+    else entry.b = display;
+    if (entry.w && entry.b) {
+      currentTurn++;
+    }
+    const list = document.getElementById("move-list");
+    list.innerHTML = moveLogEntries.map(e =>
+      `<div class="move-row"><span class="num">${e.turn}.</span><span class="wm">${e.w || "\u00a0"}</span><span class="bm">${e.b || "\u00a0"}</span></div>`
+    ).join("");
+    list.scrollTop = list.scrollHeight;
+  }
+
+  /* ═══════════════════════════════════════════
+     CAPTURED PIECES
+     ═══════════════════════════════════════════ */
+  function updateCaptured() {
+    const renderBox = (arr, el) => {
+      el.innerHTML = arr.map(id => pieceSVGs[id]).join("");
+    };
+    renderBox(capturedByAI,  document.getElementById("cap-by-ai"));
+    renderBox(capturedByYou, document.getElementById("cap-by-you"));
+  }
+  </script>
+</body>
+</html>
