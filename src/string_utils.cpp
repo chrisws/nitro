@@ -73,7 +73,12 @@ std::vector<std::string> split_utf8_string(const std::string &input, size_t max_
   };
 
   while (it != end) {
-    const char32_t code_point = utf8::next(it, end);
+    char32_t code_point;
+    try {
+      code_point = utf8::next(it, end);
+    } catch(const utf8::exception& utfcpp_ex) {
+      break;
+    }
     if (code_point == '\n' || code_point == '\r') {
       push_text();
       continue;
@@ -104,7 +109,14 @@ std::vector<std::string> split_utf8_string(const std::string &input, size_t max_
       clear_pending();
     }
   }
-  push_text();
+  if (result.empty()) {
+    push_text();
+  } else {
+    current.append(pending);
+    if (!is_blank(current)) {
+      result.back() += " " + current;
+    }
+  }
   return result;
 }
 

@@ -183,6 +183,15 @@ TEST(test_split_utf8_string_unicode) {
   assert(segments[3] == "🌍");
 }
 
+TEST(test_split_utf8_string_unicode_prefix) {
+  std::string PREFIX_4 = " 🤔 ▏";
+  std::string CHARS_42 = "this is a line of text blah blah blah blah";
+  std::string input = PREFIX_4 + CHARS_42 + " WRAP!";
+  auto segments = split_utf8_string(input, 46);
+  assert(segments.size() == 2);
+  assert(segments[1] == "WRAP!");
+}
+
 TEST(test_split_utf8_string_newline_unicode) {
   // Test with newline in UTF-8 string
   std::string input = "Hello\nПривет\nworld";
@@ -260,6 +269,7 @@ void run_split_tests() {
   RUN_TEST(test_split_utf8_string_punctuation_boundary);
   RUN_TEST(test_split_utf8_string_basic);
   RUN_TEST(test_split_utf8_string_unicode);
+  RUN_TEST(test_split_utf8_string_unicode_prefix);  
   RUN_TEST(test_split_utf8_string_with_newline);
   RUN_TEST(test_split_utf8_string_empty);
   RUN_TEST(test_split_utf8_string_multibyte);
