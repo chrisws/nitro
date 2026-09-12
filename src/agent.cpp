@@ -242,8 +242,7 @@ static void broadcast_reload(const NitroConfig &cfg, Tui &tui) {
 
 static void broadcast_message(const NitroConfig &cfg, Tui &tui, const std::string &message) {
   if (cfg.web_port_ != -1 && !utils::is_blank(message)) {
-    tui.show_tool("Send to browser");
-
+    tui.show_tool("send to browser");
     webview::broadcast_message(message);
   }
 }
