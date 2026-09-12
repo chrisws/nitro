@@ -484,6 +484,7 @@
     // Send to AI
     const fromSq = rowColToAlgebraic(draggedFrom.row, draggedFrom.col);
     const toSq   = rowColToAlgebraic(toRow, toCol);
+    showStatus("Sending move to AI");
     sendToAI({ type: "move", from: fromSq, to: toSq, piece: draggedFrom.pieceId, turn: currentTurn, timestamp: Math.floor(Date.now()/1000) });
     setGameState("AI_THINKING");
     draggedFrom = null;
@@ -604,8 +605,8 @@
       const url = "ws://localhost:8000";
       console.log("[chess] connecting to", url);
       ws = new WebSocket(url);
-      ws.onopen = () =>  sendGameContext();
-      ws.onmessage = (e) => window._ws_onMessage(e.data);
+      ws.onopen = () =>  { console.warn("[chess] WS open"); };
+      ws.onmessage = (e) => window._ws_onMessage(e);
       ws.onclose = () => { console.warn("[chess] WS closed"); };
       ws.onerror = (e) => { console.error("[chess] WS error", e); };
     } else {
@@ -628,25 +629,32 @@
   }
 
   function handleWSMessage(raw) {
+    console.log("[chess] received: " + raw);
     let msg;
     try {
       msg = JSON.parse(raw);
     } catch {
       // handle as conversational text
       if (raw) {
-        showCoaching({tip: raw})
+        showStatus(raw);
       }
       return;
     }
-    console.log("[chess] received:", JSON.stringify(msg));
 
     if (msg.type === "move") {
+      showStatus("Processing AI move");
       if (gameState !== "AI_THINKING") return;
       const f = algebraicToLogical(msg.from);
       const t = algebraicToLogical(msg.to);
-      executeMove(f.row, f.col, t.row, t.col, msg.piece, aiColour);
-      renderBoard();
-      setGameState("PLAYER_TURN");
+      const df = logicalToDisplay(f.row, f.col);
+      const dt = logicalToDisplay(t.row, t.col);
+      if (!isLegalMove(df.gr, df.gc, dt.gr, dt.gc)) {
+        sendToAI("That wasn't a legal move, stop cheating");
+      } else {
+        executeMove(f.row, f.col, t.row, t.col, msg.piece, aiColour);
+        renderBoard();
+        setGameState("PLAYER_TURN");
+      }
     }
     else if (msg.type === "game_over") {
       showGameOver(msg);
@@ -688,6 +696,10 @@
     }
     panel.innerHTML = html;
     panel.classList.add("visible");
+  }
+
+  function showStatus(msg) {
+    showCoaching({tip: msg});
   }
 
   /* ═══════════════════════════════════════════
@@ -770,6 +782,7 @@ RULES:
 - If the human resigns, send game_over with result "resignation".
 - If human plays well then aim to win. If they make poor moves offer them guidance.
 - After each human move, respond with your own move (or game_over if the game is over).
+- This context is NOT a move. The game has not yet started
 IMPORTANT:
 - Always include all fields in every message you send.
 - The "piece" field in your move messages should be the piece you are moving (e.g. "bP" for a Black pawn).
